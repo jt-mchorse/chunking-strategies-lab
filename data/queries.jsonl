@@ -1,0 +1,12 @@
+{"id": "q01", "question": "What parameter controls the candidate list size during HNSW build?", "expected_doc": "01_hnsw.md", "expected_snippet": "ef_construction"}
+{"id": "q02", "question": "What is a typical M value for HNSW in pgvector?", "expected_doc": "01_hnsw.md", "expected_snippet": "M=16, ef_construction=64"}
+{"id": "q03", "question": "When should I rebuild an HNSW index?", "expected_doc": "01_hnsw.md", "expected_snippet": "Re-index when you change the embedding model"}
+{"id": "q04", "question": "What is the constant k in Reciprocal Rank Fusion?", "expected_doc": "02_rrf.md", "expected_snippet": "`k` is a small constant"}
+{"id": "q05", "question": "Why does RRF work without comparable score scales?", "expected_doc": "02_rrf.md", "expected_snippet": "doesn't require the participating rankers to produce comparable score scales"}
+{"id": "q06", "question": "What header marks a segment as cacheable for Anthropic prompt caching?", "expected_doc": "03_prompt_caching.md", "expected_snippet": "cache_control: {\"type\": \"ephemeral\"}"}
+{"id": "q07", "question": "What field counts tokens served from the prompt cache?", "expected_doc": "03_prompt_caching.md", "expected_snippet": "cache_read_input_tokens"}
+{"id": "q08", "question": "When is prompt caching not worth using?", "expected_doc": "03_prompt_caching.md", "expected_snippet": "200-token system prompt and unique user messages"}
+{"id": "q09", "question": "What are the four components of a minimum viable evaluation harness?", "expected_doc": "04_eval_harness.md", "expected_snippet": "golden dataset format"}
+{"id": "q10", "question": "Why are fabricated benchmark numbers a critical anti-pattern?", "expected_doc": "04_eval_harness.md", "expected_snippet": "Discovery of fabricated numbers destroys trust"}
+{"id": "q11", "question": "How do I bound concurrency for an async LLM pipeline against a rate limit?", "expected_doc": "05_async_pipelines.md", "expected_snippet": "asyncio.Semaphore"}
+{"id": "q12", "question": "Why prefer asyncio.TaskGroup over asyncio.gather in Python 3.11?", "expected_doc": "05_async_pipelines.md", "expected_snippet": "structured concurrency primitives that propagate exceptions cleanly"}
