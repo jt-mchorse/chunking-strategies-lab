@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chunking-strategies-lab"
+version = "0.0.1"
+description = "Empirical comparison of chunking strategies (fixed-size, recursive, semantic, late-chunking, document-structure-aware) on retrieval quality."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "JT McHorse", email = "jmchorse.tech@gmail.com" }]
+keywords = ["llm", "rag", "chunking", "retrieval", "embeddings"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+]
+
+# Corpus + queries + the Embedder protocol have zero runtime deps. The
+# real sentence-transformers embedder ships behind an optional extra
+# (D-003) so CI doesn't download model weights on every run.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=4.1",
+  "ruff>=0.5",
+]
+sbert = [
+  "sentence-transformers>=3.0",
+  "numpy>=1.26",
+]
+
+[project.urls]
+Repository = "https://github.com/jt-mchorse/chunking-strategies-lab"
+Issues    = "https://github.com/jt-mchorse/chunking-strategies-lab/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["chunking_lab"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-ra -q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "PT"]
+ignore = ["E501"]
