@@ -42,3 +42,43 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. The split is one dependency-set change away from any other configuration.
 
 **Related issues:** #1, #3.
+
+## D-004 — Each strategy is its own module; `Strategy` is a single-method Protocol (2026-05-15)
+**Decision:** Five chunking strategies in separate modules under `chunking_lab/strategies/` (one per file). Shared `Strategy` Protocol with one method: `chunk(text, *, source_doc_id) -> list[Chunk]`. No ABC, no inheritance.
+
+**Why:** Cookbook principle — copy one strategy without dragging in siblings or Protocol machinery. Same single-method Protocol pattern as the rest of the portfolio. Metrics matrix (#3) iterates uniformly via the Protocol; everywhere else they're just classes with a `chunk` method.
+
+**Alternatives considered:**
+- Single file with all strategies — rejected: copy-one means copy-all.
+- Abstract base class — rejected: ABC ceremony for one-method seam.
+- sklearn-style estimators — rejected: no fit step.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #2, #3
+
+## D-005 — `Chunk` carries `start_offset`/`end_offset` into source text (2026-05-15)
+**Decision:** Every `Chunk` carries inclusive `start_offset` and exclusive `end_offset` byte offsets into the source document.
+
+**Why:** The metrics matrix (#3) attributes retrieved chunks to documents and to specific spans. Offsets are the universal join key — any strategy can be evaluated against any retrieval system because chunk identity is `(source_doc_id, start_offset, end_offset)`. Without offsets the matrix has to re-tokenize, which costs CPU and risks tokenization drift.
+
+**Alternatives considered:**
+- Chunk id only — rejected: #3 can't attribute retrievals without re-tokenizing.
+- Separate offset index keyed by chunk id — rejected: same problem with extra indirection.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #2, #3
+
+## D-006 — Late chunking returns `(Chunk, vector)` pairs; other strategies return `Chunk` only (2026-05-15)
+**Decision:** `LateChunkingStrategy.chunk_with_vectors()` returns `LateChunk` (chunk + vector); the four non-late strategies return `Chunk` (no vector).
+
+**Why:** Late chunking's defining property is that each chunk's vector is derived from *document-level* context, not from the chunk text in isolation. The caller can't recompute the vector by `embedder.embed(chunk.text)` — that's the non-late path. So late chunking has to expose the vector alongside the chunk, otherwise the document-level signal is lost. The other four don't need this: their chunks' vectors are computed by the caller via `embedder.embed(chunk.text)`. Forcing all five to return vectors would waste compute for four-of-five.
+
+**Alternatives considered:**
+- Late chunking returns chunks only — rejected: loses document-level signal, defeats the strategy.
+- All strategies return `(chunk, vector)` — rejected: wasted compute, forces `embedder` arg on strategies that don't need it.
+
+**Reversibility:** Cheap. Both shapes coexist via `LateChunk`/`Chunk`.
+
+**Related issues:** #2, #3
