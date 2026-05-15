@@ -24,3 +24,24 @@ context_for_next_session:
 decisions_made: [D-002, D-003]
 followups: []
 ---
+
+---
+session: 2026-05-15T18:10Z
+duration_min: 75
+issue: 2
+focus: implement_5_chunking_strategies
+delta:
+  files_added: 7
+  files_changed: 2
+  tests_added: 29
+  test_pass_rate: "47/47"
+context_for_next_session:
+  - five_strategies_shipped_fixed_recursive_semantic_late_structure
+  - chunk_carries_start_end_offsets_d005_metrics_matrix_3_uses_them_as_join_key
+  - late_chunking_special_returns_chunk_plus_vector_pairs_d006
+  - per_strategy_modules_d004_strategy_protocol_single_method_seam
+  - acceptance_criterion_3_runtime_test_runs_under_5s_per_strategy_real_numbers_pending_operator
+  - issue_3_metrics_matrix_unblocked_iterates_strategies_via_protocol
+decisions_made: [D-004, D-005, D-006]
+followups: []
+---

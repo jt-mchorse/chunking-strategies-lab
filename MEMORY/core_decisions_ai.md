@@ -27,3 +27,30 @@
   reversibility: cheap
   related_issues: [1, 3]
   superseded_by: null
+
+- id: D-004
+  date: 2026-05-15
+  decision: each_strategy_is_standalone_module_under_strategies_subpackage_single_method_protocol_seam
+  rationale: cookbook_principle_reader_can_copy_one_strategy_without_dragging_in_siblings_protocol_keeps_metrics_matrix_uniform
+  alternatives_rejected: [single_file_with_all_strategies, abstract_base_class_inheritance, sklearn_style_estimators]
+  reversibility: cheap
+  related_issues: [2, 3]
+  superseded_by: null
+
+- id: D-005
+  date: 2026-05-15
+  decision: chunk_carries_start_offset_end_offset_back_into_source_text
+  rationale: metrics_matrix_3_attributes_retrieved_chunks_to_documents_without_re_tokenizing_offsets_are_the_universal_join_key
+  alternatives_rejected: [chunk_id_only_no_offsets, separate_offset_index_keyed_by_chunk_id]
+  reversibility: cheap
+  related_issues: [2, 3]
+  superseded_by: null
+
+- id: D-006
+  date: 2026-05-15
+  decision: late_chunking_returns_chunk_plus_vector_pairs_other_strategies_return_chunks_only
+  rationale: late_chunking_vectors_derive_from_document_level_context_so_caller_cant_recompute_them_from_chunk_text_alone
+  alternatives_rejected: [late_chunking_returns_chunks_only_lossy, all_strategies_return_chunk_plus_vector_wasted_compute_for_4_of_5]
+  reversibility: cheap
+  related_issues: [2, 3]
+  superseded_by: null
