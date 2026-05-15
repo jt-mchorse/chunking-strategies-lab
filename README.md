@@ -44,11 +44,45 @@ data/
 chunking_lab/
 ├── corpus.py            ← load_corpus()
 ├── queries.py           ← load_queries()
-└── embedder.py          ← Embedder Protocol + HashEmbedder + MiniLMEmbedder
+├── embedder.py          ← Embedder Protocol + HashEmbedder + MiniLMEmbedder
+└── strategies/          ← #2: 5 chunking strategies, common Strategy interface
+    ├── __init__.py      ← Chunk + LateChunk + Strategy Protocol
+    ├── fixed.py         ← FixedSizeStrategy (sliding window + overlap)
+    ├── recursive.py     ← RecursiveStrategy (separator-hierarchy split)
+    ├── semantic.py      ← SemanticBoundaryStrategy (cosine-peak split)
+    ├── late.py          ← LateChunkingStrategy (chunks + doc-blended vectors)
+    └── structure.py     ← StructureAwareStrategy (markdown-heading split)
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for the mermaid
-diagram of shipped (#1) vs pending (#2, #3) components.
+diagram of shipped (#1, #2) vs pending (#3) components.
+
+## Strategies (#2 · this PR)
+
+Five chunking strategies, each in its own module under
+`chunking_lab/strategies/`, sharing one Protocol so the metrics matrix
+(#3) iterates them uniformly:
+
+| Strategy | Module | What it does | Returns |
+|----------|--------|--------------|---------|
+| `FixedSizeStrategy` | `fixed.py` | Sliding-window over chars with overlap | `Chunk[]` |
+| `RecursiveStrategy` | `recursive.py` | Recursive split on a hierarchy of separators | `Chunk[]` |
+| `SemanticBoundaryStrategy` | `semantic.py` | Embed sentences, split at cosine-distance peaks | `Chunk[]` |
+| `LateChunkingStrategy` | `late.py` | Chunks + vectors blended with document embedding | `Chunk[]` (or `LateChunk[]` for vectors) |
+| `StructureAwareStrategy` | `structure.py` | Markdown-heading-bounded sections | `Chunk[]` (with `title` + `heading_level` metadata) |
+
+```python
+from chunking_lab import (
+    HashEmbedder, FixedSizeStrategy, SemanticBoundaryStrategy, load_corpus,
+)
+
+docs = load_corpus()
+embedder = HashEmbedder()
+for strategy in (FixedSizeStrategy(chunk_chars=600),
+                 SemanticBoundaryStrategy(embedder=embedder)):
+    chunks = strategy.chunk(docs[0].text, source_doc_id=docs[0].filename)
+    print(f"{strategy.name}: {len(chunks)} chunks")
+```
 
 ## Quickstart
 
