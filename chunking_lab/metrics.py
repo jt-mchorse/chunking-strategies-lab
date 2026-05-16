@@ -1,0 +1,212 @@
+"""Retrieval metrics matrix (#3).
+
+Pure-function evaluator: takes a `Strategy`, a corpus, a query set, and
+an embedder, returns a `RetrievalRun` with per-query results + recall@k
+and snippet-hit@k aggregates.
+
+The runner is intentionally embedder-agnostic. CI uses `HashEmbedder`
+to verify *the matrix produces structurally-correct output* (every
+strategy runs, JSON schema is stable, no exceptions on the edge cases).
+Real numbers — which strategy wins on a given corpus — require running
+the same `evaluate_strategy(...)` against a real embedder
+(`MiniLMEmbedder` or any conforming backend). The dep-free CI path is
+plumbing-only, per the portfolio's no-fabricated-benchmarks rule.
+
+Two metrics:
+
+- **recall@k** — the expected-doc filename appears in the top-k
+  retrieved chunks' `source_doc_id` list. Standard IR metric over the
+  document granularity the queries file gives us.
+- **snippet-hit@k** — the expected-snippet *substring* is present in
+  the concatenated text of the top-k retrieved chunks. This is the
+  answer-faithfulness proxy for this layer (D-008): structural rather
+  than semantic, but cheap, hermetic, and gates strategies that
+  fragment the relevant passage across chunk boundaries (which is the
+  whole concern the lab exists to measure).
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from .corpus import Document
+from .embedder import Embedder
+from .queries import Query
+from .strategies import Chunk, LateChunkingStrategy, Strategy
+
+
+@dataclass(frozen=True)
+class QueryResult:
+    """One query's evaluation against one strategy."""
+
+    query_id: str
+    expected_doc: str
+    expected_snippet: str
+    retrieved_doc_ids_in_rank_order: tuple[str, ...]
+    # Per-rank flags: True if this rank-position's chunk text contained
+    # `expected_snippet`. Length matches `retrieved_doc_ids_in_rank_order`.
+    snippet_hits_in_rank_order: tuple[bool, ...]
+
+
+@dataclass(frozen=True)
+class RetrievalRun:
+    """Aggregate output of `evaluate_strategy`.
+
+    `recall_at_k` and `snippet_hit_at_k` are keyed by integer k. Both
+    are floats in [0, 1] — the proportion of queries whose expected
+    doc / snippet appeared in the top-k.
+    """
+
+    strategy_name: str
+    embedder_model: str
+    dataset_version: str
+    n_queries: int
+    n_chunks_total: int
+    recall_at_k: dict[int, float]
+    snippet_hit_at_k: dict[int, float]
+    per_query: tuple[QueryResult, ...]
+    notes: list[str] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "strategy_name": self.strategy_name,
+            "embedder_model": self.embedder_model,
+            "dataset_version": self.dataset_version,
+            "n_queries": self.n_queries,
+            "n_chunks_total": self.n_chunks_total,
+            "recall_at_k": {str(k): v for k, v in self.recall_at_k.items()},
+            "snippet_hit_at_k": {str(k): v for k, v in self.snippet_hit_at_k.items()},
+            "per_query": [
+                {
+                    "query_id": q.query_id,
+                    "expected_doc": q.expected_doc,
+                    "expected_snippet": q.expected_snippet,
+                    "retrieved_doc_ids_in_rank_order": list(q.retrieved_doc_ids_in_rank_order),
+                    "snippet_hits_in_rank_order": list(q.snippet_hits_in_rank_order),
+                }
+                for q in self.per_query
+            ],
+            "notes": list(self.notes),
+        }
+
+
+def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
+    if len(a) != len(b):
+        raise ValueError(f"vector length mismatch: {len(a)} vs {len(b)}")
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(x * x for x in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def evaluate_strategy(
+    strategy: Strategy,
+    corpus: list[Document],
+    queries: list[Query],
+    embedder: Embedder,
+    *,
+    ks: Sequence[int] = (1, 3, 5),
+    dataset_version: str = "v0",
+) -> RetrievalRun:
+    """Run `strategy` over `corpus`, rank chunks per query, return metrics.
+
+    Late-chunking is handled specially: its `chunk()` returns regular
+    `Chunk`s but its `chunk_with_vectors()` returns `(Chunk, vector)`
+    pairs whose vectors were derived from document-level context
+    (D-006). When the strategy is `LateChunkingStrategy` and supports
+    that, we use the pre-baked vectors; otherwise we fall back to
+    embedding each chunk's text directly. The result shape is the
+    same — only the vector source differs.
+    """
+    chunks_with_vecs = _materialize_vectors(strategy, corpus, embedder)
+    n_chunks = len(chunks_with_vecs)
+
+    per_query: list[QueryResult] = []
+    max_k = max(ks) if ks else 5
+    recall_hits = {k: 0 for k in ks}
+    snippet_hits = {k: 0 for k in ks}
+
+    for q in queries:
+        query_vec = embedder.embed(q.question)
+        scored: list[tuple[float, Chunk]] = []
+        for chunk, vec in chunks_with_vecs:
+            scored.append((_cosine(query_vec, vec), chunk))
+        scored.sort(key=lambda r: r[0], reverse=True)
+        top = scored[:max_k]
+        retrieved_docs = tuple(c.source_doc_id for _, c in top)
+        snippet_in_chunk = tuple((q.expected_snippet in c.text) for _, c in top)
+        per_query.append(
+            QueryResult(
+                query_id=q.id,
+                expected_doc=q.expected_doc,
+                expected_snippet=q.expected_snippet,
+                retrieved_doc_ids_in_rank_order=retrieved_docs,
+                snippet_hits_in_rank_order=snippet_in_chunk,
+            )
+        )
+        for k in ks:
+            if q.expected_doc in retrieved_docs[:k]:
+                recall_hits[k] += 1
+            if any(snippet_in_chunk[:k]):
+                snippet_hits[k] += 1
+
+    n = len(queries)
+    return RetrievalRun(
+        strategy_name=strategy.name,
+        embedder_model=_embedder_model_name(embedder),
+        dataset_version=dataset_version,
+        n_queries=n,
+        n_chunks_total=n_chunks,
+        recall_at_k={k: (recall_hits[k] / n if n else 0.0) for k in ks},
+        snippet_hit_at_k={k: (snippet_hits[k] / n if n else 0.0) for k in ks},
+        per_query=tuple(per_query),
+    )
+
+
+def _materialize_vectors(
+    strategy: Strategy, corpus: list[Document], embedder: Embedder
+) -> list[tuple[Chunk, list[float]]]:
+    """Chunk + embed every document; return `(chunk, vector)` pairs.
+
+    Late-chunking strategies provide their own vectors via
+    `chunk_with_vectors` (the vectors are blended with the
+    document-level embedding for context, per D-006); everything else
+    falls through to embedding each chunk's text directly with the
+    evaluator's embedder. **For the late-chunking path to produce
+    vectors comparable to the query embedding, the operator must
+    construct `LateChunkingStrategy(embedder=...)` with the same
+    embedder passed to `evaluate_strategy`** — otherwise the chunk
+    vectors live in a different space than the query vectors and the
+    cosine scores are meaningless. The runner doesn't enforce this; it's
+    a documented constraint of the late-chunking pattern.
+    """
+    out: list[tuple[Chunk, list[float]]] = []
+    use_late_vectors = isinstance(strategy, LateChunkingStrategy) and hasattr(
+        strategy, "chunk_with_vectors"
+    )
+    for doc in corpus:
+        if use_late_vectors:
+            pairs = strategy.chunk_with_vectors(  # type: ignore[attr-defined]
+                doc.text, source_doc_id=doc.filename
+            )
+            for lc in pairs:
+                out.append((lc.chunk, list(lc.vector)))
+        else:
+            chunks = strategy.chunk(doc.text, source_doc_id=doc.filename)
+            for ch in chunks:
+                out.append((ch, list(embedder.embed(ch.text))))
+    return out
+
+
+def _embedder_model_name(embedder: Embedder) -> str:
+    # Embedders aren't required to expose a model name; fall back to the
+    # class name when one isn't available.
+    name = getattr(embedder, "model_name", None)
+    if isinstance(name, str) and name:
+        return name
+    return type(embedder).__name__

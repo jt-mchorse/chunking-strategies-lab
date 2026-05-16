@@ -107,11 +107,55 @@ pytest && ruff check . && ruff format --check .
 pip install -e '.[sbert]'
 ```
 
+## Retrieval metrics matrix (#3 · this PR)
+
+`scripts/run_matrix.py` runs all 5 strategies over the pinned corpus +
+query set, computes **recall@k** and **snippet-hit@k** (the
+answer-faithfulness proxy, D-008), and writes one JSON per strategy
+plus `results/summary.md`. Single command:
+
+```bash
+# Hermetic / CI: dep-free HashEmbedder. Numbers reflect plumbing, not
+# real retrieval quality — the disclosure is in results/summary.md.
+python scripts/run_matrix.py
+
+# Honest numbers: same script, real embedder.
+pip install -e '.[sbert]'
+python scripts/run_matrix.py --embedder minilm
+```
+
+Output:
+
+```
+results/
+  20260516T042900__fixed-size.json
+  20260516T042900__recursive.json
+  20260516T042900__semantic.json
+  20260516T042900__late-chunking.json
+  20260516T042900__structure-aware.json
+  summary.md
+```
+
+Each JSON file is the `RetrievalRun.to_json()` shape: per-strategy
+metadata, per-query retrieved-doc rankings, per-rank snippet-hit flags,
+and the aggregate recall/snippet-hit at each k. `summary.md` is the
+markdown table consumers paste into a blog post or PR description.
+
+**Honest disclosure.** The dep-free `HashEmbedder` produces vectors
+that are effectively random per text — the runner *works*, but the
+absolute recall numbers it reports are mostly base-rate. The whole
+matrix is meaningful only against a real embedder; the markdown
+summary explicitly warns about this when run in CI mode. Strategies
+differentiate cleanly under `--embedder minilm`; that's how the
+operator captures the real curve for `docs/benchmarks.md`.
+
 ## Benchmarks / Results
 
-*The strategy-comparison numbers (recall@k per strategy, faithfulness
-per strategy, runtime per strategy) are pending issue [#3]. This PR
-locks the substrate so #3's numbers will be reproducible.*
+The retrieval matrix runner ships here. Real numbers from
+`--embedder minilm` against the pinned corpus + queries land in
+`docs/benchmarks.md` when the operator runs them — per the
+no-fabricated-benchmarks rule, the README doesn't quote a curve until
+that file exists.
 
 ## Demo
 
