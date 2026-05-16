@@ -28,6 +28,7 @@ Two metrics:
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -68,6 +69,11 @@ class RetrievalRun:
     recall_at_k: dict[int, float]
     snippet_hit_at_k: dict[int, float]
     per_query: tuple[QueryResult, ...]
+    # Wall-clock for the full chunk + embed + retrieve pipeline. The
+    # latency a downstream consumer sees if they swap in this strategy.
+    # Defaults to 0.0 so older JSON files (pre-D-009) still load cleanly
+    # via consumers that pass `wall_clock_ms=0.0` when reading.
+    wall_clock_ms: float = 0.0
     notes: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
@@ -77,6 +83,7 @@ class RetrievalRun:
             "dataset_version": self.dataset_version,
             "n_queries": self.n_queries,
             "n_chunks_total": self.n_chunks_total,
+            "wall_clock_ms": self.wall_clock_ms,
             "recall_at_k": {str(k): v for k, v in self.recall_at_k.items()},
             "snippet_hit_at_k": {str(k): v for k, v in self.snippet_hit_at_k.items()},
             "per_query": [
@@ -123,6 +130,7 @@ def evaluate_strategy(
     embedding each chunk's text directly. The result shape is the
     same — only the vector source differs.
     """
+    t_start = time.perf_counter()
     chunks_with_vecs = _materialize_vectors(strategy, corpus, embedder)
     n_chunks = len(chunks_with_vecs)
 
@@ -155,6 +163,7 @@ def evaluate_strategy(
             if any(snippet_in_chunk[:k]):
                 snippet_hits[k] += 1
 
+    wall_clock_ms = (time.perf_counter() - t_start) * 1000.0
     n = len(queries)
     return RetrievalRun(
         strategy_name=strategy.name,
@@ -165,6 +174,7 @@ def evaluate_strategy(
         recall_at_k={k: (recall_hits[k] / n if n else 0.0) for k in ks},
         snippet_hit_at_k={k: (snippet_hits[k] / n if n else 0.0) for k in ks},
         per_query=tuple(per_query),
+        wall_clock_ms=wall_clock_ms,
     )
 
 

@@ -157,6 +157,30 @@ The retrieval matrix runner ships here. Real numbers from
 no-fabricated-benchmarks rule, the README doesn't quote a curve until
 that file exists.
 
+### Comparison notebook
+
+[`notebooks/comparison.ipynb`](notebooks/comparison.ipynb) renders the
+current `results/` set into three charts — **recall@k**,
+**snippet-hit@k** (the answer-faithfulness proxy from
+[D-008](MEMORY/core_decisions_human.md)), and **wall-clock latency** per
+strategy — plus an honest takeaways section that calls out exactly what
+the loaded embedder *can* and *cannot* support claims about. The
+loader picks the most recent JSON per strategy, so re-running the
+matrix and committing the new files automatically refreshes the next
+notebook render. The notebook ships with executed outputs so reviewers
+see the charts without installing jupyter.
+
+Install + regenerate:
+
+```bash
+pip install -e '.[notebook]'
+python scripts/run_matrix.py                      # fills results/ (hash embedder)
+jupyter nbconvert --to notebook --inplace --execute notebooks/comparison.ipynb
+```
+
+(Use `python scripts/run_matrix.py --embedder minilm` after
+`pip install -e '.[sbert]'` for honest quality numbers.)
+
 ## Demo
 
 *60-second demo pending — depends on issues [#2] and [#3].*
