@@ -54,3 +54,21 @@
   reversibility: cheap
   related_issues: [2, 3]
   superseded_by: null
+
+- id: D-007
+  date: 2026-05-16
+  decision: metrics_are_pure_functions_over_retrievalrun_no_sqlite
+  rationale: ci_runners_ephemeral_one_current_vs_one_baseline_pattern_matches_llm_eval_harness_d_010
+  alternatives_rejected: [persist_runs_to_sqlite_in_ci, ship_db_as_artifact, accumulate_results_in_module_global]
+  reversibility: cheap
+  related_issues: [3]
+  superseded_by: null
+
+- id: D-008
+  date: 2026-05-16
+  decision: snippet_hit_at_k_is_the_answer_faithfulness_proxy_structural_not_semantic
+  rationale: cheap_hermetic_gates_strategies_that_fragment_passages_llm_judge_faithfulness_lives_in_eval_harness_consumer
+  alternatives_rejected: [llm_judge_in_this_layer_adds_eval_harness_dep, no_faithfulness_metric_at_all_misses_the_fragmentation_failure_mode]
+  reversibility: cheap
+  related_issues: [3]
+  superseded_by: null

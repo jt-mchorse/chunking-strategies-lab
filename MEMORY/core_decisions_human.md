@@ -82,3 +82,30 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. Both shapes coexist via `LateChunk`/`Chunk`.
 
 **Related issues:** #2, #3
+
+## D-007 — Metrics are pure functions, no SQLite (2026-05-16)
+**Decision:** `evaluate_strategy(...)` is a pure function over `(Strategy, corpus, queries, embedder)` returning a `RetrievalRun`. The runner script writes one JSON per strategy + a markdown summary; nothing else is persisted. Same shape as `llm-eval-harness`'s `diff-json` (D-010 there): CI runners are ephemeral, the artifact-URL is the deployment story, and one current-vs-baseline JSON-pair comparison covers the use case.
+
+**Why:** This repo is a *lab*, not a service. Operators run the matrix manually when they want fresh numbers and commit the results as artifacts; nothing about that flow needs a relational store. The simpler shape also makes the runner easier to fork — anyone can swap in their own corpus + queries + embedder and re-run without learning about SQLite migrations.
+
+**Alternatives considered:**
+- Persist runs to SQLite — rejected: see above; no use case.
+- Ship the DB as a workflow artifact — rejected: same as above, plus storage cost.
+- Accumulate results in a module global — rejected: thread-unsafe, hidden state, bad ergonomics for callers.
+
+**Reversibility:** Cheap. The pure functions are easy to wrap in a persistence layer later if a use case shows up.
+
+**Related issues:** #3
+
+## D-008 — Snippet-hit@k is the answer-faithfulness proxy here (2026-05-16)
+**Decision:** The "answer faithfulness on the downstream RAG task" the issue body mentions is implemented as **snippet-hit@k**: was the expected snippet substring present in the concatenated text of the top-k retrieved chunks? The metric is structural (substring match), not semantic (LLM judge).
+
+**Why:** A *semantic* faithfulness judge belongs in `llm-eval-harness`, not here — and pulling it in would force this repo to take an eval-harness dep. The structural proxy catches the failure mode this lab cares most about: strategies that fragment the relevant passage across chunks, so the retriever finds the right *document* but no individual chunk has the answer in full. That's the whole "chunking strategy choice matters" thesis the lab exists to demonstrate. Strategies whose chunks miss the expected snippet across all top-k chunks lose on this metric; that's the right kind of loss to be sensitive to here.
+
+**Alternatives considered:**
+- LLM-judge faithfulness in this layer — rejected: adds an eval-harness dep + an API call per query, defeats the dep-free CI path.
+- No faithfulness metric at all — rejected: recall@k alone misses the fragmentation failure mode.
+
+**Reversibility:** Cheap. Adding an LLM-judge metric is additive — just a new field on `RetrievalRun`.
+
+**Related issues:** #3
