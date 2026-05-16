@@ -45,3 +45,28 @@ context_for_next_session:
 decisions_made: [D-004, D-005, D-006]
 followups: []
 ---
+
+---
+session: 2026-05-16T04:29Z
+duration_min: 40
+issue: 3
+focus: retrieval_metrics_matrix_recall_and_snippet_hit_across_5_strategies
+delta:
+  files_added: 3
+  files_changed: 1
+  tests_added: 9
+  test_pass_rate: "56/56"
+context_for_next_session:
+  - metrics_module_in_chunking_lab_metrics_py_pure_functions_no_sqlite_d_007
+  - evaluate_strategy_takes_strategy_corpus_queries_embedder_ks_returns_retrievalrun
+  - recall_at_k_is_doc_level_was_expected_doc_in_top_k_retrieved_chunks_source_doc_ids
+  - snippet_hit_at_k_is_answer_faithfulness_proxy_d_008_substring_match_in_top_k_chunks_text
+  - late_chunking_routed_through_chunk_with_vectors_not_through_embedder_chunk_text_embedder_must_match
+  - scripts_run_matrix_py_single_command_runs_all_5_strategies_writes_one_json_per_strategy_plus_summary_md
+  - default_embedder_hash_dep_free_ci_safe_minilm_via_sbert_extra_for_real_numbers
+  - summary_md_carries_explicit_disclosure_when_using_hash_embedder_no_fabricated_benchmarks
+  - 9_new_tests_56_total_lint_format_clean
+  - issue_3_acceptance_single_command_runs_matrix_done_numbers_persisted_to_results_done_test_fixtures_lock_down_tiny_sub_run_done
+decisions_made: [D-007, D-008]
+followups: []
+---

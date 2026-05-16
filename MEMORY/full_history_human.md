@@ -52,3 +52,18 @@ exposing `chunk(text, **opts) -> list[Chunk]` against this substrate.
 **Open questions / blockers:** None. Real per-strategy quality numbers (recall@k, faithfulness) are deferred to #3 since they need real-embedder runs and the metrics-matrix harness; this PR ships the runtime sanity-check (every strategy completes the corpus in under 5 seconds on CI).
 
 **Next session:** Issue #3 (retrieval metrics matrix) is the natural sibling — iterates the strategies over the substrate and emits recall@k + faithfulness numbers per strategy.
+
+## 2026-05-16 — Issue #3: Retrieval metrics matrix
+**Duration:** ~40 min · **Branch:** `session/2026-05-16-0429-issue-3`
+
+- Shipped `chunking_lab/metrics.py`: `evaluate_strategy(strategy, corpus, queries, embedder, ks)` returns a `RetrievalRun` with per-query results + recall@k and snippet-hit@k aggregates (D-007 — pure functions, no SQLite, same shape as llm-eval-harness's `diff-json`). Late-chunking is routed through `chunk_with_vectors()` so its blended document vectors are used directly; everything else embeds chunk text with the evaluator's embedder. Documented constraint: late-chunking's embedder must match the evaluator's embedder for the cosine scores to be meaningful.
+- D-008 frames snippet-hit@k as the answer-faithfulness proxy: structural (substring match against retrieved chunks), not semantic (LLM judge). LLM-judge faithfulness belongs downstream in eval-harness; this layer ships the cheap, hermetic, dep-free proxy.
+- `scripts/run_matrix.py` is the single-command runner: builds all 5 strategies, calls `evaluate_strategy` for each, writes `results/<timestamp>__<strategy>.json` per strategy plus `results/summary.md` aggregating the matrix. Defaults to `HashEmbedder` (dep-free, CI-safe); `--embedder minilm` opts into the real one via the `[sbert]` extra. The summary markdown carries an explicit disclosure when in CI mode: numbers reflect plumbing, not retrieval quality. Per the no-fabricated-benchmarks rule.
+- 9 new tests in `tests/test_metrics.py`: required-fields presence, per-query shape correctness, recall-math against a forced-routing stub strategy, snippet-hit short-circuits on no-substring queries, empty-corpus edge case, late-chunking routes through its own vectors, JSON round-trip schema stability, run_matrix script writes one JSON per strategy + summary.md, summary.md contains the HashEmbedder disclosure when applicable. Suite total: 56/56 pass; ruff lint+format clean.
+- README: new "Retrieval metrics matrix (#3 · this PR)" section with the single-command recipe + the honest CI-vs-real disclosure. Benchmarks section explicitly says no curve quoted until `docs/benchmarks.md` exists from a real run.
+
+**Why this work, this session:** #3 is the last load-bearing piece of chunking-strategies-lab. With it, the repo's v0.1 story is complete: substrate (#1) + 5 strategies (#2) + matrix evaluator (#3) + honest framing about what numbers are real and which require operator action.
+
+**Open questions / blockers:** None. Real recall numbers per strategy require an operator's `[sbert]` install + a few-minute run; nothing engineering can do about that without burning carbon-irrelevant API budget on a model that runs locally for free anyway.
+
+**Next session:** Either #4 if filed (no current open issue beyond #3) or move to a different repo.
