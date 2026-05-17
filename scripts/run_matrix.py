@@ -91,10 +91,10 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
         )
         lines.append("")
     lines.append(
-        "| strategy | n_chunks | recall@1 | recall@3 | recall@5 | snippet-hit@1 | snippet-hit@3 | snippet-hit@5 |"
+        "| strategy | n_chunks | recall@1 | recall@3 | recall@5 | snippet-hit@1 | snippet-hit@3 | snippet-hit@5 | wall-clock (ms) |"
     )
     lines.append(
-        "| -------- | -------: | -------: | -------: | -------: | ------------: | ------------: | ------------: |"
+        "| -------- | -------: | -------: | -------: | -------: | ------------: | ------------: | ------------: | --------------: |"
     )
     for r in runs:
         lines.append(
@@ -104,7 +104,8 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
             f"{r.recall_at_k.get(5, 0):.3f} | "
             f"{r.snippet_hit_at_k.get(1, 0):.3f} | "
             f"{r.snippet_hit_at_k.get(3, 0):.3f} | "
-            f"{r.snippet_hit_at_k.get(5, 0):.3f} |"
+            f"{r.snippet_hit_at_k.get(5, 0):.3f} | "
+            f"{r.wall_clock_ms:.0f} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -159,7 +160,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
             f"recall@5={run.recall_at_k.get(5, 0):.3f} "
-            f"snippet-hit@5={run.snippet_hit_at_k.get(5, 0):.3f}  →  {path}"
+            f"snippet-hit@5={run.snippet_hit_at_k.get(5, 0):.3f} "
+            f"wall_clock={run.wall_clock_ms:.0f}ms  →  {path}"
         )
         runs.append(run)
 

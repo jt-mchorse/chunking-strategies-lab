@@ -72,3 +72,21 @@
   reversibility: cheap
   related_issues: [3]
   superseded_by: null
+
+- id: D-009
+  date: 2026-05-17
+  decision: retrievalrun_carries_wall_clock_ms_field_measured_by_evaluate_strategy_default_zero_for_backward_compat
+  rationale: notebook_chart_3_is_latency_per_strategy_acceptance_criteria_on_4_evaluate_strategy_is_the_only_place_with_visibility_into_the_full_chunk_embed_retrieve_pipeline_default_zero_so_pre_d_009_jsons_still_load
+  alternatives_rejected: [time_each_phase_separately_too_much_surface_for_the_chart_we_need, time_only_chunking_misses_embedding_cost_which_dominates, leave_to_caller_couples_chart_consumers_to_strategy_internals]
+  reversibility: cheap
+  related_issues: [4]
+  superseded_by: null
+
+- id: D-010
+  date: 2026-05-17
+  decision: notebook_extra_named_notebook_matplotlib_jupyter_nbformat_parallel_to_d_003_sbert_pattern
+  rationale: comparison_notebook_is_optional_visualization_surface_base_install_stays_dep_free_runner_works_without_the_notebook_test_uses_importorskip_so_base_ci_passes
+  alternatives_rejected: [matplotlib_in_base_install_breaks_dep_free_default_and_pulls_numpy_into_every_ci_run, render_charts_as_static_pngs_via_a_script_loses_the_notebook_artifact_that_4_asked_for, separate_extras_for_matplotlib_and_jupyter_unnecessary_split]
+  reversibility: cheap
+  related_issues: [4]
+  superseded_by: null

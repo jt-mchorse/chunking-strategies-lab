@@ -109,3 +109,31 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. Adding an LLM-judge metric is additive — just a new field on `RetrievalRun`.
 
 **Related issues:** #3
+
+## D-009 — `RetrievalRun` carries `wall_clock_ms`, measured by `evaluate_strategy`; default `0.0` for backward compat (2026-05-17)
+**Decision:** Add a `wall_clock_ms: float = 0.0` field to `RetrievalRun`. `evaluate_strategy` measures the full chunk + embed + retrieve pipeline with `time.perf_counter()` and reports the total. The default of `0.0` preserves backward compatibility — `RetrievalRun` instances built from older code paths or pre-D-009 JSONs still construct cleanly; the comparison notebook reads the field via `.get("wall_clock_ms", 0.0)` so older JSONs render as zero-latency rather than crashing.
+
+**Why:** Issue #4's third acceptance bullet is a latency chart. `evaluate_strategy` is the only place with end-to-end visibility into the chunk + embed + retrieve pipeline; pushing the measurement up to a caller would require the caller to know which strategies use blended document vectors versus chunk-text embeddings (D-006) and would couple chart consumers to strategy internals. Default `0.0` is a deliberate choice — a missing/zero number is the right signal for "not measured", not a fake number that would corrupt a chart.
+
+**Alternatives considered:**
+- Time each phase separately (chunk, embed, retrieve) — rejected: more surface than the chart needs; the consumer cares about total cost, and phase timings can be added later as an additive field.
+- Time only the chunking step — rejected: chunking is fast; the *embedding* cost dominates and varies per chunk count, which is exactly what the chart needs to show.
+- Leave timing to the caller — rejected: couples chart consumers to strategy internals (late-chunking vs. standard) and loses the standardized number that makes cross-strategy comparison meaningful.
+
+**Reversibility:** Cheap. One field, default `0.0`, additive on the JSON shape.
+
+**Related issues:** #4
+
+## D-010 — `[notebook]` extra (matplotlib + jupyter + nbformat); parallel to D-003's `[sbert]` pattern (2026-05-17)
+**Decision:** Ship the comparison notebook behind an optional `[notebook]` extra that pulls in `matplotlib>=3.8`, `jupyter>=1.0`, and `nbformat>=5.0`. The matrix runner stays dep-free. The notebook tests use `pytest.importorskip("nbformat")` so the base CI matrix without extras still passes.
+
+**Why:** Same posture as D-003 (`[sbert]` for MiniLM). The lab's core deliverable is the matrix runner + its results; the notebook is an optional visualization surface for operators who want to render the comparison. Forcing matplotlib + jupyter into the base install would pull in numpy, ipykernel, and a dozen indirect deps on every CI run, slowing the dep-free path that the rest of the portfolio expects. Splitting matplotlib and jupyter into separate extras would be over-engineering for a notebook that needs both.
+
+**Alternatives considered:**
+- Matplotlib in the base install — rejected: breaks the dep-free default, slows CI, pulls in numpy + fonttools transitively on every run.
+- Render charts as static PNGs via a script — rejected: loses the interactive notebook artifact that issue #4 explicitly asks for; the markdown + chart interleaving is the readable form.
+- Separate `[plot]` and `[jupyter]` extras — rejected: needless split; the notebook needs both, and the small overhead of installing jupyter when only matplotlib is needed isn't worth the extras-list complexity.
+
+**Reversibility:** Cheap. One line in `pyproject.toml`. The notebook file is committed and works as long as the operator has the listed packages installed by any means.
+
+**Related issues:** #4

@@ -34,6 +34,14 @@ sbert = [
   "sentence-transformers>=3.0",
   "numpy>=1.26",
 ]
+# Optional extra for the comparison notebook (#4). The matrix runner
+# itself is dep-free; only the notebook needs matplotlib + jupyter.
+# Parallels D-003's `[sbert]` pattern — opt-in.
+notebook = [
+  "matplotlib>=3.8",
+  "jupyter>=1.0",
+  "nbformat>=5.0",
+]
 
 [project.urls]
 Repository = "https://github.com/jt-mchorse/chunking-strategies-lab"

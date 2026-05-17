@@ -247,6 +247,7 @@ def test_to_json_keys_stable():
         "dataset_version",
         "n_queries",
         "n_chunks_total",
+        "wall_clock_ms",
         "recall_at_k",
         "snippet_hit_at_k",
         "per_query",
@@ -256,6 +257,22 @@ def test_to_json_keys_stable():
     assert set(payload["recall_at_k"].keys()) == {"1", "3", "5"}
     # JSON round-trip with sort_keys must not raise.
     json.dumps(payload, sort_keys=True)
+
+
+def test_wall_clock_ms_is_recorded_and_positive():
+    run = evaluate_strategy(
+        StructureAwareStrategy(),
+        _SMALL_CORPUS,
+        _SMALL_QUERIES,
+        HashEmbedder(),
+        ks=(1, 3, 5),
+    )
+    # Even a trivial fixture takes non-zero wall-clock through the embed +
+    # cosine path. The field is a real measurement, not a placeholder.
+    assert run.wall_clock_ms > 0.0
+    # And it round-trips through to_json.
+    payload = run.to_json()
+    assert payload["wall_clock_ms"] == run.wall_clock_ms
 
 
 # ---------------------------------------------------------------------

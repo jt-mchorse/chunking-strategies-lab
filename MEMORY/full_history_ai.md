@@ -70,3 +70,38 @@ context_for_next_session:
 decisions_made: [D-007, D-008]
 followups: []
 ---
+
+---
+session: 2026-05-17T00:30Z
+duration_min: 70
+issue: 4
+focus: comparison_notebook_with_three_charts_plus_honest_takeaways_plus_wall_clock_metric
+delta:
+  files_added: 4
+  files_changed: 5
+  tests_added: 7
+  test_pass_rate: "63/63"
+  benchmarks:
+    fixed_size_wall_clock_ms: 20
+    recursive_wall_clock_ms: 19
+    semantic_wall_clock_ms: 75
+    late_chunking_wall_clock_ms: 22
+    structure_aware_wall_clock_ms: 19
+    embedder: HashEmbedder
+    n_queries: 12
+context_for_next_session:
+  - retrievalrun_now_carries_wall_clock_ms_field_d_009_default_zero_for_backward_compat_with_pre_d009_jsons
+  - evaluate_strategy_times_full_chunk_embed_retrieve_pipeline_via_time_perf_counter
+  - run_matrix_summary_md_now_includes_wall_clock_column
+  - old_20260515_results_jsons_deleted_replaced_with_20260516_runs_carrying_wall_clock_field
+  - notebook_extra_named_notebook_matplotlib_jupyter_nbformat_d_010_parallels_d_003
+  - comparison_notebook_three_charts_recall_snippet_hit_latency_plus_takeaways_section
+  - notebook_built_programmatically_via_notebooks_build_notebook_py_using_nbformat_textwrap_dedent
+  - notebook_executed_via_jupyter_nbconvert_inplace_execute_so_committed_file_carries_chart_outputs
+  - test_notebook_py_uses_pytest_importorskip_nbformat_so_base_ci_skips_when_extras_not_installed
+  - results_loader_picks_latest_run_per_strategy_by_filename_timestamp_canonical_strategy_order_preserved
+  - readme_comparison_notebook_subsection_under_benchmarks_results_with_three_step_regenerate_command
+  - latency_dominated_by_chunk_count_takeaway_committed_in_notebook_semantic_3x_more_chunks_3x_more_latency
+decisions_made: [D-009, D-010]
+followups: []
+---
