@@ -105,3 +105,23 @@ context_for_next_session:
 decisions_made: [D-009, D-010]
 followups: []
 ---
+
+---
+session: 2026-05-18T15:40Z
+duration_min: 20
+issue: 9
+focus: architecture_doc_recolor_and_layer_sections
+delta:
+  files_changed: 2  # README.md, docs/architecture.md
+  files_added: 0
+  tests_added: 0
+  test_pass_rate: "63/63"
+context_for_next_session:
+  - docs_architecture_md_rewritten_integrated_diagram_all_green_includes_notebook_and_wall_clock_axis_plus_four_layer_sections
+  - readme_architecture_stub_no_longer_says_shipped_vs_pending_one_line_pointer
+  - pending_section_removed_every_layer_in_section_2_has_shipped
+  - mermaid_labels_with_parens_fully_double_quoted_same_lint_as_other_repos_this_session
+  - no_new_d_entry_references_d_002_through_d_010
+decisions_made: []
+followups: []
+---
