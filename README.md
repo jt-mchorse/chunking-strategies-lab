@@ -54,8 +54,7 @@ chunking_lab/
     └── structure.py     ← StructureAwareStrategy (markdown-heading split)
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the mermaid
-diagram of shipped (#1, #2) vs pending (#3) components.
+See **[`docs/architecture.md`](docs/architecture.md)** for the integrated comparison flow, per-layer detail across all four shipped layers (substrate #1, strategies #2, metrics matrix #3, comparison notebook #4), and the design decisions behind each one (D-002…D-010).
 
 ## Strategies (#2 · this PR)
 
