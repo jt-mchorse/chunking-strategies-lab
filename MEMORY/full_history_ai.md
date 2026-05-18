@@ -125,3 +125,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T19:39Z
+duration_min: 15
+issue: 11
+focus: snapshot_test_locks_results_summary_md_to_render_summary_over_committed_jsons
+delta:
+  files_added: 1   # tests/test_summary_snapshot.py
+  files_changed: 0
+  tests_added: 7   # 1 byte-eq snapshot + 1 strategy-set guard + 5 parametrized loader checks
+  test_pass_rate: "70/70"
+context_for_next_session:
+  - snapshot_loads_committed_results_jsons_reconstructs_retrieval_run_with_empty_per_query_tuple_renderer_does_not_use_per_query
+  - strategy_order_locked_fixed_size_recursive_semantic_late_chunking_structure_aware_matches_run_matrix_build_strategies
+  - parametrized_loader_check_per_strategy_guards_against_new_required_retrieval_run_field_added_without_migration
+  - tamper_verified_fixed_size_recall_at_1_0_333_to_0_999_test_fired_then_reverted
+  - pattern_parallel_to_three_other_snapshot_tests_landed_today_cost_optimizer_prompt_regression_rag_kit
+  - no_new_d_entry_enforces_handoff_section_10_no_fabricated_benchmarks
+decisions_made: []
+followups: []
+---
