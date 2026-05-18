@@ -83,3 +83,16 @@ exposing `chunk(text, **opts) -> list[Chunk]` against this substrate.
 **Open questions / blockers:** None. Real-quality charts wait for an operator's `[sbert]` install + `--embedder minilm` run; the notebook automatically picks up new results on the next nbconvert.
 
 **Next session:** Loop to a different portfolio repo per the multi-issue session prompt. The natural next is `vector-search-at-scale` (next in build sequence among untouched repos) or `python-async-llm-pipelines`.
+
+## 2026-05-18 — Issue #9: Architecture doc covers all 4 shipped layers
+**Duration:** ~20 min · **Branch:** `session/2026-05-18-1540-issue-9` · **PR:** [#10](https://github.com/jt-mchorse/chunking-strategies-lab/pull/10) (ready)
+
+- Rewrote `docs/architecture.md` so every shipped layer (#1 substrate, #2 five strategies, #3 metrics matrix, #4 comparison notebook) has its own section with prose, a mermaid diagram of its own slice, D-NNN references back to MEMORY (D-002 through D-010), and a "composes with" line. Integrated diagram at the top is all-green and now includes the notebook + the wall-clock-ms axis (D-009).
+- README Architecture stub got a one-line update so it stops saying "shipped vs pending" — points at the now-real doc.
+- Mermaid hygiene: every label with parens is fully double-quoted, matching the lint applied to llm-cost-optimizer (#13) and rag-production-kit (#17) architecture docs earlier this session.
+
+**Why this work, this session:** Every original priority:high issue is closed; the comparison notebook (#4) shipped on 2026-05-17. The architecture doc was the most visible remaining §1 quality-bar gap — it still labelled #2, #3, and the strategies as :::pending. Filling that gap is the cleanest move toward v0.1.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Pick up the next zero-open-issue repo in §8 build sequence (python-async-llm-pipelines), or wait for the in-flight architecture-doc PRs across the portfolio to merge first.
