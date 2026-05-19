@@ -125,3 +125,47 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T19:39Z
+duration_min: 15
+issue: 11
+focus: snapshot_test_locks_results_summary_md_to_render_summary_over_committed_jsons
+delta:
+  files_added: 1   # tests/test_summary_snapshot.py
+  files_changed: 0
+  tests_added: 7   # 1 byte-eq snapshot + 1 strategy-set guard + 5 parametrized loader checks
+  test_pass_rate: "70/70"
+context_for_next_session:
+  - snapshot_loads_committed_results_jsons_reconstructs_retrieval_run_with_empty_per_query_tuple_renderer_does_not_use_per_query
+  - strategy_order_locked_fixed_size_recursive_semantic_late_chunking_structure_aware_matches_run_matrix_build_strategies
+  - parametrized_loader_check_per_strategy_guards_against_new_required_retrieval_run_field_added_without_migration
+  - tamper_verified_fixed_size_recall_at_1_0_333_to_0_999_test_fired_then_reverted
+  - pattern_parallel_to_three_other_snapshot_tests_landed_today_cost_optimizer_prompt_regression_rag_kit
+  - no_new_d_entry_enforces_handoff_section_10_no_fabricated_benchmarks
+decisions_made: []
+followups: []
+---
+
+---
+session: 2026-05-19T04:00Z
+duration_min: 30
+issue: 11
+focus: unblock_pr_12_un_ignore_canonical_fixtures
+delta:
+  files_changed: 4   # .gitignore, README.md, scripts/run_matrix.py, tests/test_metrics.py
+  files_added: 6    # 5 canonical__*.json + summary.md newly tracked
+  files_renamed: 5   # 20260516T162215__*.json → canonical__*.json
+  tests_added: 1    # test_run_matrix_default_writes_timestamped_scratch
+  test_pass_rate: "71/71"
+context_for_next_session:
+  - root_cause_gitignore_results_blanket_meant_snapshot_fixtures_never_landed_in_ci_checkout
+  - fix_un_ignored_canonical_glob_plus_summary_md_kept_timestamped_pattern_as_gitignored_scratch
+  - run_matrix_now_takes_canonical_out_flag_default_writes_timestamped_scratch_pair_summary_too
+  - canonical_filenames_use_double_underscore_separator_so_existing_test_split_logic_works_unchanged
+  - new_test_locks_default_no_tracked_filenames_written_complements_existing_canonical_path_test
+  - tamper_verification_recall_at_5_substitution_in_summary_md_still_fires_snapshot
+  - no_new_d_entry_pure_hygiene_fix
+decisions_made: []
+followups: []
+---

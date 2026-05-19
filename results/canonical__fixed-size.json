@@ -1,0 +1,249 @@
+{
+  "dataset_version": "v0",
+  "embedder_model": "HashEmbedder",
+  "n_chunks_total": 29,
+  "n_queries": 12,
+  "notes": [],
+  "per_query": [
+    {
+      "expected_doc": "01_hnsw.md",
+      "expected_snippet": "ef_construction",
+      "query_id": "q01",
+      "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
+        "03_prompt_caching.md",
+        "03_prompt_caching.md",
+        "04_eval_harness.md",
+        "02_rrf.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "01_hnsw.md",
+      "expected_snippet": "M=16, ef_construction=64",
+      "query_id": "q02",
+      "retrieved_doc_ids_in_rank_order": [
+        "01_hnsw.md",
+        "05_async_pipelines.md",
+        "04_eval_harness.md",
+        "02_rrf.md",
+        "04_eval_harness.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "01_hnsw.md",
+      "expected_snippet": "Re-index when you change the embedding model",
+      "query_id": "q03",
+      "retrieved_doc_ids_in_rank_order": [
+        "02_rrf.md",
+        "02_rrf.md",
+        "05_async_pipelines.md",
+        "01_hnsw.md",
+        "03_prompt_caching.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ]
+    },
+    {
+      "expected_doc": "02_rrf.md",
+      "expected_snippet": "`k` is a small constant",
+      "query_id": "q04",
+      "retrieved_doc_ids_in_rank_order": [
+        "02_rrf.md",
+        "05_async_pipelines.md",
+        "04_eval_harness.md",
+        "05_async_pipelines.md",
+        "04_eval_harness.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "02_rrf.md",
+      "expected_snippet": "doesn't require the participating rankers to produce comparable score scales",
+      "query_id": "q05",
+      "retrieved_doc_ids_in_rank_order": [
+        "01_hnsw.md",
+        "01_hnsw.md",
+        "01_hnsw.md",
+        "05_async_pipelines.md",
+        "02_rrf.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "03_prompt_caching.md",
+      "expected_snippet": "cache_control: {\"type\": \"ephemeral\"}",
+      "query_id": "q06",
+      "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
+        "05_async_pipelines.md",
+        "05_async_pipelines.md",
+        "03_prompt_caching.md",
+        "02_rrf.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        true,
+        false
+      ]
+    },
+    {
+      "expected_doc": "03_prompt_caching.md",
+      "expected_snippet": "cache_read_input_tokens",
+      "query_id": "q07",
+      "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
+        "05_async_pipelines.md",
+        "04_eval_harness.md",
+        "03_prompt_caching.md",
+        "01_hnsw.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "03_prompt_caching.md",
+      "expected_snippet": "200-token system prompt and unique user messages",
+      "query_id": "q08",
+      "retrieved_doc_ids_in_rank_order": [
+        "02_rrf.md",
+        "03_prompt_caching.md",
+        "01_hnsw.md",
+        "03_prompt_caching.md",
+        "02_rrf.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "04_eval_harness.md",
+      "expected_snippet": "golden dataset format",
+      "query_id": "q09",
+      "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
+        "02_rrf.md",
+        "02_rrf.md",
+        "04_eval_harness.md",
+        "01_hnsw.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "04_eval_harness.md",
+      "expected_snippet": "Discovery of fabricated numbers destroys trust",
+      "query_id": "q10",
+      "retrieved_doc_ids_in_rank_order": [
+        "04_eval_harness.md",
+        "02_rrf.md",
+        "03_prompt_caching.md",
+        "02_rrf.md",
+        "04_eval_harness.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ]
+    },
+    {
+      "expected_doc": "05_async_pipelines.md",
+      "expected_snippet": "asyncio.Semaphore",
+      "query_id": "q11",
+      "retrieved_doc_ids_in_rank_order": [
+        "03_prompt_caching.md",
+        "05_async_pipelines.md",
+        "05_async_pipelines.md",
+        "03_prompt_caching.md",
+        "01_hnsw.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "expected_doc": "05_async_pipelines.md",
+      "expected_snippet": "structured concurrency primitives that propagate exceptions cleanly",
+      "query_id": "q12",
+      "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
+        "02_rrf.md",
+        "01_hnsw.md",
+        "03_prompt_caching.md",
+        "02_rrf.md"
+      ],
+      "snippet_hits_in_rank_order": [
+        true,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "recall_at_k": {
+    "1": 0.3333333333333333,
+    "3": 0.5,
+    "5": 0.9166666666666666
+  },
+  "snippet_hit_at_k": {
+    "1": 0.08333333333333333,
+    "3": 0.08333333333333333,
+    "5": 0.3333333333333333
+  },
+  "strategy_name": "fixed-size",
+  "wall_clock_ms": 19.987165927886963
+}

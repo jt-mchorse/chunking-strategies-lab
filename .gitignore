@@ -15,4 +15,11 @@ logs/
 .coverage.*
 htmlcov/
 *.egg-info/
-results/
+
+# Timestamped per-run output from scripts/run_matrix.py is regen scratch.
+# The committed canonical fixtures (one per strategy + summary.md) are
+# the source of truth the snapshot test in tests/test_summary_snapshot.py
+# locks. Refresh with `python scripts/run_matrix.py --canonical-out`.
+results/*
+!results/summary.md
+!results/canonical__*.json

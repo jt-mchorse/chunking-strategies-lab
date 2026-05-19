@@ -116,22 +116,29 @@ plus `results/summary.md`. Single command:
 ```bash
 # Hermetic / CI: dep-free HashEmbedder. Numbers reflect plumbing, not
 # real retrieval quality — the disclosure is in results/summary.md.
-python scripts/run_matrix.py
+python scripts/run_matrix.py                    # regen scratch (gitignored)
+python scripts/run_matrix.py --canonical-out    # refresh tracked canonical fixtures
 
 # Honest numbers: same script, real embedder.
 pip install -e '.[sbert]'
 python scripts/run_matrix.py --embedder minilm
 ```
 
-Output:
+Default output is timestamp-prefixed `{stamp}__<strategy>.json` and
+`{stamp}__summary.md` — those filenames are gitignored regen scratch
+and can be deleted freely. `--canonical-out` writes
+`canonical__<strategy>.json` and (overwrites) `results/summary.md`,
+which are the **tracked** fixtures that
+`tests/test_summary_snapshot.py` locks. Refresh those when (and only
+when) the matrix needs to move:
 
 ```
 results/
-  20260516T042900__fixed-size.json
-  20260516T042900__recursive.json
-  20260516T042900__semantic.json
-  20260516T042900__late-chunking.json
-  20260516T042900__structure-aware.json
+  canonical__fixed-size.json
+  canonical__recursive.json
+  canonical__semantic.json
+  canonical__late-chunking.json
+  canonical__structure-aware.json
   summary.md
 ```
 
