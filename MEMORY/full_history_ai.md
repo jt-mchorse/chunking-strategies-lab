@@ -169,3 +169,27 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-19T15:20Z
+duration_min: 30
+issue: 13
+focus: snapshot_test_locks_comparison_ipynb_cell_sources_to_build_notebook_py
+delta:
+  files_added: 1   # tests/test_build_notebook_snapshot.py
+  files_changed: 1 # notebooks/_build_notebook.py refactor + _LOAD_CELL print() reformat
+  tests_added: 11  # 1 cell-count guard + 10 parametrized per-cell (cell_type, source)
+  test_pass_rate: "82/82"
+context_for_next_session:
+  - build_notebook_function_now_pure_returns_notebooknode_main_writes_nbformat
+  - snapshot_test_imports_build_notebook_via_sys_path_insert_notebooks_dir
+  - cell_signature_is_cell_type_plus_source_rstrip_papers_over_nbformat_round_trip_newline_asymmetry
+  - outputs_execution_count_metadata_intentionally_ignored_pixel_content_env_dep_already_covered_by_test_notebook_executed_outputs_exist
+  - parametrize_index_range_computed_at_collection_time_via_len_build_notebook_cells_adding_a_cell_grows_test_set_automatically
+  - first_run_caught_real_drift_load_cell_print_was_single_line_in_build_script_multi_line_in_committed_ipynb_fixed_build_script_not_notebook
+  - tamper_verified_intro_edit_fires_cell_0_then_reverted
+  - pattern_parallel_to_summary_snapshot_in_this_repo_and_eval_aggregator_snapshots_in_sister_repos
+  - no_new_d_entry_d_009_d_010_still_govern
+decisions_made: []
+followups: []
+---

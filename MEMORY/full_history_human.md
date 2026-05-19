@@ -4,6 +4,20 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #13: snapshot test for comparison.ipynb cell sources
+**Duration:** ~30 min · **Branch:** `session/2026-05-19-1520-issue-13` · **PR:** #14
+
+- Refactored `notebooks/_build_notebook.py` to expose `build_notebook() -> NotebookNode` as a pure function; `main()` is now `build_notebook()` + `nbformat.write(...)`. The refactor makes the build script callable from tests without writing tempfiles or shelling out.
+- Added `tests/test_build_notebook_snapshot.py` (11 tests, parametrized per cell): reads the committed `comparison.ipynb`, builds a fresh `NotebookNode`, asserts cell count + each cell's `(cell_type, source.rstrip())` matches in order. Outputs, `execution_count`, and notebook metadata are intentionally ignored — `test_notebook_executed_outputs_exist` already covers output presence, and pixel content + env-dependent metadata aren't worth locking. `pytest.importorskip("nbformat")` keeps base CI green when the `[notebook]` extra isn't installed.
+- Drive-by fix: updated `_LOAD_CELL`'s final `print()` call to the multi-line shape already on disk in `comparison.ipynb`. The committed notebook had been ruff-formatted after the original build, so the snapshot test caught this drift on its first run; rather than reformat the notebook (which would also strip executed outputs), I updated the source script to match.
+- Tamper-verified by editing `_INTRO` to add ` TAMPER`; cell-0 assertion fired with the regen hint before any rebuild, then reverted to green.
+
+**Why this work, this session:** Third snapshot test in this repo's lineage after `test_summary_snapshot.py` and `test_metrics.py`'s fixture-locked rows. The portfolio's "no fabricated benchmarks" rule generalizes to "no silent drift between an authoring artifact and its rendered output"; the `_build_notebook.py` → `comparison.ipynb` pipeline was the last unguarded surface in this repo. Also surfaced and corrected a real drift the snapshot caught on first run.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Both this repo's authoring surfaces (`results/summary.md` renderer, `_build_notebook.py` build script) are now drift-locked against their committed artifacts. Continue the multi-issue loop into the next portfolio repo (vector-search-at-scale is next in §8, but it has only a low-priority demo issue — pick another zero-issue repo or work the demo issue's capture-script subset).
+
 ## 2026-05-19 — Issue #11 (cont.): un-block PR #12 by tracking canonical fixtures
 **Duration:** ~30 min · **Branch:** `session/2026-05-18-1939-issue-11`
 

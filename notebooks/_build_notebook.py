@@ -80,7 +80,9 @@ _LOAD_CELL = dedent(
         recall5 = float(r["recall_at_k"]["5"])
         snippet5 = float(r["snippet_hit_at_k"]["5"])
         wall = r.get("wall_clock_ms", 0.0)
-        print(f"  {name:18} chunks={n_chunks:3d}  recall@5={recall5:.3f}  snippet-hit@5={snippet5:.3f}  wall={wall:.0f}ms")
+        print(
+            f"  {name:18} chunks={n_chunks:3d}  recall@5={recall5:.3f}  snippet-hit@5={snippet5:.3f}  wall={wall:.0f}ms"
+        )
     '''
 )
 
@@ -186,7 +188,13 @@ _TAKEAWAYS = dedent(
 )
 
 
-def main() -> None:
+def build_notebook() -> nbformat.NotebookNode:
+    """Return the notebook node `main()` writes; pure, no disk I/O.
+
+    Factored out so `tests/test_build_notebook_snapshot.py` can compare the
+    committed `comparison.ipynb` against the live build script without
+    shelling out or writing a tempfile.
+    """
     nb = nbformat.v4.new_notebook()
     nb.metadata["kernelspec"] = {
         "display_name": "Python 3",
@@ -205,7 +213,11 @@ def main() -> None:
     nb.cells.append(_markdown(_LATENCY_INTRO))
     nb.cells.append(_code(_LATENCY_CELL))
     nb.cells.append(_markdown(_TAKEAWAYS))
+    return nb
 
+
+def main() -> None:
+    nb = build_notebook()
     out = Path(__file__).parent / "comparison.ipynb"
     nbformat.write(nb, out)
     print(f"wrote {out}")
