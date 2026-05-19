@@ -284,7 +284,10 @@ def test_run_matrix_writes_one_json_per_strategy_plus_summary(tmp_path: Path):
     sys.path.insert(0, str(_REPO_ROOT / "scripts"))
     from run_matrix import main
 
-    rc = main(["--results-dir", str(tmp_path), "--embedder", "hash"])
+    # --canonical-out is the path that writes the tracked canonical
+    # fixture set (results/canonical__*.json + results/summary.md). The
+    # default path writes timestamped scratch (gitignored).
+    rc = main(["--results-dir", str(tmp_path), "--embedder", "hash", "--canonical-out"])
     assert rc == 0
     # 5 strategies + summary.md
     files = sorted(p.name for p in tmp_path.iterdir())
@@ -292,6 +295,9 @@ def test_run_matrix_writes_one_json_per_strategy_plus_summary(tmp_path: Path):
     json_files = [f for f in files if f.endswith(".json")]
     assert len(summary) == 1
     assert len(json_files) == 5
+    # Each JSON is the canonical filename pattern that the snapshot test
+    # in tests/test_summary_snapshot.py keys on.
+    assert all(f.startswith("canonical__") for f in json_files), files
     # Each JSON file has the expected schema.
     for f in json_files:
         payload = json.loads((tmp_path / f).read_text())
@@ -300,11 +306,28 @@ def test_run_matrix_writes_one_json_per_strategy_plus_summary(tmp_path: Path):
         assert "per_query" in payload
 
 
-def test_summary_md_contains_disclosure_when_using_hash_embedder(tmp_path: Path):
+def test_run_matrix_default_writes_timestamped_scratch(tmp_path: Path):
+    """Default (non-canonical) runs write timestamped filenames so the
+    regen scratch can't overwrite the tracked canonical fixtures."""
     sys.path.insert(0, str(_REPO_ROOT / "scripts"))
     from run_matrix import main
 
     rc = main(["--results-dir", str(tmp_path), "--embedder", "hash"])
+    assert rc == 0
+    files = sorted(p.name for p in tmp_path.iterdir())
+    # No tracked filenames produced.
+    assert "summary.md" not in files, files
+    assert not any(f.startswith("canonical__") for f in files), files
+    # 5 strategy JSONs + 1 summary, all timestamp-prefixed.
+    assert len(files) == 6, files
+    assert all("__" in f for f in files), files
+
+
+def test_summary_md_contains_disclosure_when_using_hash_embedder(tmp_path: Path):
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from run_matrix import main
+
+    rc = main(["--results-dir", str(tmp_path), "--embedder", "hash", "--canonical-out"])
     assert rc == 0
     md = (tmp_path / "summary.md").read_text()
     # The "not real numbers" disclosure for the dep-free embedder must

@@ -1,13 +1,17 @@
 """Run the retrieval metrics matrix across all 5 strategies + write results/.
 
-Output layout (one JSON per strategy + one markdown summary):
+Output layout (one JSON per strategy + one markdown summary). Filenames
+default to a `YYYYMMDDTHHMMSS` timestamp prefix — those files are
+gitignored regen scratch. Pass `--canonical-out` to write
+`canonical__<strategy>.json` instead, which is the tracked fixture set
+that tests/test_summary_snapshot.py locks:
 
   results/
-    20260516T042000__fixed.json
-    20260516T042000__recursive.json
-    20260516T042000__semantic.json
-    20260516T042000__late.json
-    20260516T042000__structure.json
+    canonical__fixed-size.json
+    canonical__recursive.json
+    canonical__semantic.json
+    canonical__late-chunking.json
+    canonical__structure-aware.json
     summary.md
 
 Per-strategy JSON is the `RetrievalRun.to_json()` shape. The markdown
@@ -133,6 +137,16 @@ def main(argv: list[str] | None = None) -> int:
         default="v0",
         help="Tag stored in each JSON so consumers can join runs across versions.",
     )
+    p.add_argument(
+        "--canonical-out",
+        action="store_true",
+        help=(
+            "Write per-strategy JSONs as canonical__<strategy>.json instead of "
+            "timestamped filenames. Use to refresh the committed snapshot fixtures "
+            "that tests/test_summary_snapshot.py locks. Default is timestamped "
+            "(gitignored regen scratch)."
+        ),
+    )
     args = p.parse_args(argv)
 
     embedder = _build_embedder(args.embedder)
@@ -155,7 +169,8 @@ def main(argv: list[str] | None = None) -> int:
             ks=ks,
             dataset_version=args.dataset_version,
         )
-        path = results_dir / f"{stamp}__{run.strategy_name}.json"
+        prefix = "canonical" if args.canonical_out else stamp
+        path = results_dir / f"{prefix}__{run.strategy_name}.json"
         path.write_text(json.dumps(run.to_json(), indent=2, sort_keys=True), encoding="utf-8")
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
@@ -165,7 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         runs.append(run)
 
-    summary_path = results_dir / "summary.md"
+    # summary.md is the tracked canonical fixture; only --canonical-out
+    # overwrites it. Default runs emit a sibling timestamped summary so
+    # the regen scratch is self-contained and can't desync the snapshot
+    # test from the committed canonical set.
+    if args.canonical_out:
+        summary_path = results_dir / "summary.md"
+    else:
+        summary_path = results_dir / f"{stamp}__summary.md"
     summary_path.write_text(_render_summary(runs, type(embedder).__name__), encoding="utf-8")
     print(f"\nsummary wrote {summary_path}")
     return 0
