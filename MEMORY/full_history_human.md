@@ -4,6 +4,21 @@ Chronological log of work sessions. Most recent first below the divider.
 
 ---
 
+## 2026-05-19 — Issue #11 (cont.): un-block PR #12 by tracking canonical fixtures
+**Duration:** ~30 min · **Branch:** `session/2026-05-18-1939-issue-11`
+
+- Root cause of PR #12's CI failure (7 failed in `tests/test_summary_snapshot.py`) was the `results/` line in `.gitignore` — the 5 strategy JSONs and `summary.md` that the snapshot test reads were never on the branch. Test ran in CI, got an empty `results/` directory, and failed with "Missing committed result JSONs for strategies: [...]. Found: []."
+- Fix: `.gitignore` now ignores `results/*` but un-ignores `results/summary.md` and `results/canonical__*.json`. Renamed the existing five files from a timestamped prefix (`20260516T162215__`) to `canonical__` so they're caught by the negation rule and tracked from now on. The snapshot test's `*.json` glob and `split("__")` parsing both still work.
+- Added `--canonical-out` flag to `scripts/run_matrix.py` so the canonical fixtures can be refreshed with one command. Default behavior (no flag) writes timestamp-prefixed JSONs **and** a timestamp-prefixed summary so the regen scratch can't accidentally clobber the tracked `summary.md` (a footgun I noticed during testing — fixed it before committing).
+- Updated the two integration tests in `test_metrics.py` that exercised the old default behavior to use `--canonical-out`, and added one new test asserting the default path writes only timestamped scratch (zero tracked filenames).
+- README Quickstart now documents both paths.
+
+**Why this work, this session:** PR #12 is the existing work for #11, blocked on CI. Fixing on the same branch keeps the snapshot test and its fixtures in one PR.
+
+**Open questions / blockers:** None. CI rerun should be green now.
+
+**Next session:** Whatever Phase A selection produces next; this branch should merge once CI lands.
+
 ## 2026-05-14 — Issue #1: pin the shared substrate
 **Duration:** ~50 min · **Branch:** `session/2026-05-14-1435-issue-01`
 
