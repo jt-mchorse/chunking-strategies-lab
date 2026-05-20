@@ -21,6 +21,8 @@ The retrieval-metrics matrix ships in #3. This module locks the
 substrate + the strategy contract they share.
 """
 
+__version__ = "0.0.1"  # mirror of pyproject.toml [project] version
+
 from .corpus import Document, load_corpus
 from .embedder import CANONICAL_EMBEDDING_MODEL, Embedder, HashEmbedder
 from .queries import Query, load_queries
