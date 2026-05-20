@@ -139,3 +139,16 @@ exposing `chunk(text, **opts) -> list[Chunk]` against this substrate.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** All four "benchmark/demo-output-vs-committed-doc" gaps surveyed this session are now closed across the portfolio. Future portfolio sessions can focus on shipping the still-pending live-API integrations or layered features.
+
+## 2026-05-20 — Issue #15: lock chunking_lab public surface
+**Duration:** ~20 min · **Branch:** `session/2026-05-20-0321-issue-15`
+
+- Added `tests/test_public_surface.py` (8 test items) and `__version__ = "0.0.1"` on `chunking_lab`. Five axes: semver, all-bound-non-None, all-matches-imports (relative-import AST filter), README quickstart union across both quoted snippets (lines 74 and 94 → six unique names), and one anchor per re-exported submodule. `metrics` deliberately excluded from the anchor list — dotted-path-only by design.
+- Tamper-verified three axes: bad version, drop `"Document"` from `__all__`, alias-rename `CANONICAL_EMBEDDING_MODEL as EM_MODEL` (fires bound-and-non-none + README-quickstart simultaneously).
+- Full suite 90/90 (was 82; +8 new).
+
+**Why this work, this session:** Sixth strike of the portfolio-wide public-surface hygiene pattern. The README quotes two separate import snippets and the strategy class table (5 names); the union of all three is fully covered by `__all__` ↔ imports + the six-name README test + the `strategies` anchor.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Apply the pattern to `python-async-llm-pipelines` and the Python example in `mcp-server-cookbook`.

@@ -193,3 +193,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-20T03:21Z
+duration_min: 20
+issue: 15
+focus: public_surface_snapshot_test_locks_chunking_lab_top_level_init
+delta:
+  files_added: 1   # tests/test_public_surface.py
+  files_changed: 1   # chunking_lab/__init__.py (+__version__)
+  tests_added: 8   # 4 standalone + 4 parametrized submodule anchors
+  test_pass_rate: "90/90"
+context_for_next_session:
+  - chunking_lab_now_publishes_dunder_version_str_0_0_1
+  - readme_quickstart_test_unions_both_snippets_lines_74_and_94_six_names
+  - metrics_intentionally_dotted_path_only_excluded_from_submodule_anchors_no_decision_change
+  - tamper_verified_three_axes_bad_version_drop_document_alias_rename_canonical_embedding_model
+  - portable_pattern_sixth_strike_remaining_python_async_llm_pipelines_and_mcp_python_example
+decisions_made: []
+followups: []
+---
