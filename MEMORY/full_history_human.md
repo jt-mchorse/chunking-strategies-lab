@@ -152,3 +152,16 @@ exposing `chunk(text, **opts) -> list[Chunk]` against this substrate.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Apply the pattern to `python-async-llm-pipelines` and the Python example in `mcp-server-cookbook`.
+
+## 2026-05-21 — Issue #17: 60-second demo capture script
+**Duration:** ~22 min · **Branch:** `session/2026-05-21-1916-issue-17` · **PR:** #18
+
+- Added `scripts/capture_demo.sh` driving the two surfaces — `python scripts/run_matrix.py --results-dir <tmp>` walks all five strategies against the pinned corpus + queries with `HashEmbedder` and prints `recall@5 / snippet-hit@5 / wall_clock` per strategy live, then the same run's `<ts>__summary.md` is cat'd. Per-run tempdir trapped on EXIT/INT/TERM. Full runtime is ~0.2s — fits 60 seconds with banners and recording pauses.
+- Added `tests/test_capture_demo_smoke.py` (3 tests) that runs the script with `PACE=0` in CI and asserts: all five strategy names appear in the matrix-step output; `recall@5=` / `snippet-hit@5=` / `wall_clock=` keys each appear ≥5 times; the summary markdown header signature matches what `test_summary_snapshot.py` locks separately; every strategy has a data row in the rendered summary; script exists and is executable.
+- README "Demo" section replaces the `*60-second demo pending — depends on issues #2 and #3.*` placeholder with one paragraph framing the two surfaces plus the HashEmbedder-vs-MiniLM distinction. 93/93 tests pass, ruff clean.
+
+**Why this work, this session:** Seventh repo (out of twelve) to land the `scripts/capture_demo.sh` pattern this week — closing the last unchecked item on the six-item v0.1 quality bar for this repo. The repo had zero open issues at session start, so the issue itself was filed against the §2 quality-bar gap before any code.
+
+**Open questions / blockers:** None. The capture is hermetic so it can be re-recorded any time without coordination.
+
+**Next session:** Continue the multi-issue loop on the remaining stale repos (vector-search-at-scale, python-async-llm-pipelines, agent-orchestration-platform, etc.). The `[demo]` capture issues already filed on those repos at `priority:low` are the obvious next round.
