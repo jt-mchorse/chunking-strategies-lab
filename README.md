@@ -189,7 +189,27 @@ jupyter nbconvert --to notebook --inplace --execute notebooks/comparison.ipynb
 
 ## Demo
 
-*60-second demo pending — depends on issues [#2] and [#3].*
+```bash
+bash scripts/capture_demo.sh
+```
+
+The capture script ([#17], `scripts/capture_demo.sh`) drives two
+surfaces end-to-end on a fresh clone with no API key and no network:
+`python scripts/run_matrix.py --results-dir <tmp>` walks all five
+strategies against the pinned corpus + queries with `HashEmbedder` and
+prints `recall@5 / snippet-hit@5 / wall_clock` per strategy live; then
+the same run's `<ts>__summary.md` is cat'd so the viewer sees the same
+five-row markdown table that `results/summary.md` ships. JT records
+the 60-second GIF/video over the script's stdout; CI runs it with
+`CAPTURE_PACE_SECONDS=0` (and pins the surface outputs in
+`tests/test_capture_demo_smoke.py`) so the demo can't bitrot.
+
+The capture uses `HashEmbedder` for tempo and hermeticity — cross-
+strategy quality claims stay in the canonical `results/summary.md` and
+[`notebooks/comparison.ipynb`](notebooks/comparison.ipynb), produced by
+the operator with `--embedder minilm` after `pip install -e .[sbert]`.
+
+[#17]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/17
 
 ## Why these decisions
 
