@@ -213,3 +213,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-21T19:16Z
+duration_min: 22
+issue: 17
+focus: scripts_capture_demo_sh_two_surface_60s_driver_plus_smoke_test
+delta:
+  files_added: 2   # scripts/capture_demo.sh, tests/test_capture_demo_smoke.py
+  files_changed: 1 # README.md (Demo section pending placeholder → real invocation)
+  tests_added: 3
+  test_pass_rate: "93/93"
+context_for_next_session:
+  - seventh_repo_to_land_capture_demo_sh_pattern_this_week
+  - two_surfaces_run_matrix_results_dir_tmp_then_cat_ts_summary_md_chosen_for_runtime_under_one_second
+  - hash_embedder_deliberate_for_tempo_and_hermeticity_quality_claims_stay_in_canonical_results_summary_md_and_comparison_notebook
+  - smoke_test_pins_all_five_strategy_names_in_matrix_output_plus_per_line_recall_snippet_hit_wall_clock_keys
+  - smoke_test_pins_summary_markdown_header_belt_and_braces_with_test_summary_snapshot
+  - per_run_tempdir_via_mktemp_d_trap_exit_int_term
+  - no_new_d_entry_d_008_snippet_hit_metric_already_governs_this_is_pure_glue
+decisions_made: []
+followups: []
+---
