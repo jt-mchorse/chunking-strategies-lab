@@ -343,3 +343,86 @@ def test_summary_md_contains_disclosure_when_using_hash_embedder(tmp_path: Path)
         "structure-aware",
     ):
         assert name in md
+
+
+# ----------------------------------------------------------------------
+# D-011: late-chunking embedder consistency enforcement (#19)
+# ----------------------------------------------------------------------
+
+
+class _NamedEmbedder:
+    """Test double with a settable model_name, so the consistency check
+    has something to compare against `HashEmbedder().model_name` (which
+    is the fallback class name `HashEmbedder`).
+    """
+
+    def __init__(self, model_name: str, dim: int = 384) -> None:
+        self.model_name = model_name
+        self._inner = HashEmbedder(dim=dim)
+
+    def embed(self, text: str) -> list[float]:
+        # Same hash signal; only the model name differs. Good enough to
+        # exercise the consistency check without involving sbert.
+        return self._inner.embed(text)
+
+
+def test_late_chunking_two_hash_embedders_passes() -> None:
+    # Two separate HashEmbedder instances both report model_name
+    # "HashEmbedder" (class-name fallback), so the consistency check
+    # must accept this pairing. This was the prior behavior and
+    # remains valid after D-011.
+    strategy_embedder = HashEmbedder()
+    runner_embedder = HashEmbedder()
+    strategy = LateChunkingStrategy(embedder=strategy_embedder)
+    run = evaluate_strategy(
+        strategy=strategy,
+        corpus=_SMALL_CORPUS,
+        queries=_SMALL_QUERIES,
+        embedder=runner_embedder,
+    )
+    assert run.strategy_name == "late-chunking"
+    assert run.n_queries == len(_SMALL_QUERIES)
+
+
+def test_late_chunking_mismatched_embedder_raises() -> None:
+    # Strategy embedder has a different model name from the runner's
+    # embedder; chunk vectors would live in a different space than
+    # query vectors, so cosine ranking is meaningless. The runner
+    # must refuse to proceed (D-011).
+    strategy = LateChunkingStrategy(embedder=_NamedEmbedder(model_name="alice-embed-v1"))
+    with pytest.raises(ValueError, match="LateChunkingStrategy embedder mismatch"):
+        evaluate_strategy(
+            strategy=strategy,
+            corpus=_SMALL_CORPUS,
+            queries=_SMALL_QUERIES,
+            embedder=_NamedEmbedder(model_name="bob-embed-v1"),
+        )
+
+
+def test_non_late_strategy_is_unaffected_by_consistency_check() -> None:
+    # FixedSizeStrategy doesn't carry an embedder, so swapping the
+    # runner's embedder is fine — its chunk vectors come from `embedder`
+    # directly, so consistency is automatic. The check must not trip.
+    run = evaluate_strategy(
+        strategy=FixedSizeStrategy(chunk_chars=120),
+        corpus=_SMALL_CORPUS,
+        queries=_SMALL_QUERIES,
+        embedder=_NamedEmbedder(model_name="some-other-model"),
+    )
+    assert run.strategy_name == "fixed-size"
+
+
+def test_late_chunking_mismatch_error_names_d011() -> None:
+    # The error message points the reader at D-011 so they can find the
+    # rationale instead of guessing what the constraint is for.
+    strategy = LateChunkingStrategy(embedder=_NamedEmbedder(model_name="x"))
+    with pytest.raises(ValueError, match="D-011") as exc_info:
+        evaluate_strategy(
+            strategy=strategy,
+            corpus=_SMALL_CORPUS,
+            queries=_SMALL_QUERIES,
+            embedder=_NamedEmbedder(model_name="y"),
+        )
+    # Double-check that the message also names the strategy class explicitly,
+    # so the failure mode is obvious even without consulting MEMORY.
+    assert "LateChunkingStrategy" in str(exc_info.value)

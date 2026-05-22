@@ -129,7 +129,16 @@ def evaluate_strategy(
     that, we use the pre-baked vectors; otherwise we fall back to
     embedding each chunk's text directly. The result shape is the
     same — only the vector source differs.
+
+    For `LateChunkingStrategy`, the strategy's embedder and the runner's
+    `embedder` must report the same model name. If they disagree, the
+    chunk vectors and the query vectors live in different embedding
+    spaces and the resulting cosine scores are meaningless. The runner
+    enforces this consistency (D-011); a mismatch raises `ValueError`
+    immediately rather than producing a plausible-looking but garbage
+    recall@k curve.
     """
+    _check_late_chunking_embedder_consistency(strategy, embedder)
     t_start = time.perf_counter()
     chunks_with_vecs = _materialize_vectors(strategy, corpus, embedder)
     n_chunks = len(chunks_with_vecs)
@@ -192,8 +201,8 @@ def _materialize_vectors(
     construct `LateChunkingStrategy(embedder=...)` with the same
     embedder passed to `evaluate_strategy`** — otherwise the chunk
     vectors live in a different space than the query vectors and the
-    cosine scores are meaningless. The runner doesn't enforce this; it's
-    a documented constraint of the late-chunking pattern.
+    cosine scores are meaningless. `evaluate_strategy` enforces this by
+    model name (D-011) and raises before this function is reached.
     """
     out: list[tuple[Chunk, list[float]]] = []
     use_late_vectors = isinstance(strategy, LateChunkingStrategy) and hasattr(
@@ -220,3 +229,33 @@ def _embedder_model_name(embedder: Embedder) -> str:
     if isinstance(name, str) and name:
         return name
     return type(embedder).__name__
+
+
+def _check_late_chunking_embedder_consistency(
+    strategy: Strategy, embedder: Embedder
+) -> None:
+    """Enforce D-011: late-chunking strategy + runner must share an embedding space.
+
+    For non-late strategies this is a no-op; their chunk vectors come
+    from `embedder` directly so consistency is automatic. For
+    `LateChunkingStrategy`, the strategy's own embedder is what
+    produced the document-level vectors, so a model-name disagreement
+    means cosine ranking against `embedder`-derived query vectors is
+    meaningless. Comparison is by `_embedder_model_name`, not Python
+    identity — two `HashEmbedder()` instances both report `HashEmbedder`
+    and are correctly accepted.
+    """
+    if not isinstance(strategy, LateChunkingStrategy):
+        return
+    strategy_model = _embedder_model_name(strategy.embedder)
+    runner_model = _embedder_model_name(embedder)
+    if strategy_model != runner_model:
+        raise ValueError(
+            "LateChunkingStrategy embedder mismatch: "
+            f"strategy.embedder reports model_name={strategy_model!r} but "
+            f"evaluate_strategy was passed embedder reporting model_name={runner_model!r}. "
+            "Construct the strategy with the same embedder you pass to "
+            "evaluate_strategy, e.g. "
+            "`LateChunkingStrategy(embedder=emb); evaluate_strategy(..., embedder=emb)`. "
+            "(D-011 — see MEMORY/core_decisions_human.md.)"
+        )
