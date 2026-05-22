@@ -137,3 +137,14 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap. One line in `pyproject.toml`. The notebook file is committed and works as long as the operator has the listed packages installed by any means.
 
 **Related issues:** #4
+
+## D-011 — Enforce late-chunking embedder consistency at the runner
+
+- **Date.** 2026-05-22
+- **Decision.** `evaluate_strategy` validates that, when the strategy is a `LateChunkingStrategy`, the strategy's own embedder and the runner's `embedder` report the same `model_name`. If they disagree, the runner raises `ValueError` immediately.
+- **Why.** The constraint was documented at length in `_materialize_vectors`'s docstring ("the runner doesn't enforce this; it's a documented constraint of the late-chunking pattern"), but a documented constraint that doesn't fail loud is a footgun. Someone calling `LateChunkingStrategy(embedder=HashEmbedder())` paired with `evaluate_strategy(..., embedder=MiniLMEmbedder())` got a recall@k curve out the other side that *looked* plausible but was numerically meaningless — the chunk vectors lived in hash-space, the query vectors lived in MiniLM-space, cosine was noise. For a repo whose pitch is "the strategy choice is the only variable", a silent numerical-quality bug in one of the five strategies is exactly what undermines that pitch. Closes #19.
+- **Alternatives considered.**
+  - *Keep the documented-only status quo.* Rejected: documented-only constraints fail silently in operator code; the credibility cost is too high for a research-flavored repo.
+  - *Auto-infer the strategy's embedder from `evaluate_strategy(embedder=...)`.* Rejected: the strategy constructor takes an embedder for a reason — it's part of the late-chunking surface contract (D-006). Silently rebuilding the strategy hides the failure rather than surfacing it.
+  - *Identity check (`strategy.embedder is embedder`).* Rejected: two separate `HashEmbedder()` instances are not identity-equal but are functionally identical (both report `model_name="HashEmbedder"`); identity is too strict.
+- **Reversibility.** Cheap. A caller who deliberately wants mismatched spaces can be unblocked by adding an explicit `allow_mismatch=True` flag to `evaluate_strategy` — but YAGNI for now; this defaults to safe.

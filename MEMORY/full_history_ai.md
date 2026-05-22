@@ -235,3 +235,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-22T03:25Z
+duration_min: 30
+issue: 19
+focus: enforce_late_chunking_embedder_consistency_at_runner
+delta:
+  files_changed: 1   # chunking_lab/metrics.py
+  files_added: 0     # tests appended to existing tests/test_metrics.py
+  tests_added: 4
+  test_pass_rate: "97/97"
+decisions_made: [D-011]
+context_for_next_session:
+  - silent_footgun_in_evaluate_strategy_when_late_chunking_strategy_embedder_diverges_from_runner_embedder_cosine_meaningless_no_exception
+  - enforcement_compares_by_underscore_embedder_model_name_helper_not_python_identity_so_two_hashembedder_instances_pass_through_correctly
+  - check_lives_in_underscore_check_late_chunking_embedder_consistency_runs_before_materialize_vectors_so_no_partial_work_done_before_failure
+  - error_message_names_the_strategy_class_and_d_011_so_caller_can_find_rationale_without_reading_the_source
+  - test_doubles_use_named_embedder_class_inner_hashembedder_only_differs_in_model_name_attribute_avoids_pulling_sbert_into_ci
+  - non_late_strategy_isolation_test_proves_check_is_a_no_op_for_fixed_recursive_semantic_structure_so_no_regression_for_4_of_5_strategies
+  - d_011_added_to_both_core_decisions_files_separate_commit_per_protocol
+followups: []
+---

@@ -90,3 +90,12 @@
   reversibility: cheap
   related_issues: [4]
   superseded_by: null
+
+- id: D-011
+  date: 2026-05-22
+  decision: evaluate_strategy_enforces_late_chunking_embedder_consistency_by_model_name
+  rationale: documented_constraint_in_materialize_vectors_was_silent_at_runtime_so_mismatched_spaces_produced_garbage_recall_curves_without_warning_repos_credibility_depends_on_not_having_silent_numerical_quality_bugs_in_a_strategy
+  alternatives_rejected: [keep_documented_only_status_quo_silent_bug_persists, infer_strategy_embedder_from_runner_breaks_construction_surface_contract, identity_check_strategy_embedder_is_runner_embedder_too_strict_rejects_two_hashembedder_instances]
+  reversibility: cheap
+  related_issues: [19]
+  superseded_by: null
