@@ -231,9 +231,7 @@ def _embedder_model_name(embedder: Embedder) -> str:
     return type(embedder).__name__
 
 
-def _check_late_chunking_embedder_consistency(
-    strategy: Strategy, embedder: Embedder
-) -> None:
+def _check_late_chunking_embedder_consistency(strategy: Strategy, embedder: Embedder) -> None:
     """Enforce D-011: late-chunking strategy + runner must share an embedding space.
 
     For non-late strategies this is a no-op; their chunk vectors come
