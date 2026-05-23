@@ -176,14 +176,14 @@ The fix is small and conservative. `evaluate_strategy` now calls `_check_late_ch
 
 Why prioritized: the existing comparison notebook and the matrix runner both happen to construct the strategy with the runner's embedder, so the bug was latent — but it's exactly the kind of thing an outside reader would step on the first time they wired up the lab against a real embedder, which is the explicit handoff path for honest numbers (`pip install -e '.[sbert]'`). Open questions / followups: an explicit `allow_mismatch=True` opt-out would let a curious caller deliberately probe what happens — filed as a backlog idea but not opened as an issue; YAGNI for now.
 
-## 2026-05-23 — Architecture-doc drift lock + cite D-011 (#21)
+## 2026-05-23 — README drift fix + snapshot lock (#23)
 
-**Duration:** ~20 min. **Issue:** [#21](https://github.com/jt-mchorse/chunking-strategies-lab/issues/21). **PR:** [#22](https://github.com/jt-mchorse/chunking-strategies-lab/pull/22).
+**Duration:** ~25 min. **Issue:** [#23](https://github.com/jt-mchorse/chunking-strategies-lab/issues/23). **PR:** [#24](https://github.com/jt-mchorse/chunking-strategies-lab/pull/24).
 
-The lock caught real drift: D-011 (added 2026-05-22 to make the late-chunking embedder consistency check loud in `evaluate_strategy()`) was never cited in `docs/architecture.md`. Added a D-011 bullet to §3 (Retrieval metrics matrix), since the runtime enforcement lives there.
+This was the **last portfolio repo without a README snapshot/hygiene lock** — verified against 11 sister repos this session. Authoring the lock surfaced four real drift sites in README.md: a pre-shipping `This PR pins the substrate...will share` paragraph at L19; an architecture-doc-summary line at L41 citing `D-002…D-010` (D-011 added 2026-05-22 was omitted); and two `## Section (#N · this PR)` headers at L59 and L109.
 
-Three invariants pinned. The interesting new affordance this PR contributes to the portfolio pattern: glob `*` tokens are skipped alongside `<...>` and `{...}` as templates (the doc quotes `data/corpus/*.md` and `results/*.json` in mermaid nodes).
+Rewrote the four sites. The lock test contributes one novel pattern to the portfolio: an **active-decision-range upper-bound test** that anchors the README's `D-002…D-NNN` citation to the highest non-superseded `D-NNN` in `MEMORY/core_decisions_ai.md`. A future D-012 landing without the README updating fails this test loud with a regen hint. Tamper-verified three ways.
 
-Tamper-verified three ways. **Why this work, this session:** Third of five sister issues in this night sweep across the Python half of the portfolio.
+**Why this work, this session:** Sixth issue in the night sweep. The combination of arch-doc lock (PR #22) + this README lock brings this repo to the same hygiene posture as the rest of the portfolio.
 
-**Open questions / blockers:** none. **Next session:** continue with `python-async-llm-pipelines` and `agent-orchestration-platform`.
+**Open questions / blockers:** none. **Portfolio-wide:** architecture-doc lock and README lock are both now at 12-of-12 coverage.
