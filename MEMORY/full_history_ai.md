@@ -257,3 +257,25 @@ context_for_next_session:
   - d_011_added_to_both_core_decisions_files_separate_commit_per_protocol
 followups: []
 ---
+
+---
+session: 2026-05-23T03:35Z
+duration_min: 20
+issue: 21
+focus: architecture_doc_drift_lock_caught_real_d_011_omission
+decisions_made: []
+delta:
+  files_changed: 1   # docs/architecture.md (+11 lines: D-011 bullet in §3)
+  files_added: 1     # tests/test_architecture_doc.py
+  tests_added: 10
+  test_pass_rate: "107/107"
+context_for_next_session:
+  - d_011_added_2026_05_22_to_make_late_chunking_embedder_consistency_check_loud_in_evaluate_strategy_runtime_but_doc_was_never_updated
+  - lock_test_caught_this_immediately_then_authoring_added_d_011_bullet_to_section_3
+  - glob_star_skipped_alongside_lt_gt_angle_brackets_and_curly_brace_shapes_data_corpus_star_md_results_star_json_are_templates_not_literal_paths
+  - d_nnn_axis_only_doc_uses_no_hash_nn_issue_annotations
+  - tamper_verified_three_axes_this_pr_d_007_removal_nonexistent_path
+  - operator_supplied_paths_empty
+  - third_of_five_sister_issues_in_this_night_sweep
+followups: []
+---
