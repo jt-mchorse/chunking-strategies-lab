@@ -16,23 +16,27 @@ document-structure-aware) on the same corpus, the same queries, and the
 same embedding model — so the strategy choice is the only variable left
 to compare.
 
-This PR pins the substrate that the five strategies (issue [#2]) and
-the retrieval metrics matrix (issue [#3]) will share. The corpus is
-five hand-authored technical articles (`data/corpus/*.md`), the
-downstream task is twelve verbatim-snippet retrieval queries
-(`data/queries.jsonl`), and the embedding model is pinned at
-`sentence-transformers/all-MiniLM-L6-v2`. Everything ships behind a
-small Python API: `load_corpus()`, `load_queries()`, and an `Embedder`
+Four surfaces ship today: the pinned substrate ([#1]) — five
+hand-authored technical articles (`data/corpus/*.md`) plus twelve
+verbatim-snippet retrieval queries (`data/queries.jsonl`) and a fixed
+embedding model (`sentence-transformers/all-MiniLM-L6-v2`); the five
+chunking strategies ([#2]); the retrieval metrics matrix ([#3]); and
+the comparison notebook ([#4]). The runtime layer is exposed through a
+small Python API: `load_corpus()`, `load_queries()`, an `Embedder`
 Protocol with a dep-free `HashEmbedder` reference plus a
-`MiniLMEmbedder` adapter behind an `[sbert]` extra.
+`MiniLMEmbedder` adapter behind an `[sbert]` extra, the five
+`Strategy` implementations, and `evaluate_strategy()` over the
+matrix.
 
 See [`docs/setup.md`](docs/setup.md) for the full substrate spec and
 the change protocol — any edit to a corpus document, a query snippet,
 or the embedding model invalidates downstream benchmark numbers and
 requires a deliberate revisit of D-002.
 
+[#1]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/1
 [#2]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/2
 [#3]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/3
+[#4]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/4
 
 ## Architecture
 
@@ -54,9 +58,9 @@ chunking_lab/
     └── structure.py     ← StructureAwareStrategy (markdown-heading split)
 ```
 
-See **[`docs/architecture.md`](docs/architecture.md)** for the integrated comparison flow, per-layer detail across all four shipped layers (substrate #1, strategies #2, metrics matrix #3, comparison notebook #4), and the design decisions behind each one (D-002…D-010).
+See **[`docs/architecture.md`](docs/architecture.md)** for the integrated comparison flow, per-layer detail across all four shipped layers (substrate #1, strategies #2, metrics matrix #3, comparison notebook #4), and the design decisions behind each one (D-002…D-011).
 
-## Strategies (#2 · this PR)
+## Strategies (#2)
 
 Five chunking strategies, each in its own module under
 `chunking_lab/strategies/`, sharing one Protocol so the metrics matrix
@@ -106,7 +110,7 @@ pytest && ruff check . && ruff format --check .
 pip install -e '.[sbert]'
 ```
 
-## Retrieval metrics matrix (#3 · this PR)
+## Retrieval metrics matrix (#3)
 
 `scripts/run_matrix.py` runs all 5 strategies over the pinned corpus +
 query set, computes **recall@k** and **snippet-hit@k** (the
