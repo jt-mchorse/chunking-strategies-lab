@@ -175,3 +175,15 @@ exposing `chunk(text, **opts) -> list[Chunk]` against this substrate.
 The fix is small and conservative. `evaluate_strategy` now calls `_check_late_chunking_embedder_consistency` before any work, which compares `_embedder_model_name(strategy.embedder)` to `_embedder_model_name(runner_embedder)` and raises a clear `ValueError` on mismatch. The check uses model name, not Python identity — so two `HashEmbedder()` instances both report `HashEmbedder` and pass through correctly; only a real embedder-space disagreement trips it. Four tests cover the surface: two-`HashEmbedder` pass case, mismatched-name fail case, non-late-strategy unaffected, and the error message names both `LateChunkingStrategy` and `D-011` so the operator finds the rationale fast.
 
 Why prioritized: the existing comparison notebook and the matrix runner both happen to construct the strategy with the runner's embedder, so the bug was latent — but it's exactly the kind of thing an outside reader would step on the first time they wired up the lab against a real embedder, which is the explicit handoff path for honest numbers (`pip install -e '.[sbert]'`). Open questions / followups: an explicit `allow_mismatch=True` opt-out would let a curious caller deliberately probe what happens — filed as a backlog idea but not opened as an issue; YAGNI for now.
+
+## 2026-05-23 — Architecture-doc drift lock + cite D-011 (#21)
+
+**Duration:** ~20 min. **Issue:** [#21](https://github.com/jt-mchorse/chunking-strategies-lab/issues/21). **PR:** [#22](https://github.com/jt-mchorse/chunking-strategies-lab/pull/22).
+
+The lock caught real drift: D-011 (added 2026-05-22 to make the late-chunking embedder consistency check loud in `evaluate_strategy()`) was never cited in `docs/architecture.md`. Added a D-011 bullet to §3 (Retrieval metrics matrix), since the runtime enforcement lives there.
+
+Three invariants pinned. The interesting new affordance this PR contributes to the portfolio pattern: glob `*` tokens are skipped alongside `<...>` and `{...}` as templates (the doc quotes `data/corpus/*.md` and `results/*.json` in mermaid nodes).
+
+Tamper-verified three ways. **Why this work, this session:** Third of five sister issues in this night sweep across the Python half of the portfolio.
+
+**Open questions / blockers:** none. **Next session:** continue with `python-async-llm-pipelines` and `agent-orchestration-platform`.
