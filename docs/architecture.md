@@ -156,6 +156,15 @@ the contract between layers.
   `evaluate_strategy` itself because that's the only place with
   visibility into the full chunk → embed → retrieve pipeline.
   Defaults to `0.0` so JSON files written before D-009 still load.
+- **D-011.** `evaluate_strategy()` enforces the late-chunking embedder
+  consistency contract at runtime: if a `LateChunkingStrategy` is
+  passed alongside an embedder whose `model_name` doesn't match the
+  strategy's embedder, the call raises `ValueError` (rather than
+  silently producing mismatched embedding spaces and garbage recall).
+  The constraint was documented in `materialize_vectors` before; D-011
+  makes it loud, since silent numerical-quality bugs in a *strategy*
+  are exactly the kind of bug this repo's credibility depends on
+  catching.
 
 ---
 
