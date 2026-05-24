@@ -139,12 +139,25 @@ def evaluate_strategy(
     recall@k curve.
     """
     _check_late_chunking_embedder_consistency(strategy, embedder)
+
+    # Non-positive `k` flows through `retrieved_docs[:k]` slicing without
+    # raising — k=0 silently produces recall@0=0.0 always; k<0 silently
+    # miscounts ("all but the last N"). Empty `ks` silently produces an
+    # empty `recall_at_k` dict. Surface every offender in one pass so
+    # operators don't chase them one-at-a-time. Mirrors the run_sweep
+    # k_values guard in embedding-model-shootout (#28).
+    if not ks:
+        raise ValueError("ks must be non-empty")
+    bad_k = sorted({k for k in ks if k <= 0})
+    if bad_k:
+        raise ValueError(f"every k in ks must be positive; got {bad_k}")
+
     t_start = time.perf_counter()
     chunks_with_vecs = _materialize_vectors(strategy, corpus, embedder)
     n_chunks = len(chunks_with_vecs)
 
     per_query: list[QueryResult] = []
-    max_k = max(ks) if ks else 5
+    max_k = max(ks)
     recall_hits = {k: 0 for k in ks}
     snippet_hits = {k: 0 for k in ks}
 
