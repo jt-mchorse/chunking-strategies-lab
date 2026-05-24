@@ -147,10 +147,22 @@ def main(argv: list[str] | None = None) -> int:
             "(gitignored regen scratch)."
         ),
     )
+    p.add_argument(
+        "--strategy",
+        choices=("fixed-size", "recursive", "semantic", "late-chunking", "structure-aware"),
+        default=None,
+        help=(
+            "Evaluate only this strategy (default: all five). When set, no summary.md "
+            "is written — a single-row summary would invalidate the snapshot lock and "
+            "be misleading next to the canonical aggregate."
+        ),
+    )
     args = p.parse_args(argv)
 
     embedder = _build_embedder(args.embedder)
     strategies = _build_strategies(embedder)
+    if args.strategy is not None:
+        strategies = [s for s in strategies if s.name == args.strategy]
     corpus = load_corpus()
     queries = load_queries()
     ks = tuple(int(k) for k in args.ks.split(",") if k.strip())
@@ -179,6 +191,15 @@ def main(argv: list[str] | None = None) -> int:
             f"wall_clock={run.wall_clock_ms:.0f}ms  →  {path}"
         )
         runs.append(run)
+
+    # summary.md is the tracked canonical aggregate. When --strategy
+    # filters the run, a partial summary would be misleading next to
+    # the canonical (and would invalidate the snapshot lock under
+    # --canonical-out). Skip the summary entirely in that case — the
+    # iterative dev workflow doesn't need it.
+    if args.strategy is not None:
+        print("\n(no summary written: --strategy filter is set)")
+        return 0
 
     # summary.md is the tracked canonical fixture; only --canonical-out
     # overwrites it. Default runs emit a sibling timestamped summary so
