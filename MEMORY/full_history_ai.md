@@ -297,3 +297,27 @@ context_for_next_session:
   - sixth_in_night_session_multi_issue_loop
 followups: []
 ---
+
+---
+session: 2026-05-25T00:55Z
+duration_min: 15
+issue: 27
+focus: evaluate_strategy_validates_ks_per_element_at_function_entry
+delta:
+  files_changed: 1   # chunking_lab/metrics.py
+  files_added: 0
+  tests_added: 7   # empty + zero + negative + mixed + 3 parametrized positive acceptance
+  test_pass_rate: "126_passed"
+decisions_made: []
+context_for_next_session:
+  - evaluate_strategy_validated_no_ks_at_entry_max_k_max_ks_if_ks_else_5_silently_treated_empty_as_max_5_with_empty_recall_dict_compute
+  - non_positive_k_flowed_through_retrieved_docs_k_slicing_recall_at_zero_always_zero_recall_at_minus_one_all_but_last_silent_miscount_wrong_number_not_absent_number
+  - guard_at_function_entry_collects_all_offenders_one_pass_sorted_form_message_shape_matches_emb_shootout_pr_28_sister_fix
+  - empty_ks_raises_separately_before_per_element_check_so_messages_stay_specific_to_each_bug_class
+  - mirrors_embedding_model_shootout_pr_28_run_sweep_k_values_guard_two_retrieval_comparator_repos_now_defend_result_jsons_consistently
+  - tests_pin_empty_zero_negative_mixed_with_full_set_in_message_plus_parametrize_positive_acceptance_over_one_two_four_element_shapes
+  - test_helper_eval_with_ks_centralizes_evaluate_strategy_construction_each_test_only_mutates_ks_under_test
+  - test_count_chunking_lab_now_126_was_119_after_25_added_7_new_collected_cases
+  - fifth_phase_bc_target_in_180_min_day_session_after_phase_a_5_pr_merge_plus_four_prior_phase_bc_targets
+followups: []
+---
