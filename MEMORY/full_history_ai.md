@@ -276,3 +276,24 @@ context_for_next_session:
   - portfolio_pattern_two_locks_now_complete_arch_doc_lock_12_of_12_readme_lock_12_of_12
 followups: []
 ---
+
+---
+session: 2026-05-24T03:46Z
+duration_min: 20
+issue: 25
+focus: run_matrix_strategy_filter_for_iterative_single_strategy_dev
+delta:
+  files_changed: 1   # scripts/run_matrix.py
+  files_added: 1     # tests/test_run_matrix_strategy_filter.py
+  tests_added: 6
+  test_pass_rate: "119/119"
+decisions_made: []
+context_for_next_session:
+  - run_matrix_ran_all_five_strategies_every_invocation_no_way_to_iterate_one_strategy_without_clobbering_other_four_under_canonical_out
+  - strategy_filter_argparse_choices_matches_each_strategy_name_attr_fixed_size_recursive_semantic_late_chunking_structure_aware_same_naming_as_canonical_files
+  - no_summary_when_filtered_rule_keeps_partial_row_failure_from_poisoning_the_snapshot_lock_and_misleading_the_canonical_aggregate
+  - tests_pin_does_not_clobber_other_canonical_files_via_pre_seeded_sentinel_bytes
+  - parallel_pattern_to_rag_production_kit_issue_32_suite_filter_landed_earlier_this_session
+  - sixth_in_night_session_multi_issue_loop
+followups: []
+---

@@ -187,3 +187,19 @@ Rewrote the four sites. The lock test contributes one novel pattern to the portf
 **Why this work, this session:** Sixth issue in the night sweep. The combination of arch-doc lock (PR #22) + this README lock brings this repo to the same hygiene posture as the rest of the portfolio.
 
 **Open questions / blockers:** none. **Portfolio-wide:** architecture-doc lock and README lock are both now at 12-of-12 coverage.
+
+## 2026-05-24 — Issue #25: `run_matrix.py --strategy` filter
+
+**Duration:** ~20 min. **Issue:** [#25](https://github.com/jt-mchorse/chunking-strategies-lab/issues/25). **Branch:** `session/2026-05-24-0344-issue-25`.
+
+`scripts/run_matrix.py` always ran all five strategies and always wrote five JSONs. There was no way to iterate on one strategy (e.g. tuning `SemanticBoundaryStrategy`'s threshold) without re-running and re-writing the other four — and under `--canonical-out`, a single-strategy iterative run would silently clobber the other four canonical files that `tests/test_summary_snapshot.py` pins.
+
+`--strategy fixed-size|recursive|semantic|late-chunking|structure-aware` filters the strategies list before the eval loop. The names match each strategy's `.name` attribute and the `canonical__<name>.json` file convention so there's only one identifier in the surface area. When the filter is set, the script skips the summary.md write entirely — a single-row summary would invalidate the snapshot lock and would be misleading next to the canonical five-row aggregate. That "no summary when filtered" rule is what keeps the filter from being a one-way decision.
+
+Six new tests pin the contract: filter writes only the chosen strategy's JSON, other canonical files in the same dir are not clobbered (test pre-seeds them with sentinel bytes and re-reads after the run), no summary lands in either the default or `--canonical-out` mode, the unfiltered path still writes all five + summary (regression guard), and `argparse`'s `choices=` rejects unknown strategy names with exit 2.
+
+**Why this work, this session:** Sixth issue in the night-session multi-issue loop. Parallel to `rag-production-kit` #32's `--suite` filter landed earlier this session — same dev-iteration shape, different orchestrator.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue to build-sequence #7 (`vector-search-at-scale`).
