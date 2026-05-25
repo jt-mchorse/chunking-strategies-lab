@@ -203,3 +203,16 @@ Six new tests pin the contract: filter writes only the chosen strategy's JSON, o
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue to build-sequence #7 (`vector-search-at-scale`).
+
+## 2026-05-25 — Issue #27: evaluate_strategy validates ks per-element at function entry
+**Duration:** ~15 min · **Branch:** `session/2026-05-24-issue-27`
+
+- `evaluate_strategy` at `chunking_lab/metrics.py:114` validated only that the `ks` *sequence* was non-empty implicitly via `max(ks) if ks else 5` — but non-positive elements flowed through `retrieved_docs[:k]` slicing at lines 170 and 172 without raising. `k=0` produced tautological `recall@0=0.0`; `k<0` silently miscounted via "all but the last N" slicing. **The wrong number, not an absent number** — same harm wording as the sister fix in `embedding-model-shootout` `run_sweep` (PR #28).
+- Added an entry guard that raises `ValueError("ks must be non-empty")` for an empty sequence and `ValueError(f"every k in ks must be positive; got {sorted(bad_k)}")` for any non-positive elements, with all offenders collected in one pass so operators copy-paste the fix in canonical sorted form. Message shape matches the emb-shootout sister fix exactly so the two retrieval-comparator repos in the portfolio raise identically.
+- Seven new tests in `tests/test_metrics.py` under a `#27` block: empty raises with `"ks must be non-empty"`; zero raises with `[0]`; negative raises with `[-1]`; mixed `(-3, 0, 5)` lists both bad values as `[-3, 0]` sorted ascending; parametrized positive acceptance over `(1,), (3, 5), (1, 3, 5, 10)` produces `recall_at_k` keys exactly equal to the input set. `_eval_with_ks(ks)` helper centralizes the fixture so each negative test only varies the field under test. Full suite 126/126 (was 119 after #25).
+
+**Why this work, this session:** Direct mirror of `embedding-model-shootout` PR #28 shipped earlier this same day session. The two retrieval-comparator repos in the portfolio now defend their result-JSON shapes consistently against the silent-recall-corruption harm class. Fifth Phase B+C target after `llm-eval-harness` #40, `llm-cost-optimizer` #34, `rag-production-kit` #36, `embedding-model-shootout` #29.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop. Build sequence #7 (`vector-search-at-scale`) is the natural next pickup if there's time before the 180-min cap.

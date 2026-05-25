@@ -275,6 +275,54 @@ def test_wall_clock_ms_is_recorded_and_positive():
     assert payload["wall_clock_ms"] == run.wall_clock_ms
 
 
+# Issue #27: evaluate_strategy validates `ks` per-element. Non-positive k flows
+# through `retrieved_docs[:k]` slicing without raising — silent recall@0=0.0
+# or recall@-1="all but the last" miscount. Empty ks silently produces empty
+# recall_at_k. Mirrors emb-shootout PR #28 (run_sweep k_values guard).
+def _eval_with_ks(ks):
+    return evaluate_strategy(
+        FixedSizeStrategy(chunk_chars=80, overlap_chars=20),
+        _SMALL_CORPUS,
+        _SMALL_QUERIES,
+        HashEmbedder(),
+        ks=ks,
+    )
+
+
+def test_evaluate_strategy_rejects_empty_ks():
+    with pytest.raises(ValueError, match="ks must be non-empty"):
+        _eval_with_ks(())
+
+
+def test_evaluate_strategy_rejects_zero_in_ks():
+    with pytest.raises(ValueError, match=r"every k in ks must be positive; got \[0\]"):
+        _eval_with_ks((0, 5))
+
+
+def test_evaluate_strategy_rejects_negative_in_ks():
+    with pytest.raises(ValueError, match=r"every k in ks must be positive; got \[-1\]"):
+        _eval_with_ks((-1, 5))
+
+
+def test_evaluate_strategy_lists_all_bad_ks_in_one_message():
+    # All offenders surfaced in one pass, sorted ascending, so operators can
+    # copy-paste the fix instead of running N rounds of fix-and-retry.
+    with pytest.raises(ValueError, match=r"every k in ks must be positive") as exc_info:
+        _eval_with_ks((-3, 0, 5))
+    msg = str(exc_info.value)
+    assert "-3" in msg
+    assert "[-3, 0]" in msg
+
+
+@pytest.mark.parametrize("ks", [(1,), (3, 5), (1, 3, 5, 10)])
+def test_evaluate_strategy_accepts_positive_ks(ks):
+    # Regression pin: positive ks shapes still produce recall_at_k keys
+    # exactly equal to the input set.
+    run = _eval_with_ks(ks)
+    assert set(run.recall_at_k.keys()) == set(ks)
+    assert set(run.snippet_hit_at_k.keys()) == set(ks)
+
+
 # ---------------------------------------------------------------------
 # run_matrix script
 # ---------------------------------------------------------------------
