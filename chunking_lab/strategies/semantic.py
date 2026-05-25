@@ -64,8 +64,13 @@ class SemanticBoundaryStrategy:
     def __post_init__(self) -> None:
         if not 0.0 <= self.distance_threshold <= 2.0:
             raise ValueError(f"distance_threshold must be in [0, 2]; got {self.distance_threshold}")
+        # Integer guards (#29) — see FixedSizeStrategy for harm rationale.
+        if not isinstance(self.min_chunk_chars, int) or isinstance(self.min_chunk_chars, bool):
+            raise ValueError(f"min_chunk_chars must be an int; got {self.min_chunk_chars!r}")
         if self.min_chunk_chars < 0:
             raise ValueError(f"min_chunk_chars must be >= 0; got {self.min_chunk_chars}")
+        if not isinstance(self.max_chunk_chars, int) or isinstance(self.max_chunk_chars, bool):
+            raise ValueError(f"max_chunk_chars must be an int; got {self.max_chunk_chars!r}")
         if self.max_chunk_chars <= 0:
             raise ValueError(f"max_chunk_chars must be positive; got {self.max_chunk_chars}")
 

@@ -44,8 +44,13 @@ class LateChunkingStrategy:
     0.0 means pure independent chunk embedding (degenerates to non-late)."""
 
     def __post_init__(self) -> None:
+        # Integer guards (#29) — see FixedSizeStrategy for the harm rationale.
+        if not isinstance(self.chunk_chars, int) or isinstance(self.chunk_chars, bool):
+            raise ValueError(f"chunk_chars must be an int; got {self.chunk_chars!r}")
         if self.chunk_chars <= 0:
             raise ValueError(f"chunk_chars must be positive; got {self.chunk_chars}")
+        if not isinstance(self.overlap_chars, int) or isinstance(self.overlap_chars, bool):
+            raise ValueError(f"overlap_chars must be an int; got {self.overlap_chars!r}")
         if self.overlap_chars < 0:
             raise ValueError(f"overlap_chars must be >= 0; got {self.overlap_chars}")
         if self.overlap_chars >= self.chunk_chars:

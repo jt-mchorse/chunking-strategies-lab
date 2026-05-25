@@ -25,6 +25,9 @@ class RecursiveStrategy:
     separators: tuple[str, ...] = field(default_factory=lambda: DEFAULT_SEPARATORS)
 
     def __post_init__(self) -> None:
+        # Integer guard (#29) — see FixedSizeStrategy for the harm rationale.
+        if not isinstance(self.chunk_chars, int) or isinstance(self.chunk_chars, bool):
+            raise ValueError(f"chunk_chars must be an int; got {self.chunk_chars!r}")
         if self.chunk_chars <= 0:
             raise ValueError(f"chunk_chars must be positive; got {self.chunk_chars}")
         if not self.separators:
