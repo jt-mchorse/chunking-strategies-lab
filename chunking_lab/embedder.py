@@ -42,6 +42,11 @@ class HashEmbedder:
     """
 
     def __init__(self, dim: int = DEFAULT_DIM) -> None:
+        # Integer guard (#29). Pre-#29 a NaN dim passed sign-only and then the
+        # `% 8` check failed with a misleading "must be a multiple of 8" message
+        # rather than "must be an int"; non-int floats had the same shape.
+        if not isinstance(dim, int) or isinstance(dim, bool):
+            raise ValueError(f"dim must be an int; got {dim!r}")
         if dim <= 0:
             raise ValueError(f"dim must be positive, got {dim}")
         if dim % 8 != 0:

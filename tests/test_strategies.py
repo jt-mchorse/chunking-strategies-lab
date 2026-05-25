@@ -288,3 +288,72 @@ def test_runtime_benchmark_across_committed_corpus():
         runtimes_s[strategy.name] = time.perf_counter() - t0
     for name, dt in runtimes_s.items():
         assert dt < 5.0, f"{name} took {dt:.3f}s on the 5-doc corpus (>5s budget)"
+
+
+# Issue #29: strategy dataclasses validate `chunk_chars` / `overlap_chars` /
+# `min_chunk_chars` / `max_chunk_chars` as `isinstance(int)` so non-int (float,
+# NaN, fractional, bool) is rejected at construction rather than failing deep
+# inside the chunking loop with TypeError or producing a spinning loop. Same
+# shape as embedding-model-shootout #32 SweepResult count fields.
+_BAD_INT = [1.5, float("nan"), float("inf"), True, "5"]
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_fixed_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="chunk_chars must be an int"):
+        FixedSizeStrategy(chunk_chars=bad, overlap_chars=10)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_fixed_overlap_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="overlap_chars must be an int"):
+        FixedSizeStrategy(chunk_chars=100, overlap_chars=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_late_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="chunk_chars must be an int"):
+        LateChunkingStrategy(embedder=HashEmbedder(), chunk_chars=bad, overlap_chars=10)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_recursive_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="chunk_chars must be an int"):
+        RecursiveStrategy(chunk_chars=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_semantic_min_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="min_chunk_chars must be an int"):
+        SemanticBoundaryStrategy(embedder=HashEmbedder(), min_chunk_chars=bad, max_chunk_chars=1000)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_semantic_max_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="max_chunk_chars must be an int"):
+        SemanticBoundaryStrategy(embedder=HashEmbedder(), min_chunk_chars=80, max_chunk_chars=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_hash_embedder_dim_must_be_int(bad):
+    with pytest.raises(ValueError, match="dim must be an int"):
+        HashEmbedder(dim=bad)
+
+
+def test_acceptance_regression_strategies_construct_with_valid_ints():
+    # Boundary acceptance: every prior valid-int construction continues to work.
+    assert FixedSizeStrategy(chunk_chars=100, overlap_chars=10).chunk_chars == 100
+    assert (
+        LateChunkingStrategy(
+            embedder=HashEmbedder(), chunk_chars=100, overlap_chars=10
+        ).overlap_chars
+        == 10
+    )
+    assert RecursiveStrategy(chunk_chars=100).chunk_chars == 100
+    assert (
+        SemanticBoundaryStrategy(
+            embedder=HashEmbedder(), min_chunk_chars=80, max_chunk_chars=1000
+        ).max_chunk_chars
+        == 1000
+    )
+    assert HashEmbedder(dim=64).dim == 64

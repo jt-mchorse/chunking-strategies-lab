@@ -321,3 +321,28 @@ context_for_next_session:
   - fifth_phase_bc_target_in_180_min_day_session_after_phase_a_5_pr_merge_plus_four_prior_phase_bc_targets
 followups: []
 ---
+
+---
+session: 2026-05-25T06:55Z
+duration_min: 25
+issue: 29
+focus: strategy_dataclasses_and_hashembedder_isinstance_int_guards_extend_sign_only
+delta:
+  files_changed: 6   # fixed.py late.py recursive.py semantic.py embedder.py test_strategies.py
+  files_added: 0
+  tests_added: 35   # 7 parametrize tables x 5 bad values = 35 new collected cases
+  test_pass_rate: "162_passed"
+decisions_made: []
+context_for_next_session:
+  - second_pr_in_chunking_lab_tonight_first_via_phase_a_fixup_merge_of_28_sign_only_ks_per_element_in_evaluate_strategy
+  - five_constructors_sign_only_on_chunk_chars_overlap_chars_min_max_chunk_chars_dim_non_int_silently_propagates
+  - chunk_chars_nan_text_start_nan_typeerror_cryptic_deep_in_chunking_loop
+  - overlap_chars_nan_passes_both_sign_only_and_overlap_geq_chunk_check_then_stride_nan_then_start_plus_nan_while_start_lt_len_undefined_infinite_loop_in_worst_case
+  - fractional_chunk_chars_silently_truncates_via_slicing_int_coercion_producing_wrong_sized_chunks
+  - hashembedder_dim_non_int_reached_mod_8_check_misleading_must_be_multiple_of_8_message_rather_than_must_be_an_int
+  - tightened_five_constructors_to_isinstance_x_int_with_explicit_bool_exclusion_python_bool_subclasses_int
+  - existing_message_matchers_chunk_chars_overlap_chars_etc_survive_unchanged_no_pre_existing_test_updates_needed
+  - tenth_phase_bc_target_in_360_min_night_session_after_prompt_regression_35_agent_orchestration_29_mcp_cookbook_32_nextjs_streaming_24_ai_app_integration_tests_24_llm_eval_harness_42_llm_cost_optimizer_36_rag_production_kit_38_embedding_model_shootout_31
+  - portfolio_contract_tightening_sweep_now_at_ten_phase_bc_prs_plus_seven_phase_a_fixup_merges_session_tonight
+followups: []
+---

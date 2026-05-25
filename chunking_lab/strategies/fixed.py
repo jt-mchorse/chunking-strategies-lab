@@ -20,8 +20,17 @@ class FixedSizeStrategy:
     overlap_chars: int = 100
 
     def __post_init__(self) -> None:
+        # Integer guards (#29). Fractional / NaN chunk_chars makes `text[start:end]`
+        # raise TypeError deep in the chunking loop; NaN passes the sign-only check
+        # (NaN comparisons always false) and `start += stride = chunk_chars - NaN`
+        # produces NaN, making the while loop spin. Bool explicitly excluded since
+        # Python's bool subclasses int.
+        if not isinstance(self.chunk_chars, int) or isinstance(self.chunk_chars, bool):
+            raise ValueError(f"chunk_chars must be an int; got {self.chunk_chars!r}")
         if self.chunk_chars <= 0:
             raise ValueError(f"chunk_chars must be positive; got {self.chunk_chars}")
+        if not isinstance(self.overlap_chars, int) or isinstance(self.overlap_chars, bool):
+            raise ValueError(f"overlap_chars must be an int; got {self.overlap_chars!r}")
         if self.overlap_chars < 0:
             raise ValueError(f"overlap_chars must be >= 0; got {self.overlap_chars}")
         if self.overlap_chars >= self.chunk_chars:
