@@ -216,3 +216,16 @@ Six new tests pin the contract: filter writes only the chosen strategy's JSON, o
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop. Build sequence #7 (`vector-search-at-scale`) is the natural next pickup if there's time before the 180-min cap.
+
+## 2026-05-25 — Issue #29: strategy dataclasses + HashEmbedder isinstance(int) guards
+**Duration:** ~25 min · **Branch:** `session/2026-05-24-issue-29`
+
+- Five constructors validated `chunk_chars` / `overlap_chars` / `min/max_chunk_chars` / `dim` with sign-only checks. Non-int (float, NaN, fractional, bool) slipped through and failed deep in the chunking loop. The worst case: `overlap_chars = NaN` passed both sign-only checks and the `overlap >= chunk` comparison (NaN comparisons false), then `stride = chunk - NaN = NaN`, then `start += NaN`, then `while start < len(text)` is undefined for NaN — infinite-loop scenario in the worst case. Fractional `chunk_chars` silently truncated via slicing-int coercion, producing wrong-sized chunks. `HashEmbedder.dim` non-int reached the `% 8` check and raised with a misleading "must be a multiple of 8" message.
+- Tightened `FixedSizeStrategy`, `LateChunkingStrategy`, `RecursiveStrategy`, `SemanticBoundaryStrategy.__post_init__` and `HashEmbedder.__init__` to require `isinstance(x, int)` (bool excluded explicitly since Python's bool subclasses int) before the existing sign comparisons. Existing message matchers ("chunk_chars", "overlap_chars", "dim") survive unchanged so no pre-existing test required updating.
+- 35 new tests (7 parametrize tables × 5 bad values) in `tests/test_strategies.py` under a `#29` block: per-constructor per-field rejection over `[1.5, NaN, +Infinity, True, "5"]` + a boundary acceptance regression that proves the five-constructor valid-int construction still works. Test count 162.
+
+**Why this work, this session:** Tenth Phase B+C target in the 360-min night session. Second PR in chunking-strategies-lab tonight; the first was via the Phase A fixup-merge of #28 (sign-only `ks` per-element validation in `evaluate_strategy`). The two together complete the constructor-input + comparator-input contract-tightening arc on the chunking surface.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop across remaining unvisited-tonight-for-second-iteration repos: `vector-search-at-scale`, `python-async-llm-pipelines`. Each had a Phase A fixup-merge today but no Phase B+C finiteness sweep yet.
