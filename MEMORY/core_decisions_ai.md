@@ -99,3 +99,12 @@
   reversibility: cheap
   related_issues: [19]
   superseded_by: null
+
+- id: D-012
+  date: 2026-05-26
+  decision: atomic_write_helper_lives_in_package_level_chunking_lab_io_utils_module_following_portfolio_standard
+  rationale: matches_rag_kit_eval_harness_emb_shootout_prompt_regression_async_pipelines_centralizes_test_surface_one_os_replace_to_monkey_patch
+  alternatives_rejected: [file_private_helper_per_script, inline_pattern_at_each_call_site]
+  reversibility: cheap
+  related_issues: [#33]
+  superseded_by: null

@@ -372,3 +372,24 @@ context_for_next_session:
   - third_phase_bc_target_in_360_min_night_session_after_prompt_regression_37_extend_to_hash_embedder_ngram_plus_canonical_embedding_finiteness
 followups: []
 ---
+
+---
+session: 2026-05-26T19:50Z
+duration_min: 15
+issue: 33
+focus: add_chunking_lab_io_utils_atomic_write_text_route_run_matrix_through_it
+delta:
+  files_added: 2
+  files_changed: 1
+  tests_added: 7  # 6 unit + 1 integration
+  test_pass_rate: "197_passed"
+decisions_made: [D-012]
+context_for_next_session:
+  - fifth_phase_bc_issue_of_today_day_session_canonical_fixture_write_atomicity
+  - two_production_sites_closed_run_matrix_per_strategy_json_and_summary_md
+  - decision_d_012_atomic_write_helper_lives_in_chunking_lab_io_utils_module_matches_portfolio_standard
+  - portfolio_atomic_write_coverage_now_at_ten_of_twelve_repos_remaining_vector_search_at_scale_five_sites_plus_nextjs_streaming_no_write_paths
+  - load_bearing_invariant_canonical_fixture_overwrite_failure_preserves_committed_published_numbers_property_path_write_text_could_never_offer_so_published_numbers_no_longer_corruptible_via_a_killed_regen
+  - elapsed_approx_55_min_of_180_min_budget_room_for_one_more_issue_to_reach_12_of_12_saturation
+followups: []
+---

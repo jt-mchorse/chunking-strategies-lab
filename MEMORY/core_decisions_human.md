@@ -148,3 +148,16 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
   - *Auto-infer the strategy's embedder from `evaluate_strategy(embedder=...)`.* Rejected: the strategy constructor takes an embedder for a reason — it's part of the late-chunking surface contract (D-006). Silently rebuilding the strategy hides the failure rather than surfacing it.
   - *Identity check (`strategy.embedder is embedder`).* Rejected: two separate `HashEmbedder()` instances are not identity-equal but are functionally identical (both report `model_name="HashEmbedder"`); identity is too strict.
 - **Reversibility.** Cheap. A caller who deliberately wants mismatched spaces can be unblocked by adding an explicit `allow_mismatch=True` flag to `evaluate_strategy` — but YAGNI for now; this defaults to safe.
+
+## D-012 — Atomic-write helper lives in `chunking_lab/io_utils.py` (2026-05-26)
+**Decision:** Atomic-write helper for this repo lives at `chunking_lab/io_utils.py`, exposing `atomic_write_text(path, text, encoding="utf-8")`. Matches the 2026-05-26 portfolio atomic-write arc.
+
+**Why:** Two production write sites in `scripts/run_matrix.py` needed atomicity. Particularly nasty failure mode on canonical-fixture writes: a half-written `canonical__<strategy>.json` either fails the snapshot test loudly or, worse, gets committed and silently changes the published numbers. Package-level placement matches the four prior siblings (`rag_kit/io_utils`, `eval_harness/io_utils`, `emb_shootout/io_utils`, `async_pipelines/io_utils`) and centralizes the test surface.
+
+**Alternatives considered:**
+- File-private helper in `run_matrix.py` — rejected; the pattern is shared across the portfolio and other modules could need the helper later.
+- Inline the pattern at the call sites — rejected; ~25 lines × 2 sites that could drift; no central seam.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #33

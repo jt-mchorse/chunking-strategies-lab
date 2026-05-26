@@ -242,3 +242,14 @@ Six new tests pin the contract: filter writes only the chosen strategy's JSON, o
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `vector-search-at-scale` (build #7) had only one PR earlier today and may have un-swept constructors too; `python-async-llm-pipelines` (build #8) similarly.
+
+## 2026-05-26 — Issue #33: Add `chunking_lab/io_utils.atomic_write_text`, route `run_matrix.py` through it
+**Duration:** ~15 min · **Branch:** `session/2026-05-26-1944-issue-33`
+
+Two production sites in `scripts/run_matrix.py` (per-strategy `RetrievalRun` JSON; markdown summary) used `Path.write_text`. The canonical-fixture write path was particularly load-bearing: a half-written `canonical__<strategy>.json` either fails the snapshot test loudly or gets committed and silently changes published numbers. New `chunking_lab/io_utils.py` matches the portfolio standard; both sites routed; 6 unit + 1 integration test added (suite 190 → 197). D-012 codifies the placement.
+
+**Why this work, this session:** Fifth Phase B issue of today's DAY session. Portfolio atomic-write coverage now at 10 of 12 repos.
+
+**Open questions / blockers:** none.
+
+**Next session:** `vector-search-at-scale` (5 sites) is the last remaining repo. `nextjs-streaming-ai-patterns` has no on-disk write paths to harden, so completing vector-search-at-scale would saturate the portfolio at 12 of 12 atomic-write coverage.

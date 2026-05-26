@@ -198,6 +198,27 @@ matrix, and the matrix can run without the notebook stack installed.
 
 ---
 
+## 5. Cross-cutting: atomic file writes (#33)
+
+`chunking_lab/io_utils.py` exposes `atomic_write_text`, the
+package-level helper that `scripts/run_matrix.py` (and any future
+operator-facing writer) routes through when persisting matrix
+results. It writes to a `<dest>.tmp` sibling in the same directory,
+`fsync`s, then `os.replace`s into place — operators reading
+`results/*.json` never see a half-written matrix from a
+`KeyboardInterrupt` mid-run.
+
+**Why these decisions.**
+
+- **D-012.** Helper lives at the package level rather than
+  file-private to `scripts/run_matrix.py`, matching the cross-repo
+  standard set by `rag-production-kit`, `llm-eval-harness`,
+  `embedding-model-shootout`, `prompt-regression-suite`, and
+  `python-async-llm-pipelines`. Centralizes the `os.replace` surface
+  to one monkey-patch target for the atomic-write test suite.
+
+---
+
 ## Where to look next
 
 - **Substrate** — `chunking_lab/corpus.py`, `chunking_lab/queries.py`,
