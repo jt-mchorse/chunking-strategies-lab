@@ -39,6 +39,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from chunking_lab.corpus import load_corpus  # noqa: E402
 from chunking_lab.embedder import CANONICAL_EMBEDDING_MODEL, Embedder, HashEmbedder  # noqa: E402
+from chunking_lab.io_utils import atomic_write_text  # noqa: E402
 from chunking_lab.metrics import RetrievalRun, evaluate_strategy  # noqa: E402
 from chunking_lab.queries import load_queries  # noqa: E402
 from chunking_lab.strategies import (  # noqa: E402
@@ -183,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         prefix = "canonical" if args.canonical_out else stamp
         path = results_dir / f"{prefix}__{run.strategy_name}.json"
-        path.write_text(json.dumps(run.to_json(), indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
             f"recall@5={run.recall_at_k.get(5, 0):.3f} "
@@ -209,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         summary_path = results_dir / "summary.md"
     else:
         summary_path = results_dir / f"{stamp}__summary.md"
-    summary_path.write_text(_render_summary(runs, type(embedder).__name__), encoding="utf-8")
+    atomic_write_text(summary_path, _render_summary(runs, type(embedder).__name__))
     print(f"\nsummary wrote {summary_path}")
     return 0
 
