@@ -357,3 +357,50 @@ def test_acceptance_regression_strategies_construct_with_valid_ints():
         == 1000
     )
     assert HashEmbedder(dim=64).dim == 64
+
+
+# Issue #31: completes the #29 sweep. StructureAwareStrategy was the only
+# strategy whose constructor still used range-only / sign-only checks, so
+# `True` silently bound `max_heading_level=1` (degrading the chunker to only
+# split on `#`), and `4000.0` / `NaN` / `Inf` silently bound `max_chunk_chars`
+# and surfaced as misleading errors from the FixedSizeStrategy fallback.
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_structure_max_heading_level_must_be_int(bad):
+    with pytest.raises(ValueError, match="max_heading_level must be an int"):
+        StructureAwareStrategy(max_heading_level=bad)
+
+
+@pytest.mark.parametrize("bad", _BAD_INT)
+def test_structure_max_chunk_chars_must_be_int(bad):
+    with pytest.raises(ValueError, match="max_chunk_chars must be an int"):
+        StructureAwareStrategy(max_chunk_chars=bad)
+
+
+@pytest.mark.parametrize("good", [1, 2, 3, 4, 5, 6])
+def test_structure_accepts_valid_max_heading_level(good):
+    s = StructureAwareStrategy(max_heading_level=good)
+    assert s.max_heading_level == good
+
+
+@pytest.mark.parametrize("bad", [0, -1, -6, 7, 10])
+def test_structure_max_heading_level_range_check_preserved(bad):
+    # Existing range error must remain reachable after the new isinstance
+    # check fires for non-int / bool cases. Plain ints out-of-range still get
+    # the original error message.
+    with pytest.raises(ValueError, match=r"max_heading_level must be in \[1, 6\]"):
+        StructureAwareStrategy(max_heading_level=bad)
+
+
+@pytest.mark.parametrize("good", [1, 1000, 4000, 100_000])
+def test_structure_accepts_valid_max_chunk_chars(good):
+    s = StructureAwareStrategy(max_chunk_chars=good)
+    assert s.max_chunk_chars == good
+
+
+@pytest.mark.parametrize("bad", [0, -1, -1000])
+def test_structure_max_chunk_chars_positive_check_preserved(bad):
+    # Existing positive error must remain reachable for plain non-positive ints.
+    with pytest.raises(ValueError, match="max_chunk_chars must be positive"):
+        StructureAwareStrategy(max_chunk_chars=bad)

@@ -34,8 +34,18 @@ class StructureAwareStrategy:
     monster chunk."""
 
     def __post_init__(self) -> None:
+        # Integer guards (#31) — completes the #29 sweep that tightened the
+        # other four strategy constructors. Sign-only / range-only accepted
+        # `True` (silently bound to 1 — chunker degraded to only splitting on
+        # `#`), and `4000.0` / `4000.5` / `NaN` / `Inf` for max_chunk_chars
+        # (silently bound, surfaced later in the FixedSizeStrategy fallback
+        # with a misleading internal-site error message).
+        if not isinstance(self.max_heading_level, int) or isinstance(self.max_heading_level, bool):
+            raise ValueError(f"max_heading_level must be an int; got {self.max_heading_level!r}")
         if not 1 <= self.max_heading_level <= 6:
             raise ValueError(f"max_heading_level must be in [1, 6]; got {self.max_heading_level}")
+        if not isinstance(self.max_chunk_chars, int) or isinstance(self.max_chunk_chars, bool):
+            raise ValueError(f"max_chunk_chars must be an int; got {self.max_chunk_chars!r}")
         if self.max_chunk_chars <= 0:
             raise ValueError(f"max_chunk_chars must be positive; got {self.max_chunk_chars}")
 

@@ -229,3 +229,16 @@ Six new tests pin the contract: filter writes only the chosen strategy's JSON, o
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop across remaining unvisited-tonight-for-second-iteration repos: `vector-search-at-scale`, `python-async-llm-pipelines`. Each had a Phase A fixup-merge today but no Phase B+C finiteness sweep yet.
+
+## 2026-05-26 — Issue #31: StructureAwareStrategy completes the #29 sweep
+**Duration:** ~25 min · **Branch:** `session/2026-05-25-2200-issue-31`
+
+- `StructureAwareStrategy` was the only strategy constructor #29 missed. Its `__post_init__` at `chunking_lab/strategies/structure.py:36-40` used a range-only check on `max_heading_level` and a sign-only `<= 0` on `max_chunk_chars`. Brought both fields into the portfolio's `isinstance(int) + reject bool` pattern; the existing range and positive errors remain reachable (tests pin this).
+- Silent failure modes closed: `max_heading_level=True` silently bound to `1` (chunker degraded to splitting only on top-level `#`, semantic bug with no error); `max_heading_level=2.0` silently bound as float; `max_chunk_chars=True/NaN/Inf/4000.5` silently bound, then surfaced as misleading internal-site errors from the FixedSizeStrategy section-too-large fallback path (#29's tightened FixedSize caught them, but the error pointed at the wrong site).
+- Six new parametrize blocks in `tests/test_strategies.py` following the existing `_BAD_INT` pattern: two type matrices (`max_heading_level`, `max_chunk_chars`), two acceptance matrices over the documented ranges, and two preservation pins ensuring the original "must be in [1, 6]" and "must be positive" errors remain reachable for plain out-of-range ints. 28 new collected cases; full suite 162 → 190. Ruff clean (`structure.py` ran through `ruff format` to normalize the new long isinstance lines).
+
+**Why this work, this session:** Third Phase B+C target in the 360-min night session, continuing the portfolio-wide validation sweep started in Phase A's four PR merges. Picked via build-sequence #6 among repos with un-swept constructors after `prompt-regression-suite#38` (Phase B+C target #2).
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `vector-search-at-scale` (build #7) had only one PR earlier today and may have un-swept constructors too; `python-async-llm-pipelines` (build #8) similarly.
