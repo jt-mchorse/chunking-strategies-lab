@@ -78,6 +78,22 @@ matches.
   is opt-in behind the `[sbert]` extra so CI doesn't download model
   weights per run.
 
+**Pre-flight validator (#37).** `chunking_lab.validate.validate_queries(path, corpus_dir=None)`
+walks `data/queries.jsonl` in *collecting* mode and returns every
+malformed row in one pass — the opposite posture to `load_queries`'s
+fail-fast raise on the first bad line. Sixteen finding codes cover
+JSON-shape errors (`malformed_json`, `not_an_object`), per-field schema
+gaps (`missing_<field>`, `non_string_<field>`, `empty_<field>` for each
+of `id` / `question` / `expected_doc` / `expected_snippet`),
+uniqueness (`duplicate_id`), the empty-file case (`empty`), and — when
+`corpus_dir` is passed — the cross-file invariant
+`expected_doc_not_found` that catches typo'd doc references that would
+otherwise silently invalidate recall. Runs as
+`python -m chunking_lab.validate <path> [--corpus-dir DIR] [--json]`;
+exit codes 0 / 1 / 2 are uniform with `eval-harness validate`,
+`prompt-snap validate`, and `emb-shootout corpus validate` in the
+sister repos so consumers can chain validators.
+
 ---
 
 ## 2. Five chunking strategies
@@ -222,6 +238,7 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
 ## Where to look next
 
 - **Substrate** — `chunking_lab/corpus.py`, `chunking_lab/queries.py`,
+  `chunking_lab/validate.py` (#37 pre-flight),
   `data/corpus/*.md`, `data/queries.jsonl`.
 - **Strategies** — `chunking_lab/strategies/{fixed,recursive,semantic,late,structure}.py`.
 - **Metrics matrix** — `chunking_lab/metrics.py`, `scripts/run_matrix.py`,
