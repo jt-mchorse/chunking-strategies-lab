@@ -48,6 +48,7 @@ data/
 chunking_lab/
 ├── corpus.py            ← load_corpus()
 ├── queries.py           ← load_queries()
+├── validate.py          ← #37: validate_queries() — collecting-mode lint for data/queries.jsonl
 ├── embedder.py          ← Embedder Protocol + HashEmbedder + MiniLMEmbedder
 └── strategies/          ← #2: 5 chunking strategies, common Strategy interface
     ├── __init__.py      ← Chunk + LateChunk + Strategy Protocol

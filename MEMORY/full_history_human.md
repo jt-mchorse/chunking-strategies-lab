@@ -264,3 +264,19 @@ Two production sites in `scripts/run_matrix.py` (per-strategy `RetrievalRun` JSO
 **Open questions / blockers:** none.
 
 **Next session:** continue portfolio propagation.
+
+## 2026-06-01 — Issue #37: Queries-JSONL collecting-mode validator + cross-file corpus check
+**Duration:** ~17 min · **Branch:** `session/2026-06-01-2320-issue-37`
+
+- Shipped `chunking_lab.validate.validate_queries(path, corpus_dir=None)` — frozen `ValidationReport` with `n_rows`, `n_valid`, findings tuple. Sixteen finding codes covering `json.loads` failures (`malformed_json`, `not_an_object`), per-field schema gaps for all four required fields (`missing_<f>` / `non_string_<f>` / `empty_<f>`), uniqueness (`duplicate_id`), empty-file, and — when `corpus_dir` is provided — the cross-file `expected_doc_not_found` invariant.
+- The cross-file check is the highest-leverage finding in this validator: a typo'd `expected_doc` silently invalidates recall (the run completes, the number becomes meaningless). Letting validate walk the corpus alongside the queries catches it.
+- Wired `python -m chunking_lab.validate <path> [--corpus-dir DIR] [--json]` (no top-level console_script — D-004 minimalism kept; `scripts/` invocation style is the established shape). Exit codes 0 / 1 / 2 uniform with the sister validators.
+- `tests/test_validate.py` is 33 cases — happy path against the shipped substrate (both standalone and with `corpus_dir`), accumulating-errors (no fail-fast), one parametrized positive per finding code (14 row-level codes), duplicate-`id`, blank-line skip, empty-file, FileNotFoundError on both missing path and missing corpus_dir, JSON-stable `to_dict`, frozen-dataclass lock, `REQUIRED_FIELDS` tuple lock, three `--corpus-dir` variants, and six CLI end-to-end cases.
+- README "Architecture" tree gains the new module line; `docs/architecture.md` gains a `validate` pre-flight paragraph under §1 Pinned substrate and a `validate.py` reference in the "Where to look next" Substrate bullet. Architecture-doc lock passes structurally.
+- Live-tested against the real 12-row `data/queries.jsonl`: exit 0 in one pass, both standalone and with `--corpus-dir data/corpus`. Confirms no false positives on the shipped substrate and that the cross-file invariant holds. Full suite 230 / 230 pass, ruff clean.
+
+**Why this work, this session:** Second iteration of the day-session loop. Iteration 1 shipped the validate pattern in `embedding-model-shootout` (#45/#46). The chunking-lab `load_queries` fail-fast read is the same shape, and the 4-field schema with an `expected_doc` cross-file constraint made this the natural next target — and the first repo in the validate propagation arc where the cross-file invariant adds substantive value beyond JSONL shape lint.
+
+**Open questions / blockers:** None — ready for review.
+
+**Next session:** Continue the day-session loop. Candidate repos with fail-fast JSONL or data loaders: `vector-search-at-scale`, `python-async-llm-pipelines`, `agent-orchestration-platform`. Pick the next one not touched since 2026-05-27 and check for the same pattern.
