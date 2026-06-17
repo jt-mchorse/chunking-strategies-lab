@@ -280,3 +280,20 @@ Two production sites in `scripts/run_matrix.py` (per-strategy `RetrievalRun` JSO
 **Open questions / blockers:** None — ready for review.
 
 **Next session:** Continue the day-session loop. Candidate repos with fail-fast JSONL or data loaders: `vector-search-at-scale`, `python-async-llm-pipelines`, `agent-orchestration-platform`. Pick the next one not touched since 2026-05-27 and check for the same pattern.
+
+## 2026-06-17 — Issue #39: Workflow YAML-parseability lock
+**Duration:** ~10 min · **Branch:** `session/2026-06-17-1914-issue-39`
+
+Added `tests/test_workflows_yaml_parseable.py` and pulled `pyyaml>=6.0`
+into `[project.optional-dependencies].dev`. 3 tests today (1 smoke + 1
+parse + 1 jobs for `ci.yml`).
+
+**Why this work, this session:** Same rationale as the prior two hops
+(`llm-eval-harness#60`, `rag-production-kit#52`) — propagating the
+`portfolio-ops#30` lock that closed the 21-day silent CI outage in
+`portfolio-ops#27`.
+
+**Open questions / blockers:** none — full `pytest` (233 → 236) +
+`ruff` clean locally; PR #40 open and waiting for CI.
+
+**Next session:** continue propagation to the remaining 9 repos.
