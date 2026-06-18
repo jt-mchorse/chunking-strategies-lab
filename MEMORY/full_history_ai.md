@@ -454,3 +454,24 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T03:18Z
+duration_min: 20
+issue: 41
+focus: workflow_timeout_minutes_lock_propagation_third_hop
+phase: night_session_phase_b_iteration_2
+delta:
+  files_added: 1   # tests/test_workflows_timeout_minutes.py
+  files_changed: 1 # .github/workflows/ci.yml
+  tests_added: 10  # 1 smoke + 3 jobs * 3 invariants
+context_for_next_session:
+  - third_propagation_hop_of_timeout_minutes_lock_after_llm_eval_harness_63_and_rag_production_kit_55
+  - ci_yml_three_jobs_lint_test_memory_check_all_get_15_min_uniform_no_outliers_warranted_at_current_workload
+  - test_file_modeled_on_canonical_first_hop_llm_eval_harness_three_parametrized_invariants_split_so_each_failure_mode_surfaces_separately
+  - lock_test_failure_messages_explain_silent_failure_mode_6_hour_quota_burn_on_hung_jobs_plus_propagation_arc_back_to_upstream_yaml_parseable_lock_in_this_repo
+  - audit_phase_a_py_will_drop_chunking_strategies_lab_from_missing_timeout_finding_set_after_this_pr_merges
+  - pre_branch_pytest_count_unchanged_post_branch_plus_10_full_suite_clean_ruff_check_plus_format_check_clean
+decisions_made: []
+followups: []
+---
