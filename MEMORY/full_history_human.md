@@ -297,3 +297,29 @@ parse + 1 jobs for `ci.yml`).
 `ruff` clean locally; PR #40 open and waiting for CI.
 
 **Next session:** continue propagation to the remaining 9 repos.
+
+## 2026-06-18 — Issue #41: timeout-minutes guard + lock test
+**Duration:** ~20 min · **Branch:** `session/2026-06-18-0318-issue-41`
+
+- Added `timeout-minutes: 15` to every job in `ci.yml` (`lint`, `test`,
+  `memory-check`). Uniform 15-min ceiling — no workload here approaches
+  it and there's no current justification for tighter or looser bounds.
+- Added `tests/test_workflows_timeout_minutes.py` — 10 new tests: 1
+  smoke + 3 jobs × 3 parametrized invariants (`timeout-minutes` is
+  present, is an int (not bool/str), is in policy band `[1, 30]`).
+
+**Why this work, this session:** GitHub Actions defaults to 360 min/job
+when `timeout-minutes` is unset, so a hung job (network stall during
+`pip install`, infinite loop in a chunker test, stuck embedding-API
+call) burns the full 6-hour ceiling. `llm-eval-harness` PR #63 shipped
+the canonical first hop and the portfolio-ops audit (#36) added a
+`--check missing-timeout` fingerprint that surfaces every unprotected
+repo weekly. This PR is the third propagation hop after
+`rag-production-kit` PR #55.
+
+**Open questions / blockers:** none. Full pytest clean (+10 new tests),
+ruff check + format both clean.
+
+**Next session:** continue propagation across the remaining 8
+unprotected repos. Next per D-009 + build-sequence:
+nextjs-streaming-ai-patterns.
