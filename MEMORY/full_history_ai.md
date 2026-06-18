@@ -475,3 +475,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T15:36Z
+duration_min: 10
+issue: 43
+focus: workflow_concurrency_guard_plus_lock_test_propagation_from_llm_eval_harness_64
+phase: day_session_phase_b_iteration_4
+delta:
+  files_added: 1   # tests/test_workflows_concurrency.py
+  files_changed: 1 # .github/workflows/ci.yml
+  tests_added: 7   # 1 smoke + 3 parametrized x 1 workflow
+context_for_next_session:
+  - fourth_per_repo_hop_of_concurrency_lock_propagation_after_llm_eval_harness_64_llm_cost_optimizer_60_rag_production_kit_56
+  - ci_yml_group_ci_dollar_github_ref_single_workflow_repo
+  - lock_test_copy_with_sed_docstring_swap_origin_56_to_43_companion_refs_unparenthesized_to_avoid_stale_issue_link
+  - test_count_240_to_247_seven_new_full_pytest_clean_ruff_check_plus_format_check_clean
+decisions_made: []
+followups: [#43]
+---
