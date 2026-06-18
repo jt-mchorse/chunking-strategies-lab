@@ -323,3 +323,19 @@ ruff check + format both clean.
 **Next session:** continue propagation across the remaining 8
 unprotected repos. Next per D-009 + build-sequence:
 nextjs-streaming-ai-patterns.
+
+## 2026-06-18 — Issue #43: concurrency guard + lock test
+**Duration:** ~10 min · **Branch:** `session/2026-06-18-1524-issue-43`
+
+- Added top-level `concurrency: { group: ci-${{ github.ref }},
+  cancel-in-progress: true }` to `ci.yml`.
+- Copied `tests/test_workflows_concurrency.py` from llm-eval-harness;
+  docstring origin updated to this repo's #43 via sed.
+
+**Why this work, this session:** fourth per-repo hop in the
+concurrency-lock propagation arc. Audit fingerprint shipped in
+portfolio-ops #41 surfaces every workflow missing the lock.
+
+**Open questions / blockers:** none. Test count 240 → 247.
+
+**Next session:** continue propagation to remaining 8 repos.
