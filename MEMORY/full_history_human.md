@@ -364,3 +364,18 @@ open and ready.
 
 **Next session:** propagate to the remaining validate-CLI repos
 (prompt-regression-suite, embedding-model-shootout) when scope allows.
+
+## 2026-06-19 — Issue #47: RetrievalRun.from_json / QueryResult.from_json round-trip parity
+**Duration:** ~30 min · **Branch:** `session/2026-06-19-issue-47`
+
+- Filed issue #47 during this session's Phase A loop after spotting the asymmetry: `RetrievalRun` had `to_json()` but no symmetric reader; `tests/test_summary_snapshot.py` carried a 19-line hand-written reader helper that the snapshot tests used. Worked immediately.
+- Added `QueryResult.from_json(payload)` and `RetrievalRun.from_json(payload)` classmethods. Both restore the frozen-tuple invariant on the read path; the `RetrievalRun` reader coerces `recall_at_k` / `snippet_hit_at_k` keys back from `str` to `int` (the write side stringifies them), defaults `wall_clock_ms` / `notes` to dataclass defaults for pre-D-009 JSON compatibility, and raises `KeyError` naming the missing field rather than silently filling defaults.
+- Collapsed `tests/test_summary_snapshot.py:_load_run_from_json` from 19 lines onto `RetrievalRun.from_json`. The snapshot renderer doesn't read `per_query` so the previously hand-passed empty tuple was fine for the snapshot, but the rebuilt instance now carries the full `per_query` round-trip identity for the cross-check tests.
+- 7 new round-trip tests in `tests/test_metrics.py`: identity for both classmethods, populated/empty `per_query`, str→int key coercion, missing-default-field acceptance, missing-required-field raise, and a cross-check against the committed `results/canonical__*.json` files (5 strategies, byte-for-byte round-trip through `to_json`).
+- Ruff caught a UP037 quoted-self type annotation on the classmethod return types (incompatible with the file's `from __future__ import annotations`); dropped quotes, suite clean. Format check clean.
+
+**Why this work, this session:** the portfolio is heavily saturated — most repos have zero open issues. The session's Phase A multi-issue loop demands substantive engineering, and this was a real API-completeness gap surfaced by reading the snapshot test helper. Pattern continues the dogfood→issue→PR loop from earlier sessions: spot the asymmetry in the test helper, file an issue, close it in the same session with the lock-test inverse-safety-net (round-trip + missing-required-key tests).
+
+**Open questions / blockers:** none. 253 → 260 pytest passes. PR #48 merged.
+
+**Next session:** the metrics module's serialization contract is now complete (`to_json` ↔ `from_json` round-trip, locked by 7 new tests). `QueryResult` and `RetrievalRun` remain `chunking_lab.metrics`-internal (not re-exported in `chunking_lab/__init__.py`); promoting them to the top-level API is a separate decision and not blocked. If similar asymmetries exist in sibling repos' \`*_run.to_json()\` surfaces (rag-production-kit `PhaseTimings`, llm-eval-harness `RunRecord`, etc.), the from_json propagation arc is a natural sibling pattern for future sessions.
