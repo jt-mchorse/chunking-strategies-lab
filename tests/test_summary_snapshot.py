@@ -58,23 +58,14 @@ REGEN_HINT = (
 def _load_run_from_json(path: Path) -> RetrievalRun:
     """Reconstruct a `RetrievalRun` from a committed result JSON.
 
-    The renderer (`_render_summary`) doesn't use `per_query`, so we pass
-    an empty tuple for it — recreating the full `QueryResult` list isn't
-    needed for the snapshot.
+    Thin wrapper around `RetrievalRun.from_json` (#47); kept as a
+    helper so the snapshot tests' import surface doesn't change.
+    The classmethod rebuilds `per_query` from the on-disk shape;
+    the snapshot renderer doesn't read it but having it populated
+    is harmless and round-trips byte-for-byte through `to_json`.
     """
     payload = json.loads(path.read_text(encoding="utf-8"))
-    return RetrievalRun(
-        strategy_name=payload["strategy_name"],
-        embedder_model=payload["embedder_model"],
-        dataset_version=payload["dataset_version"],
-        n_queries=payload["n_queries"],
-        n_chunks_total=payload["n_chunks_total"],
-        recall_at_k={int(k): v for k, v in payload["recall_at_k"].items()},
-        snippet_hit_at_k={int(k): v for k, v in payload["snippet_hit_at_k"].items()},
-        per_query=(),
-        wall_clock_ms=payload.get("wall_clock_ms", 0.0),
-        notes=list(payload.get("notes", [])),
-    )
+    return RetrievalRun.from_json(payload)
 
 
 def _committed_run_jsons() -> list[Path]:
