@@ -339,3 +339,28 @@ portfolio-ops #41 surfaces every workflow missing the lock.
 **Open questions / blockers:** none. Test count 240 → 247.
 
 **Next session:** continue propagation to remaining 8 repos.
+
+## 2026-06-19 — Issue #45: validate CLI --out for sink-parity
+**Duration:** ~22 min · **Branch:** `session/2026-06-19-0322-issue-45`
+
+- Added `--out PATH` to `python -m chunking_lab.validate` so its
+  output (human summary or `--json` payload) atomic-writes to disk
+  instead of stdout. Sibling propagation of llm-eval-harness#66.
+- `main()` routes through `chunking_lab/io_utils.atomic_write_text`
+  when `--out` is set, else `sys.stdout.write(rendered)`. Findings
+  print to stderr in human-readable mode regardless of `--out`.
+- Exit-2 (file-not-found) raises before any rendering, so `--out`
+  leaves no zero-byte sentinel.
+- 6 new tests; README unchanged (no dedicated validate-CLI section
+  exists in this repo's README).
+
+**Why this work, this session:** propagation of the same recipe
+landing in llm-eval-harness#66 minutes earlier. Canonical sink-parity
+shape now propagated across two of the four repos that ship a
+`validate` CLI.
+
+**Open questions / blockers:** none. 247 → 253 pytest passes. PR #46
+open and ready.
+
+**Next session:** propagate to the remaining validate-CLI repos
+(prompt-regression-suite, embedding-model-shootout) when scope allows.

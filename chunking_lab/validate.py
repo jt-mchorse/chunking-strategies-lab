@@ -56,6 +56,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from chunking_lab.io_utils import atomic_write_text
+
 REQUIRED_FIELDS: tuple[str, ...] = ("id", "question", "expected_doc", "expected_snippet")
 
 
@@ -276,6 +278,17 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="as_json",
         help="Emit the report as JSON instead of the human-readable summary.",
     )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help=(
+            "Write the rendered output to this path instead of stdout. Parent dirs "
+            "are auto-created via chunking_lab/io_utils.atomic_write_text. Parity "
+            "with llm-eval-harness validate --out (#66). Findings still print to "
+            "stderr in human-readable mode even when --out is set, so the operator's "
+            "diagnostic channel is preserved."
+        ),
+    )
     return parser
 
 
@@ -291,16 +304,23 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.as_json:
-        sys.stdout.write(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+        rendered = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
     else:
+        # Findings go to stderr regardless of --out so the operator's diagnostic
+        # channel is preserved even when stdout is captured to a file. Parity
+        # with llm-eval-harness validate (#66) and the sibling --out subcommands.
         for finding in report.findings:
             line_label = f"line {finding.line_no}" if finding.line_no else "file"
             sys.stderr.write(f"{line_label} [{finding.code}]: {finding.reason}\n")
         status = "ok" if report.ok else "fail"
-        sys.stdout.write(
+        rendered = (
             f"{status}: {args.queries} rows={report.n_rows} valid={report.n_valid} "
             f"findings={len(report.findings)}\n"
         )
+    if args.out:
+        atomic_write_text(args.out, rendered)
+    else:
+        sys.stdout.write(rendered)
     return 0 if report.ok else 1
 
 

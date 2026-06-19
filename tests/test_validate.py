@@ -339,3 +339,102 @@ def test_cli_shipped_queries_clean_with_corpus_dir() -> None:
     assert proc.stderr == ""
     assert "rows=12" in proc.stdout
     assert "valid=12" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# CLI: --out sink parity (#45) — propagation of llm-eval-harness#66
+# ---------------------------------------------------------------------------
+
+
+def test_cli_out_writes_human_summary_to_file_not_stdout(tmp_path: Path) -> None:
+    """``--out`` writes the human-readable summary to disk; stdout stays
+    silent (parity with llm-eval-harness validate --out, #66)."""
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [_valid_row("a"), _valid_row("b")])
+    out = tmp_path / "report.txt"
+    proc = _run_cli(str(p), "--out", str(out))
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == "", f"stdout must be silent when --out is set; got {proc.stdout!r}"
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("ok:"), body
+    assert body.endswith("\n"), "trailing newline required for parity"
+
+
+def test_cli_out_writes_json_payload_to_file(tmp_path: Path) -> None:
+    """``--out`` + ``--json`` writes the report dict as JSON to disk;
+    stdout silent; the file parses cleanly and carries the expected shape."""
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [_valid_row("ok"), {**_valid_row("bad"), "question": ""}])
+    out = tmp_path / "report.json"
+    proc = _run_cli(str(p), "--json", "--out", str(out))
+    assert proc.returncode == 1
+    assert proc.stdout == ""
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["ok"] is False
+    assert payload["findings"][0]["code"] == "empty_question"
+
+
+def test_cli_out_creates_parent_dirs(tmp_path: Path) -> None:
+    """``atomic_write_text`` does ``parent.mkdir(parents=True)``; confirm
+    the validate CLI inherits that behavior so a nested observability
+    directory doesn't need pre-creation."""
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [_valid_row("a")])
+    out = tmp_path / "nested" / "sink" / "report.txt"
+    proc = _run_cli(str(p), "--out", str(out))
+    assert proc.returncode == 0
+    assert out.exists()
+    assert out.parent.is_dir()
+
+
+def test_cli_out_overwrites_atomically(tmp_path: Path) -> None:
+    """Two successive writes to the same path leave the second payload —
+    not the concatenation, not a half-written file. No tempfile leftovers
+    under the destination's parent."""
+    clean = tmp_path / "clean.jsonl"
+    _write_jsonl(clean, [_valid_row("a")])
+    out = tmp_path / "report.txt"
+    _run_cli(str(clean), "--out", str(out))
+    body1 = out.read_text(encoding="utf-8")
+
+    bad = tmp_path / "bad.jsonl"
+    _write_jsonl(bad, [{**_valid_row("bad"), "question": ""}])
+    _run_cli(str(bad), "--out", str(out))
+    body2 = out.read_text(encoding="utf-8")
+    assert body1 != body2
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
+    assert leftovers == [], leftovers
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name.startswith(".report.txt.")]
+    assert leftovers == [], leftovers
+
+
+def test_cli_out_findings_still_print_to_stderr(tmp_path: Path) -> None:
+    """``--out`` covers stdout only — stderr stays the operator's
+    diagnostic channel so a CI step capturing stdout to a file still sees
+    per-finding lines on stderr. Parity with the existing
+    no-``--out``/findings/stderr contract."""
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            _valid_row("ok"),
+            {**_valid_row("dup"), "question": ""},
+        ],
+    )
+    out = tmp_path / "report.txt"
+    proc = _run_cli(str(p), "--out", str(out))
+    assert proc.returncode == 1
+    assert "empty_question" in proc.stderr
+    assert proc.stdout == ""
+    body = out.read_text(encoding="utf-8")
+    assert body.startswith("fail:"), body
+
+
+def test_cli_out_not_written_on_file_not_found(tmp_path: Path) -> None:
+    """Exit-2 (file-not-found) path raises before rendering, so ``--out``
+    must NOT touch disk — keeps the failure mode honest (no zero-byte
+    sentinel a CI step could mistake for "ran successfully")."""
+    out = tmp_path / "report.txt"
+    proc = _run_cli(str(tmp_path / "no.jsonl"), "--out", str(out))
+    assert proc.returncode == 2
+    assert not out.exists(), "exit-2 must not create the --out file"
