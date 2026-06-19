@@ -494,3 +494,24 @@ context_for_next_session:
 decisions_made: []
 followups: [#43]
 ---
+
+---
+session: 2026-06-19T04:10Z
+duration_min: 22
+issue: 45
+focus: chunking_lab_validate_cli_out_flag_for_sink_parity_propagation_of_llm_eval_harness_66
+phase: night_session_phase_b_iteration_3
+delta:
+  files_changed: 2 # chunking_lab/validate.py + tests/test_validate.py
+  tests_added: 6   # 2 modes (human+json) + parent-dir + atomic-overwrite + stderr + exit-2
+context_for_next_session:
+  - sibling_propagation_of_llm_eval_harness_66_pr_67_validate_cli_out_flag_for_sink_parity_now_lands_in_chunking_strategies_lab_at_the_same_shape_recipe_identical
+  - main_routes_through_chunking_lab_io_utils_atomic_write_text_when_out_set_falls_back_to_sys_stdout_write_rendered_when_not_findings_still_print_to_stderr_in_human_mode_regardless_of_out
+  - exit_2_file_not_found_path_raises_before_rendering_so_out_leaves_no_zero_byte_sentinel_a_ci_step_could_mistake_for_ran_successfully_locked_by_test_cli_out_not_written_on_file_not_found
+  - trailing_newline_parity_both_renderers_add_newline_to_rendered_string_out_writes_full_string_atomically_stdout_uses_sys_stdout_write_rendered
+  - test_count_247_to_253_six_new_full_pytest_clean_ruff_check_plus_format_check_clean
+  - canonical_propagation_chain_now_pkg_eval_harness_run_list_36_diff_diff_json_validate_66_chunking_lab_validate_45_three_repos_one_shape_atomic_write_text_via_io_utils
+  - readme_doesnt_currently_document_the_validate_cli_only_a_one_line_architecture_mention_no_doc_update_needed_this_pr
+decisions_made: []
+followups: []
+---
