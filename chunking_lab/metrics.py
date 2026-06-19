@@ -51,6 +51,17 @@ class QueryResult:
     # `expected_snippet`. Length matches `retrieved_doc_ids_in_rank_order`.
     snippet_hits_in_rank_order: tuple[bool, ...]
 
+    @classmethod
+    def from_json(cls, payload: dict[str, Any]) -> QueryResult:
+        """Inverse of the dict shape emitted by ``RetrievalRun.to_json``."""
+        return cls(
+            query_id=payload["query_id"],
+            expected_doc=payload["expected_doc"],
+            expected_snippet=payload["expected_snippet"],
+            retrieved_doc_ids_in_rank_order=tuple(payload["retrieved_doc_ids_in_rank_order"]),
+            snippet_hits_in_rank_order=tuple(payload["snippet_hits_in_rank_order"]),
+        )
+
 
 @dataclass(frozen=True)
 class RetrievalRun:
@@ -98,6 +109,34 @@ class RetrievalRun:
             ],
             "notes": list(self.notes),
         }
+
+    @classmethod
+    def from_json(cls, payload: dict[str, Any]) -> RetrievalRun:
+        """Inverse of :meth:`to_json`.
+
+        Restores the frozen-tuple invariants on the read path
+        (``per_query`` becomes a tuple, each ``QueryResult`` is
+        rebuilt with tuple-typed rank-order fields) and coerces
+        ``recall_at_k`` / ``snippet_hit_at_k`` keys back from ``str``
+        to ``int``. Defaults for ``wall_clock_ms`` and ``notes``
+        match the dataclass defaults so older committed JSONs
+        (pre-D-009) continue to load cleanly.
+
+        Raises ``KeyError`` with the missing field name when a
+        required key is absent — the failure mode is loud, not silent.
+        """
+        return cls(
+            strategy_name=payload["strategy_name"],
+            embedder_model=payload["embedder_model"],
+            dataset_version=payload["dataset_version"],
+            n_queries=payload["n_queries"],
+            n_chunks_total=payload["n_chunks_total"],
+            recall_at_k={int(k): v for k, v in payload["recall_at_k"].items()},
+            snippet_hit_at_k={int(k): v for k, v in payload["snippet_hit_at_k"].items()},
+            per_query=tuple(QueryResult.from_json(q) for q in payload.get("per_query", ())),
+            wall_clock_ms=payload.get("wall_clock_ms", 0.0),
+            notes=list(payload.get("notes", [])),
+        )
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:

@@ -474,3 +474,161 @@ def test_late_chunking_mismatch_error_names_d011() -> None:
     # Double-check that the message also names the strategy class explicitly,
     # so the failure mode is obvious even without consulting MEMORY.
     assert "LateChunkingStrategy" in str(exc_info.value)
+
+
+# ----------------------------------------------------------------------
+# #47: RetrievalRun.from_json / QueryResult.from_json round-trip parity
+# ----------------------------------------------------------------------
+
+from chunking_lab.metrics import QueryResult  # noqa: E402
+
+
+def _synthetic_run(with_per_query: bool = True) -> RetrievalRun:
+    per_query: tuple[QueryResult, ...] = ()
+    if with_per_query:
+        per_query = (
+            QueryResult(
+                query_id="q1",
+                expected_doc="apples.md",
+                expected_snippet="Gala variety",
+                retrieved_doc_ids_in_rank_order=("apples.md", "bears.md", "carbon.md"),
+                snippet_hits_in_rank_order=(True, False, False),
+            ),
+            QueryResult(
+                query_id="q2",
+                expected_doc="bears.md",
+                expected_snippet="hibernate",
+                retrieved_doc_ids_in_rank_order=("bears.md",),
+                snippet_hits_in_rank_order=(False,),
+            ),
+        )
+    return RetrievalRun(
+        strategy_name="fixed-size",
+        embedder_model="hash-cosmic",
+        dataset_version="v0",
+        n_queries=2,
+        n_chunks_total=42,
+        recall_at_k={1: 0.5, 3: 1.0, 5: 1.0},
+        snippet_hit_at_k={1: 0.5, 3: 0.5, 5: 0.5},
+        per_query=per_query,
+        wall_clock_ms=12.5,
+        notes=["embedder=hash-cosmic"],
+    )
+
+
+def test_query_result_from_json_round_trips_through_to_json_dict_shape() -> None:
+    qr = QueryResult(
+        query_id="q1",
+        expected_doc="apples.md",
+        expected_snippet="Gala variety",
+        retrieved_doc_ids_in_rank_order=("apples.md", "bears.md"),
+        snippet_hits_in_rank_order=(True, False),
+    )
+    # `to_json` lives on RetrievalRun; mirror its per-query dict shape here.
+    payload = {
+        "query_id": qr.query_id,
+        "expected_doc": qr.expected_doc,
+        "expected_snippet": qr.expected_snippet,
+        "retrieved_doc_ids_in_rank_order": list(qr.retrieved_doc_ids_in_rank_order),
+        "snippet_hits_in_rank_order": list(qr.snippet_hits_in_rank_order),
+    }
+    rebuilt = QueryResult.from_json(payload)
+    assert rebuilt == qr
+    # Lists on the wire must round-trip as tuples (frozen-dataclass invariant).
+    assert isinstance(rebuilt.retrieved_doc_ids_in_rank_order, tuple)
+    assert isinstance(rebuilt.snippet_hits_in_rank_order, tuple)
+
+
+def test_retrieval_run_from_json_round_trips_with_populated_per_query() -> None:
+    run = _synthetic_run(with_per_query=True)
+    rebuilt = RetrievalRun.from_json(run.to_json())
+    assert rebuilt == run
+    # Even after going through JSON-style dict, integer keys stay int.
+    assert all(isinstance(k, int) for k in rebuilt.recall_at_k)
+    assert all(isinstance(k, int) for k in rebuilt.snippet_hit_at_k)
+    # `per_query` is a tuple on the rebuilt instance.
+    assert isinstance(rebuilt.per_query, tuple)
+    assert all(isinstance(q, QueryResult) for q in rebuilt.per_query)
+
+
+def test_retrieval_run_from_json_round_trips_empty_per_query() -> None:
+    """A run with no per-query rows (e.g., the snapshot test path) must
+    round-trip cleanly — `per_query` collapses to an empty tuple."""
+    run = _synthetic_run(with_per_query=False)
+    rebuilt = RetrievalRun.from_json(run.to_json())
+    assert rebuilt == run
+    assert rebuilt.per_query == ()
+
+
+def test_retrieval_run_from_json_coerces_string_keys_back_to_int() -> None:
+    """`to_json` writes `{str(k): v}` for `recall_at_k` and
+    `snippet_hit_at_k`; the reader must coerce back so `run.recall_at_k[1]`
+    (an int lookup) works as written."""
+    payload = {
+        "strategy_name": "fixed-size",
+        "embedder_model": "hash-cosmic",
+        "dataset_version": "v0",
+        "n_queries": 0,
+        "n_chunks_total": 0,
+        "recall_at_k": {"1": 0.0, "3": 0.0, "5": 0.0},
+        "snippet_hit_at_k": {"1": 0.0, "3": 0.0, "5": 0.0},
+        "per_query": [],
+        "notes": [],
+        "wall_clock_ms": 0.0,
+    }
+    run = RetrievalRun.from_json(payload)
+    # Int lookup must succeed; string lookup must miss.
+    assert run.recall_at_k[1] == 0.0
+    assert run.snippet_hit_at_k[5] == 0.0
+    assert all(isinstance(k, int) for k in run.recall_at_k)
+
+
+def test_retrieval_run_from_json_defaults_missing_wall_clock_and_notes() -> None:
+    """Older committed JSONs predating D-009 may not carry
+    `wall_clock_ms` or `notes`. The reader defaults them to the
+    dataclass defaults, matching the pre-#47 hand-written test helper."""
+    payload = {
+        "strategy_name": "fixed-size",
+        "embedder_model": "hash-cosmic",
+        "dataset_version": "v0",
+        "n_queries": 0,
+        "n_chunks_total": 0,
+        "recall_at_k": {"1": 0.0},
+        "snippet_hit_at_k": {"1": 0.0},
+        "per_query": [],
+    }
+    run = RetrievalRun.from_json(payload)
+    assert run.wall_clock_ms == 0.0
+    assert run.notes == []
+
+
+def test_retrieval_run_from_json_raises_on_missing_required_key() -> None:
+    """If a required field is missing, fail loudly with a KeyError
+    naming the missing field — not silently fill it with a default."""
+    payload = {
+        # `strategy_name` deliberately absent.
+        "embedder_model": "hash-cosmic",
+        "dataset_version": "v0",
+        "n_queries": 0,
+        "n_chunks_total": 0,
+        "recall_at_k": {"1": 0.0},
+        "snippet_hit_at_k": {"1": 0.0},
+        "per_query": [],
+    }
+    with pytest.raises(KeyError, match="strategy_name"):
+        RetrievalRun.from_json(payload)
+
+
+def test_retrieval_run_from_json_loads_committed_canonical_jsons() -> None:
+    """Cross-check the on-disk canonical results files against the new
+    classmethod — proves the contract holds for the actually-committed
+    artifact shape, not just a synthetic one."""
+    results_dir = _REPO_ROOT / "results"
+    canonical = sorted(results_dir.glob("canonical__*.json"))
+    assert canonical, "expected committed canonical__*.json files under results/"
+    for path in canonical:
+        run = RetrievalRun.from_json(json.loads(path.read_text(encoding="utf-8")))
+        # Round-trip identity at the JSON level (key order + value shape).
+        assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(
+            json.loads(path.read_text(encoding="utf-8")), sort_keys=True
+        )
