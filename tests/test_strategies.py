@@ -235,6 +235,63 @@ def test_semantic_max_split_preserves_offsets():
 
 
 # ----------------------------------------------------------------------
+# #52 — the min-merge pass must not breach the max_chunk_chars hard ceiling.
+# ----------------------------------------------------------------------
+
+# Four short, topically-distinct sentences. With min_chunk_chars high enough
+# to force forward merges and max_chunk_chars just above one sentence, a
+# naive merge would chain sentences past the ceiling.
+_MERGE_CEILING_TEXT = (
+    "Postgres database configuration requires careful tuning of buffer settings. "
+    "The weather today is sunny and warm for the season. "
+    "Machine learning models need large training datasets. "
+    "Vector operations are fundamental to linear algebra. "
+)
+
+
+def test_semantic_merge_never_breaches_max_chunk_chars():
+    # Before #52, the forward merge (min_chunk_chars) ran after _emit_block and
+    # could combine chunks past the ceiling — here it produced 127- and 106-char
+    # chunks against a 100-char cap. The hard ceiling must win on conflict.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(),
+        distance_threshold=0.4,
+        min_chunk_chars=80,
+        max_chunk_chars=100,
+    )
+    chunks = s.chunk(_MERGE_CEILING_TEXT, source_doc_id="d")
+    assert chunks
+    assert all(len(c.text) <= 100 for c in chunks)
+    # Offset<->text contract still holds on the (now un-merged) capped path.
+    for c in chunks:
+        assert _MERGE_CEILING_TEXT[c.start_offset : c.end_offset] == c.text
+
+
+def test_semantic_merge_still_happens_when_it_fits():
+    # The ceiling guard must not disable legitimate merges: with a generous
+    # ceiling, too-small chunks still merge forward, yielding fewer chunks than
+    # the no-merge baseline (min_chunk_chars=0). Compare the two directly so the
+    # assertion is robust to how many sentences pair up.
+    unmerged = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(),
+        distance_threshold=0.4,
+        min_chunk_chars=0,
+        max_chunk_chars=10_000,
+    ).chunk(_MERGE_CEILING_TEXT, source_doc_id="d")
+    merged = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(),
+        distance_threshold=0.4,
+        min_chunk_chars=80,
+        max_chunk_chars=10_000,
+    ).chunk(_MERGE_CEILING_TEXT, source_doc_id="d")
+    # Merging genuinely reduced the chunk count (the guard didn't block it).
+    assert len(merged) < len(unmerged)
+    for c in merged:
+        assert len(c.text) <= 10_000
+        assert _MERGE_CEILING_TEXT[c.start_offset : c.end_offset] == c.text
+
+
+# ----------------------------------------------------------------------
 # LateChunkingStrategy
 # ----------------------------------------------------------------------
 

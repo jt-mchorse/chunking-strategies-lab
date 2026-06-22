@@ -193,11 +193,21 @@ class SemanticBoundaryStrategy:
             return chunks
         merged: list[Chunk] = []
         for c in chunks:
-            if merged and len(merged[-1].text) < self.min_chunk_chars:
+            # Merge a too-small chunk into its successor — but only when the
+            # combined span still fits the max_chunk_chars hard ceiling (#52).
+            # `max_chunk_chars` is documented as a hard ceiling (line 61-62)
+            # while `min_chunk_chars` is a soft "prefer not shorter than this",
+            # so on conflict the ceiling wins: if merging would breach it, leave
+            # the small chunk as-is rather than emit a chunk over the cap. The
+            # span is measured source-side (`c.end_offset - last.start_offset`),
+            # matching `_emit_block`'s cap check and equal to the length of the
+            # merged text slice, so the offset<->text contract (#50) holds.
+            if (
+                merged
+                and len(merged[-1].text) < self.min_chunk_chars
+                and (c.end_offset - merged[-1].start_offset) <= self.max_chunk_chars
+            ):
                 last = merged[-1]
-                # Rebuild the merged text from the source span so the merged
-                # chunk keeps the offset<->text contract (#50): the gap between
-                # `last` and `c` is whatever the source held between them.
                 merged[-1] = Chunk(
                     text=text[last.start_offset : c.end_offset],
                     start_offset=last.start_offset,
