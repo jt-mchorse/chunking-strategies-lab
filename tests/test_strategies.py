@@ -232,6 +232,46 @@ def test_semantic_max_split_preserves_offsets():
     assert len(chunks) > 1
     for c in chunks:
         assert _SEMANTIC_SPAN_TEXT[c.start_offset : c.end_offset] == c.text
+        # Hard ceiling holds on every emitted chunk (#54).
+        assert len(c.text) <= 30
+
+
+# ----------------------------------------------------------------------
+# #54 — a single sentence longer than max_chunk_chars must be char-split so the
+# documented hard ceiling holds (sentence-boundary splitting alone can't reduce
+# an oversized single sentence).
+# ----------------------------------------------------------------------
+
+# One short sentence, then one deliberately long single sentence (no internal
+# sentence punctuation), then a short one. The middle sentence alone is far
+# longer than the cap below.
+_OVERSIZED_SENTENCE_TEXT = (
+    "Intro line here. "
+    "This single run on sentence keeps going and going with many words and no "
+    "internal full stops so it cannot be reduced at sentence boundaries at all. "
+    "Outro line."
+)
+
+
+def test_semantic_oversized_single_sentence_respects_ceiling():
+    # Pre-#54 the middle sentence (well over 40 chars) was emitted as one chunk
+    # far above the cap, silently breaching the documented hard ceiling.
+    cap = 40
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=cap
+    )
+    chunks = s.chunk(_OVERSIZED_SENTENCE_TEXT, source_doc_id="d")
+    assert chunks
+    # The ceiling must hold on every chunk, including char-split pieces. This is
+    # the core regression catcher: pre-#54 the long middle sentence was emitted
+    # as one chunk ~75 chars, far over the 40-char cap.
+    assert all(len(c.text) <= cap for c in chunks)
+    # Offset<->text contract holds on every piece (#50 / D-005).
+    for c in chunks:
+        assert _OVERSIZED_SENTENCE_TEXT[c.start_offset : c.end_offset] == c.text
+    # The oversized sentence had to be char-split, so we get more chunks than the
+    # three source sentences — proof the split path actually ran.
+    assert len(chunks) >= 4
 
 
 # ----------------------------------------------------------------------

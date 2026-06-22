@@ -149,27 +149,19 @@ class SemanticBoundaryStrategy:
             )
             return
 
-        # Block too big — split at sentence boundaries. Span length is measured
-        # source-side (end - start) so the whitespace now carried in the chunk
-        # text is counted against the cap consistently.
+        # Block too big — greedily pack whole sentences into runs that stay
+        # within the cap. Span length is measured source-side (end - start) so
+        # the whitespace now carried in the chunk text is counted against the
+        # cap consistently. A single sentence longer than the cap can't be
+        # reduced at sentence granularity, so `_append_capped` char-splits it
+        # (mirroring StructureAwareStrategy's section fallback) — otherwise the
+        # documented hard ceiling (line 61-62) is silently breached.
         run_start: int | None = None
         run_end = block_start
         for sent, sent_start in sentences[start_idx:end_idx]:
             sent_end = sent_start + len(sent)
             if run_start is not None and (sent_end - run_start) > self.max_chunk_chars:
-                out.append(
-                    Chunk(
-                        text=text[run_start:run_end],
-                        start_offset=run_start,
-                        end_offset=run_end,
-                        source_doc_id=source_doc_id,
-                        strategy_name=self.name,
-                        metadata={
-                            "distance_threshold": self.distance_threshold,
-                            "size_capped": True,
-                        },
-                    )
-                )
+                self._append_capped(text, run_start, run_end, source_doc_id, out)
                 run_start = sent_start
                 run_end = sent_end
             else:
@@ -177,16 +169,45 @@ class SemanticBoundaryStrategy:
                     run_start = sent_start
                 run_end = sent_end
         if run_start is not None:
+            self._append_capped(text, run_start, run_end, source_doc_id, out)
+
+    def _append_capped(
+        self,
+        text: str,
+        start: int,
+        end: int,
+        source_doc_id: str,
+        out: list[Chunk],
+    ) -> None:
+        """Emit ``text[start:end]`` as one or more chunks, each within the
+        ``max_chunk_chars`` hard ceiling.
+
+        A run packed from whole sentences is normally already within the cap and
+        emits as a single chunk. But a single sentence longer than
+        ``max_chunk_chars`` cannot be reduced at sentence granularity, so it is
+        char-split into cap-sized pieces — the same fallback
+        ``StructureAwareStrategy`` uses for an oversized heading section — so the
+        documented hard ceiling holds even for an unsplittable-at-sentence span.
+        Offsets are sliced from ``text`` so ``text[start_offset:end_offset] ==
+        chunk.text`` (#50) is preserved on every piece.
+        """
+        cursor = start
+        while cursor < end:
+            piece_end = min(cursor + self.max_chunk_chars, end)
             out.append(
                 Chunk(
-                    text=text[run_start:run_end],
-                    start_offset=run_start,
-                    end_offset=run_end,
+                    text=text[cursor:piece_end],
+                    start_offset=cursor,
+                    end_offset=piece_end,
                     source_doc_id=source_doc_id,
                     strategy_name=self.name,
-                    metadata={"distance_threshold": self.distance_threshold},
+                    metadata={
+                        "distance_threshold": self.distance_threshold,
+                        "size_capped": True,
+                    },
                 )
             )
+            cursor = piece_end
 
     def _merge_too_small(self, text: str, chunks: list[Chunk], source_doc_id: str) -> list[Chunk]:
         if not chunks:

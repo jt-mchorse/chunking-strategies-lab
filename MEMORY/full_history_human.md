@@ -405,3 +405,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** no specific lead — the semantic/structure/fixed/recursive/late strategies are all well-hardened. `metrics.evaluate_strategy`'s recall@k is effectively hit-rate@k (one relevant doc per query, which is fine); score-tie ordering in the chunk ranking is deterministic insertion order. If a future session needs work here, the from_json symmetry across `metrics.RetrievalRun` (already has from_json) vs. consumers is the remaining surface.
+
+## 2026-06-22 — Issue #54: semantic — char-split a single sentence over the hard ceiling
+**Duration:** ~25 min · **Branch:** `session/2026-06-22-1541-issue-semantic-ceiling`
+
+- Found via a Phase A Explore-subagent sweep across all five strategies (the only real bug surfaced in an otherwise-saturated portfolio — python-async, vector-search, embedding-shootout, rag-kit, agent-orchestration and ai-app-integration all scanned clean this session). `SemanticBoundaryStrategy._emit_block` splits an over-cap block at *sentence* boundaries but never subdivides a single sentence longer than `max_chunk_chars`, so a run-on sentence was emitted whole — breaching the documented hard ceiling (line 61-62). This is distinct from #52, which was the `_merge_too_small` pass.
+- Fix: extracted a `_append_capped` helper that char-splits an emitted span exceeding the cap into cap-sized pieces, mirroring `StructureAwareStrategy`'s section fallback. Runs that already fit emit as one chunk (unchanged). Offsets are sliced from `text`, so the #50/D-005 offset↔text contract holds on every piece.
+- Added a test with a deliberately long single sentence asserting every chunk ≤ cap and the offset contract; tightened `test_semantic_max_split_preserves_offsets` to assert the ceiling. Verified the new test fails pre-fix. Suite 266 → 267, ruff clean. PR ready.
+
+**Why this work, this session:** the only open issue was a `priority:low` demo-capture task; this was a real contract violation in the semantic chunker's core split path, found by dogfooding. Higher value than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** the semantic/structure/fixed/recursive/late strategies are now well-hardened against the max-chunk-chars ceiling on both the merge (#52) and emit (#54) paths. No specific lead remains.
