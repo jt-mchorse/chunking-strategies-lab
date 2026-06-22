@@ -392,3 +392,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** a trailing semantic chunk shorter than `min_chunk_chars` with no successor to merge into still gets emitted (forward-only merge). Debatable-by-design; low-pri if a future session wants filler here.
+
+## 2026-06-22 — Issue #52: semantic chunker — min-merge must respect the max_chunk_chars hard ceiling
+**Duration:** ~25 min · **Branch:** `session/2026-06-22-1116-issue-52`
+
+- Found during Phase A (an Explore subagent flagged it after I'd cleared metrics/fixed/recursive/structure/late myself): `SemanticBoundaryStrategy` documents `max_chunk_chars` as a hard ceiling and `_emit_block` honors it, but the `min_chunk_chars` merge pass ran afterward and could merge a too-small chunk with its successor past the ceiling — and because merges chain greedily, the result grew well over it. Reproduced 127- and 106-char chunks against a 100-char cap.
+- Fix: on conflict the hard ceiling wins (`min` is a soft floor). `_merge_too_small` now merges only when the combined source span stays within `max_chunk_chars`, else leaves the small chunk as-is. Span measured source-side, so the offset↔text contract (#50) still holds.
+- 3 new tests (ceiling-never-breached + offset contract, merge-still-happens-when-it-fits via merged-vs-unmerged count). Suite 263 → 266, ruff clean. PR #53 ready.
+
+**Why this work, this session:** the portfolio is saturated (only binary demo-capture tasks open). This was a real contract violation in the core chunker — the merge step silently undid the ceiling guarantee `_emit_block` works to maintain — and was untested. Higher value than a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** no specific lead — the semantic/structure/fixed/recursive/late strategies are all well-hardened. `metrics.evaluate_strategy`'s recall@k is effectively hit-rate@k (one relevant doc per query, which is fine); score-tie ordering in the chunk ranking is deterministic insertion order. If a future session needs work here, the from_json symmetry across `metrics.RetrievalRun` (already has from_json) vs. consumers is the remaining surface.
