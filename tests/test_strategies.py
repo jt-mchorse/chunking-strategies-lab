@@ -175,6 +175,65 @@ def test_semantic_handles_single_sentence():
     assert len(chunks) == 1
 
 
+# Multi-sentence offset<->text contract (#50). `test_chunks_have_valid_offsets`
+# only ever produces single-sentence semantic chunks (every adjacent pair trips
+# threshold=0.4 under HashEmbedder), so the concatenation path went unchecked.
+_SEMANTIC_SPAN_TEXT = (
+    "Cats are small animals. Dogs are loyal companions. "
+    "The sky is blue today. Rain falls in spring."
+)
+
+
+def test_semantic_multi_sentence_block_preserves_offsets():
+    # threshold=2.0 → no boundaries → all four sentences land in ONE chunk,
+    # exercising the multi-sentence concatenation path.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=10_000
+    )
+    chunks = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")
+    assert len(chunks) == 1
+    c = chunks[0]
+    # The offset<->text contract every strategy is supposed to uphold.
+    assert _SEMANTIC_SPAN_TEXT[c.start_offset : c.end_offset] == c.text
+    # Inter-sentence whitespace is preserved (the bug dropped it).
+    assert " " in c.text
+    assert c.text == _SEMANTIC_SPAN_TEXT
+
+
+def test_semantic_snippet_spanning_sentence_boundary_is_retrievable():
+    # A snippet that straddles a sentence boundary (the space between two
+    # sentences) must survive into chunk.text — the whitespace-dropping bug
+    # made such a substring unmatchable, undercounting snippet-hit faithfulness.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=10_000
+    )
+    c = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")[0]
+    assert "animals. Dogs" in c.text
+
+
+def test_semantic_min_merge_preserves_offsets():
+    # min_chunk_chars forces a forward merge; the merged chunk must still
+    # satisfy source[start:end] == text.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=0.0, min_chunk_chars=40, max_chunk_chars=10_000
+    )
+    chunks = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")
+    assert len(chunks) >= 1
+    for c in chunks:
+        assert _SEMANTIC_SPAN_TEXT[c.start_offset : c.end_offset] == c.text
+
+
+def test_semantic_max_split_preserves_offsets():
+    # Small max_chunk_chars forces the size-capped split path within a block.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=30
+    )
+    chunks = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")
+    assert len(chunks) > 1
+    for c in chunks:
+        assert _SEMANTIC_SPAN_TEXT[c.start_offset : c.end_offset] == c.text
+
+
 # ----------------------------------------------------------------------
 # LateChunkingStrategy
 # ----------------------------------------------------------------------

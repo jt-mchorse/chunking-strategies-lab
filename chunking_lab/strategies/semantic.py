@@ -106,34 +106,42 @@ class SemanticBoundaryStrategy:
             # Find the next boundary at or beyond cursor.
             next_b = next((b for b in boundaries if b > cursor), len(sentences))
             # Build a chunk from sentences[cursor:next_b], honoring max_chunk_chars.
-            self._emit_block(sentences, cursor, next_b, source_doc_id, chunks)
+            self._emit_block(text, sentences, cursor, next_b, source_doc_id, chunks)
             cursor = next_b
 
         # Merge any chunk shorter than min_chunk_chars with its successor.
         if self.min_chunk_chars > 0:
-            chunks = self._merge_too_small(chunks, source_doc_id)
+            chunks = self._merge_too_small(text, chunks, source_doc_id)
         return chunks
 
     def _emit_block(
         self,
+        text: str,
         sentences: list[tuple[str, int]],
         start_idx: int,
         end_idx: int,
         source_doc_id: str,
         out: list[Chunk],
     ) -> None:
-        # Concatenate sentences[start_idx:end_idx], splitting if exceed max.
+        # Emit sentences[start_idx:end_idx] as a chunk, splitting if it exceeds
+        # max. Chunk text is sliced from the original `text` (not a join of the
+        # stripped sentence list) so inter-sentence whitespace is preserved and
+        # `text[start_offset:end_offset] == chunk.text` holds — the same
+        # offset<->text contract fixed/recursive uphold (#50). A join of the
+        # stripped sentences dropped the separating whitespace, which
+        # undercounted end_offset and broke the snippet-substring metric for
+        # passages spanning a sentence boundary.
         if start_idx >= end_idx:
             return
-        block_text = "".join(s for s, _ in sentences[start_idx:end_idx])
         block_start = sentences[start_idx][1]
+        block_end = sentences[end_idx - 1][1] + len(sentences[end_idx - 1][0])
 
-        if len(block_text) <= self.max_chunk_chars:
+        if (block_end - block_start) <= self.max_chunk_chars:
             out.append(
                 Chunk(
-                    text=block_text,
+                    text=text[block_start:block_end],
                     start_offset=block_start,
-                    end_offset=block_start + len(block_text),
+                    end_offset=block_end,
                     source_doc_id=source_doc_id,
                     strategy_name=self.name,
                     metadata={"distance_threshold": self.distance_threshold},
@@ -141,16 +149,19 @@ class SemanticBoundaryStrategy:
             )
             return
 
-        # Block too big — split at sentence boundaries.
-        running = ""
-        running_start = block_start
+        # Block too big — split at sentence boundaries. Span length is measured
+        # source-side (end - start) so the whitespace now carried in the chunk
+        # text is counted against the cap consistently.
+        run_start: int | None = None
+        run_end = block_start
         for sent, sent_start in sentences[start_idx:end_idx]:
-            if running and len(running) + len(sent) > self.max_chunk_chars:
+            sent_end = sent_start + len(sent)
+            if run_start is not None and (sent_end - run_start) > self.max_chunk_chars:
                 out.append(
                     Chunk(
-                        text=running,
-                        start_offset=running_start,
-                        end_offset=running_start + len(running),
+                        text=text[run_start:run_end],
+                        start_offset=run_start,
+                        end_offset=run_end,
                         source_doc_id=source_doc_id,
                         strategy_name=self.name,
                         metadata={
@@ -159,35 +170,38 @@ class SemanticBoundaryStrategy:
                         },
                     )
                 )
-                running = sent
-                running_start = sent_start
+                run_start = sent_start
+                run_end = sent_end
             else:
-                if not running:
-                    running_start = sent_start
-                running += sent
-        if running:
+                if run_start is None:
+                    run_start = sent_start
+                run_end = sent_end
+        if run_start is not None:
             out.append(
                 Chunk(
-                    text=running,
-                    start_offset=running_start,
-                    end_offset=running_start + len(running),
+                    text=text[run_start:run_end],
+                    start_offset=run_start,
+                    end_offset=run_end,
                     source_doc_id=source_doc_id,
                     strategy_name=self.name,
                     metadata={"distance_threshold": self.distance_threshold},
                 )
             )
 
-    def _merge_too_small(self, chunks: list[Chunk], source_doc_id: str) -> list[Chunk]:
+    def _merge_too_small(self, text: str, chunks: list[Chunk], source_doc_id: str) -> list[Chunk]:
         if not chunks:
             return chunks
         merged: list[Chunk] = []
         for c in chunks:
             if merged and len(merged[-1].text) < self.min_chunk_chars:
                 last = merged[-1]
+                # Rebuild the merged text from the source span so the merged
+                # chunk keeps the offset<->text contract (#50): the gap between
+                # `last` and `c` is whatever the source held between them.
                 merged[-1] = Chunk(
-                    text=last.text + c.text,
+                    text=text[last.start_offset : c.end_offset],
                     start_offset=last.start_offset,
-                    end_offset=last.start_offset + len(last.text + c.text),
+                    end_offset=c.end_offset,
                     source_doc_id=source_doc_id,
                     strategy_name=self.name,
                     metadata=last.metadata,
