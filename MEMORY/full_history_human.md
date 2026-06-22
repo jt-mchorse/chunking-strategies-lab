@@ -379,3 +379,16 @@ open and ready.
 **Open questions / blockers:** none. 253 → 260 pytest passes. PR #48 merged.
 
 **Next session:** the metrics module's serialization contract is now complete (`to_json` ↔ `from_json` round-trip, locked by 7 new tests). `QueryResult` and `RetrievalRun` remain `chunking_lab.metrics`-internal (not re-exported in `chunking_lab/__init__.py`); promoting them to the top-level API is a separate decision and not blocked. If similar asymmetries exist in sibling repos' \`*_run.to_json()\` surfaces (rag-production-kit `PhaseTimings`, llm-eval-harness `RunRecord`, etc.), the from_json propagation arc is a natural sibling pattern for future sessions.
+
+## 2026-06-22 — Issue #50: semantic chunker preserves inter-sentence whitespace (offset↔text contract)
+**Duration:** ~30 min · **Branch:** `session/2026-06-22-0430-issue-50`
+
+- Found by reading `semantic.py`: `_split_sentences_with_offsets` drops the whitespace between sentences, and `_emit_block` built multi-sentence chunks by joining those stripped sentences while computing `end_offset` from the shortened length. So for any chunk spanning 2+ sentences, `source[start_offset:end_offset] != chunk.text` and `end_offset` undercounted the true span — unlike fixed/recursive, which uphold that contract. Demonstrated empirically (a 4-sentence single block reported `end_offset=92` for a 95-char span, truncating the last word).
+- The existing `test_chunks_have_valid_offsets` *already* asserts the contract for semantic (its comment even claims semantic preserves source text), but its data + `threshold=0.4` only ever yields single-sentence semantic chunks under `HashEmbedder`, so the concatenation path was never exercised — false confidence.
+- Fix: thread the source `text` into `_emit_block` / `_merge_too_small` and slice each chunk's text from the original (`text[start:end]`), preserving whitespace, across the small-block / max-split / min-merge paths. This also repairs the snippet-hit faithfulness metric, which couldn't match a snippet straddling a sentence boundary against whitespace-stripped text. 4 new tests; suite 260 → 264, no snapshot ripple. PR #51 ready.
+
+**Why this work, this session:** the portfolio is saturated; this was a real correctness bug that the test suite *claimed* was covered, plus a faithfulness-metric undercount in exactly the multi-sentence-passage case the lab exists to measure — high value, not a synthetic fill.
+
+**Open questions / blockers:** none.
+
+**Next session:** a trailing semantic chunk shorter than `min_chunk_chars` with no successor to merge into still gets emitted (forward-only merge). Debatable-by-design; low-pri if a future session wants filler here.
