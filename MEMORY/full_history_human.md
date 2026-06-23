@@ -418,3 +418,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** the semantic/structure/fixed/recursive/late strategies are now well-hardened against the max-chunk-chars ceiling on both the merge (#52) and emit (#54) paths. No specific lead remains.
+
+## 2026-06-23 — Issue #56: structure-aware preamble bypassed max_chunk_chars
+**Duration:** ~25 min · **Branch:** `session/2026-06-23-0324-issue-56`
+
+- Fixed a monster-chunk bug in `StructureAwareStrategy`. Content before the first markdown heading (a title block / abstract / intro) was emitted as a single chunk with no length check, while heading-bounded sections were correctly sliced to `max_chunk_chars`. A long lead-in therefore produced one oversized chunk — the exact thing the cap exists to prevent.
+- Extracted a `_emit_capped` helper (one chunk if within the ceiling, else cap-sized pieces with `piece_idx`) and routed both the preamble and the sections through it. The section path's behavior is reproduced exactly, so existing structure tests stay green.
+- Added `test_structure_caps_oversized_preamble` (every chunk ≤ cap, offset↔text contract #50 holds, preamble content reconstructed). Red pre-fix, green post-fix. Suite 267 → 268, ruff clean.
+
+**Why this work, this session:** found by the night session's Phase A parallel dogfood sweep; a real correctness bug reachable through the public `chunk()` API on any markdown doc with prose before its first heading (which the committed corpus contains).
+
+**Open questions / blockers:** none.
+
+**Next session:** semantic chunker inter-sentence whitespace at forced split boundaries was deliberately left out of scope (separate strategy).
