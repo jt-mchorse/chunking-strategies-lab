@@ -443,6 +443,25 @@ def test_structure_rejects_invalid_heading_level():
         StructureAwareStrategy(max_heading_level=0)
 
 
+def test_structure_caps_oversized_preamble():
+    # Content before the first heading (a title block / abstract / intro) must
+    # honor max_chunk_chars just like heading-bounded sections do. Pre-fix the
+    # preamble was emitted as one 60-char chunk, 3x the cap.
+    s = StructureAwareStrategy(max_chunk_chars=20)
+    text = "P" * 60 + "\n# H\n\nbody"
+    chunks = s.chunk(text)
+    # Ceiling honored everywhere, including the preamble pieces.
+    assert all(len(c.text) <= 20 for c in chunks)
+    # The offset<->text contract (#50) holds for every chunk.
+    assert all(text[c.start_offset : c.end_offset] == c.text for c in chunks)
+    # The preamble is split, not dropped: its pieces reconstruct the lead-in
+    # and carry the preamble title + piece_idx.
+    preamble_pieces = [c for c in chunks if c.metadata.get("title") == "<preamble>"]
+    assert len(preamble_pieces) >= 3
+    assert "".join(c.text for c in preamble_pieces).startswith("P" * 60)
+    assert [c.metadata["piece_idx"] for c in preamble_pieces] == list(range(len(preamble_pieces)))
+
+
 # ----------------------------------------------------------------------
 # Run-time benchmark across the committed corpus (acceptance criterion 3)
 # ----------------------------------------------------------------------
