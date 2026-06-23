@@ -444,3 +444,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** once #57 (the #56 preamble fix) merges, unify the no-headings fallback with its `_emit_capped` helper to remove the small inline duplication.
+
+## 2026-06-23 — Issue #60: validate_queries skipped the duplicate-id check on field-error rows
+**Duration:** ~25 min · **Branch:** `session/2026-06-23-1930-issue-60`
+
+- A Phase A dogfood sweep of the validate path (steered away from the already-hardened semantic/structure strategies) found that `validate_queries` early-`continue`d on any field finding before the duplicate-id check. A row that was both a duplicate id and field-invalid reported only the field error, and the duplicated id was never recorded — so a later clean reuse also went unflagged. That broke the documented collecting-mode "every finding in one pass" contract.
+- Fixed by running the dup check independently, guarded on a valid `id`, registering valid ids even on field-invalid rows, and counting `n_valid` only for fully-clean rows. Added both-on-one-row and cross-row-shadowing tests. Suite 270 → 272, ruff clean.
+
+**Why this work, this session:** fourth dogfood find of the DAY session; the portfolio's only open `priority:high` issues were operator-blocked or `decision-revisit` security work, so fresh dogfood finds on priority-tier repos were the highest-value autonomous work.
+
+**Open questions / blockers:** none.
+
+**Next session:** none specific to this issue.
