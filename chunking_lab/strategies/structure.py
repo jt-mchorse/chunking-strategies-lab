@@ -75,56 +75,73 @@ class StructureAwareStrategy:
             ]
 
         chunks: list[Chunk] = []
-        # Possibly emit a leading chunk before the first heading.
-        if headings[0][0] > 0:
-            preamble = text[: headings[0][0]]
-            if preamble.strip():
-                chunks.append(
-                    Chunk(
-                        text=preamble,
-                        start_offset=0,
-                        end_offset=len(preamble),
-                        source_doc_id=source_doc_id,
-                        strategy_name=self.name,
-                        metadata={"title": "<preamble>", "heading_level": None},
-                    )
-                )
+        # Possibly emit a leading chunk before the first heading. Route it
+        # through the same cap-aware emitter as the sections so a long
+        # preamble (a title block / abstract / intro before the first `#`)
+        # can't bypass max_chunk_chars and produce a monster chunk.
+        if headings[0][0] > 0 and text[: headings[0][0]].strip():
+            self._emit_capped(
+                text,
+                0,
+                headings[0][0],
+                {"title": "<preamble>", "heading_level": None},
+                chunks,
+                source_doc_id,
+            )
 
         for i, (h_start, _h_end, level, title) in enumerate(headings):
             section_end = headings[i + 1][0] if i + 1 < len(headings) else len(text)
-            section_text = text[h_start:section_end]
-            if len(section_text) <= self.max_chunk_chars:
-                chunks.append(
-                    Chunk(
-                        text=section_text,
-                        start_offset=h_start,
-                        end_offset=section_end,
-                        source_doc_id=source_doc_id,
-                        strategy_name=self.name,
-                        metadata={"title": title, "heading_level": level},
-                    )
-                )
-            else:
-                # Section too long — slice into max_chunk_chars-sized pieces
-                # but keep the title on every piece so retrieval still has it.
-                cursor = h_start
-                piece_idx = 0
-                while cursor < section_end:
-                    piece_end = min(cursor + self.max_chunk_chars, section_end)
-                    chunks.append(
-                        Chunk(
-                            text=text[cursor:piece_end],
-                            start_offset=cursor,
-                            end_offset=piece_end,
-                            source_doc_id=source_doc_id,
-                            strategy_name=self.name,
-                            metadata={
-                                "title": title,
-                                "heading_level": level,
-                                "piece_idx": piece_idx,
-                            },
-                        )
-                    )
-                    cursor = piece_end
-                    piece_idx += 1
+            self._emit_capped(
+                text,
+                h_start,
+                section_end,
+                {"title": title, "heading_level": level},
+                chunks,
+                source_doc_id,
+            )
         return chunks
+
+    def _emit_capped(
+        self,
+        text: str,
+        start: int,
+        end: int,
+        base_meta: dict,
+        chunks: list[Chunk],
+        source_doc_id: str,
+    ) -> None:
+        """Emit chunks for the span ``text[start:end]`` without ever exceeding
+        ``max_chunk_chars``. A span within the ceiling becomes one chunk; a
+        longer span is sliced into max_chunk_chars-sized pieces, each tagged
+        with ``piece_idx`` and carrying ``base_meta`` so retrieval keeps the
+        title on every piece."""
+        span = text[start:end]
+        if len(span) <= self.max_chunk_chars:
+            chunks.append(
+                Chunk(
+                    text=span,
+                    start_offset=start,
+                    end_offset=end,
+                    source_doc_id=source_doc_id,
+                    strategy_name=self.name,
+                    metadata=dict(base_meta),
+                )
+            )
+            return
+        # Span too long — slice into max_chunk_chars-sized pieces.
+        cursor = start
+        piece_idx = 0
+        while cursor < end:
+            piece_end = min(cursor + self.max_chunk_chars, end)
+            chunks.append(
+                Chunk(
+                    text=text[cursor:piece_end],
+                    start_offset=cursor,
+                    end_offset=piece_end,
+                    source_doc_id=source_doc_id,
+                    strategy_name=self.name,
+                    metadata={**base_meta, "piece_idx": piece_idx},
+                )
+            )
+            cursor = piece_end
+            piece_idx += 1
