@@ -58,21 +58,45 @@ class StructureAwareStrategy:
             if len(m.group(1)) <= self.max_heading_level
         ]
         if not headings:
-            # No headings — fallback: one chunk per document, title = first
-            # non-empty line.
+            # No headings — fallback: title = first non-empty line. Still honor
+            # max_chunk_chars: a long unheaded document (plain text, Setext
+            # `===`/`---` headings or RST that the ATX-only _HEADING_RE doesn't
+            # match) must not bypass the ceiling and emit one monster chunk.
+            # Mirrors the cap logic the heading-bounded path uses; a follow-up
+            # can unify both through `_emit_capped` once #56's PR lands.
             first_line = next(
                 (line.strip() for line in text.splitlines() if line.strip()), source_doc_id
             )
-            return [
-                Chunk(
-                    text=text,
-                    start_offset=0,
-                    end_offset=len(text),
-                    source_doc_id=source_doc_id,
-                    strategy_name=self.name,
-                    metadata={"title": first_line, "heading_level": None},
+            base_meta = {"title": first_line, "heading_level": None}
+            if len(text) <= self.max_chunk_chars:
+                return [
+                    Chunk(
+                        text=text,
+                        start_offset=0,
+                        end_offset=len(text),
+                        source_doc_id=source_doc_id,
+                        strategy_name=self.name,
+                        metadata=dict(base_meta),
+                    )
+                ]
+            fallback_chunks: list[Chunk] = []
+            cursor = 0
+            piece_idx = 0
+            while cursor < len(text):
+                piece_end = min(cursor + self.max_chunk_chars, len(text))
+                fallback_chunks.append(
+                    Chunk(
+                        text=text[cursor:piece_end],
+                        start_offset=cursor,
+                        end_offset=piece_end,
+                        source_doc_id=source_doc_id,
+                        strategy_name=self.name,
+                        metadata={**base_meta, "piece_idx": piece_idx},
+                    )
                 )
-            ]
+                cursor = piece_end
+                piece_idx += 1
+            return fallback_chunks
 
         chunks: list[Chunk] = []
         # Possibly emit a leading chunk before the first heading. Route it

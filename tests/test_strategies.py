@@ -416,6 +416,28 @@ def test_structure_falls_back_for_unheaded_text():
     assert chunks[0].metadata["heading_level"] is None
 
 
+def test_structure_caps_oversized_unheaded_fallback():
+    # A document with NO ATX (#) heading — plain text, or Setext-style underline
+    # headings the ATX regex doesn't match — must still honor max_chunk_chars on
+    # the fallback path, not just on heading-bounded sections (#56 fixed the
+    # preamble path; this is the no-headings fallback).
+    s = StructureAwareStrategy(max_chunk_chars=100)
+    text = "Introduction\n============\n\n" + ("Body sentence here. " * 30)
+    chunks = s.chunk(text)
+    assert all(len(c.text) <= 100 for c in chunks)
+    assert all(text[c.start_offset : c.end_offset] == c.text for c in chunks)  # offset<->text (#50)
+    assert "".join(c.text for c in chunks) == text  # nothing dropped
+    assert all(c.metadata["heading_level"] is None for c in chunks)
+
+
+def test_structure_unheaded_short_doc_stays_single_chunk():
+    # Guard against over-fragmentation: a short unheaded doc stays one chunk.
+    s = StructureAwareStrategy(max_chunk_chars=1000)
+    chunks = s.chunk("just some plain text\nwith no headings")
+    assert len(chunks) == 1
+    assert chunks[0].metadata["heading_level"] is None
+
+
 def test_structure_rejects_invalid_heading_level():
     with pytest.raises(ValueError, match="max_heading_level"):
         StructureAwareStrategy(max_heading_level=0)

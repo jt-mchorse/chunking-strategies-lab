@@ -431,3 +431,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** semantic chunker inter-sentence whitespace at forced split boundaries was deliberately left out of scope (separate strategy).
+
+---
+## 2026-06-23 — Issue #58: structure-aware no-headings fallback bypassed max_chunk_chars
+**Duration:** ~20 min · **Branch:** `session/2026-06-23-0431-issue-58`
+
+- Fixed a second monster-chunk path in `StructureAwareStrategy` (companion to #56). When a document has no ATX `#` headings, the fallback emitted the whole document as one chunk regardless of `max_chunk_chars`, so an unheaded doc (plain text, Setext `===`/`---` or RST headings the ATX regex doesn't match) produced a monster chunk.
+- Routed the fallback through the same cap logic (one chunk if within the ceiling, else cap-sized pieces with `piece_idx`); short unheaded docs stay a single chunk. Added an oversized-fallback test + a short-doc guard. Red pre-fix, green post-fix. Suite 267 → 269, ruff clean.
+
+**Why this work, this session:** found by a different-angle second pass in the night session's Phase A dogfood wave; a distinct code path from #56, reachable via the public `chunk()` API on any unheaded corpus document.
+
+**Open questions / blockers:** none.
+
+**Next session:** once #57 (the #56 preamble fix) merges, unify the no-headings fallback with its `_emit_capped` helper to remove the small inline duplication.
