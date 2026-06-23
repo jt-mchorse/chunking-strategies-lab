@@ -160,6 +160,50 @@ def test_duplicate_id_reports_second_occurrence(tmp_path: Path) -> None:
     assert "line 1" in finding.reason
 
 
+def test_duplicate_id_and_field_error_on_same_row_both_reported(tmp_path: Path) -> None:
+    # Collecting mode must surface every finding in one pass: a row that is both
+    # a duplicate id and field-invalid used to report only the field error
+    # (early continue skipped the dup check). Both must now appear.
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            _valid_row("dup"),
+            {**_valid_row("dup"), "question": ""},  # duplicate id AND empty_question
+        ],
+    )
+    report = validate_queries(p)
+    assert not report.ok
+    assert report.n_rows == 2
+    assert report.n_valid == 1
+    codes = {f.code for f in report.findings}
+    assert codes == {"empty_question", "duplicate_id"}
+    # Order within the row: field findings first, then the duplicate-id finding.
+    row2 = [f for f in report.findings if f.line_no == 2]
+    assert [f.code for f in row2] == ["empty_question", "duplicate_id"]
+
+
+def test_valid_id_on_field_invalid_row_still_shadows_later_reuse(tmp_path: Path) -> None:
+    # A row with a valid id but another field error still registers its id, so a
+    # later clean row reusing it is flagged as a duplicate (the id collision is
+    # real regardless of the first row's unrelated field problem).
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            {**_valid_row("dup"), "question": ""},  # valid id "dup", empty_question
+            _valid_row("dup"),  # clean row reusing the id
+        ],
+    )
+    report = validate_queries(p)
+    assert not report.ok
+    assert report.n_valid == 0
+    dup = [f for f in report.findings if f.code == "duplicate_id"]
+    assert len(dup) == 1
+    assert dup[0].line_no == 2
+    assert "line 1" in dup[0].reason
+
+
 def test_empty_file_surfaces_empty_finding(tmp_path: Path) -> None:
     p = tmp_path / "queries.jsonl"
     p.write_text("", encoding="utf-8")

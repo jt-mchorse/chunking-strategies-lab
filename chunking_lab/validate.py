@@ -157,24 +157,38 @@ def validate_queries(
                 continue
 
             row_findings = _validate_row(obj, line_no)
-            if row_findings:
-                findings.extend(row_findings)
-                continue
+            findings.extend(row_findings)
 
-            qid = obj["id"]
-            if qid in seen_ids:
-                findings.append(
-                    ValidationFinding(
-                        line_no=line_no,
-                        reason=(
-                            f"duplicate id {qid!r}; first seen at line "
-                            f"{seen_ids[qid]}; query id must be unique within a file"
-                        ),
-                        code="duplicate_id",
+            # The duplicate-id check is independent of the other field checks:
+            # a duplicate id is a real, separate finding even when the row also
+            # has (say) an empty question, and collecting mode must surface every
+            # finding in one pass. Run it whenever the id field is itself valid
+            # (present, string, non-empty) — a missing/empty/non-string id is
+            # already reported by `_validate_row`, so guarding here avoids a
+            # KeyError and avoids registering a junk `seen_ids` entry. A valid id
+            # is recorded even when the row has other errors, so a later row
+            # reusing it is still flagged.
+            row_has_duplicate = False
+            id_value = obj.get("id")
+            if isinstance(id_value, str) and id_value != "":
+                if id_value in seen_ids:
+                    row_has_duplicate = True
+                    findings.append(
+                        ValidationFinding(
+                            line_no=line_no,
+                            reason=(
+                                f"duplicate id {id_value!r}; first seen at line "
+                                f"{seen_ids[id_value]}; query id must be unique within a file"
+                            ),
+                            code="duplicate_id",
+                        )
                     )
-                )
+                else:
+                    seen_ids[id_value] = line_no
+
+            # Only a fully clean row proceeds to the corpus check and n_valid.
+            if row_findings or row_has_duplicate:
                 continue
-            seen_ids[qid] = line_no
 
             if corpus_root is not None:
                 expected_doc = obj["expected_doc"]
