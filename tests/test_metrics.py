@@ -619,6 +619,39 @@ def test_retrieval_run_from_json_raises_on_missing_required_key() -> None:
         RetrievalRun.from_json(payload)
 
 
+# Issue #62: recall@k / snippet-hit@k are documented as floats in [0, 1].
+# from_json promised a loud failure mode but only validated keys, not values —
+# a hand-edited / corrupt result file could load inf/NaN/out-of-range silently
+# and poison the strategy comparison. Now validated on the value axis too.
+@pytest.mark.parametrize("metric", ["recall_at_k", "snippet_hit_at_k"])
+@pytest.mark.parametrize(
+    "bad",
+    [float("inf"), float("-inf"), float("nan"), -0.5, 1.5],
+)
+def test_retrieval_run_from_json_rejects_corrupt_metric_value(metric: str, bad: float) -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload[metric] = {"1": bad}
+    with pytest.raises(ValueError, match=rf"{metric}\[1\] must be"):
+        RetrievalRun.from_json(payload)
+
+
+def test_retrieval_run_from_json_rejects_non_numeric_metric_value() -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["recall_at_k"] = {"1": "0.5"}
+    with pytest.raises(ValueError, match=r"recall_at_k\[1\] must be a number"):
+        RetrievalRun.from_json(payload)
+
+
+def test_retrieval_run_from_json_accepts_inclusive_zero_and_one_boundaries() -> None:
+    # The [0, 1] check is inclusive: a perfect (1.0) or zero (0.0) metric is valid.
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["recall_at_k"] = {"1": 0.0, "3": 1.0}
+    payload["snippet_hit_at_k"] = {"1": 0.0, "3": 1.0}
+    run = RetrievalRun.from_json(payload)
+    assert run.recall_at_k == {1: 0.0, 3: 1.0}
+    assert run.snippet_hit_at_k == {1: 0.0, 3: 1.0}
+
+
 def test_retrieval_run_from_json_loads_committed_canonical_jsons() -> None:
     """Cross-check the on-disk canonical results files against the new
     classmethod — proves the contract holds for the actually-committed
