@@ -175,6 +175,44 @@ def test_semantic_handles_single_sentence():
     assert len(chunks) == 1
 
 
+# Issue #64: the len(sentences)==1 early-return path bypassed max_chunk_chars
+# entirely (the #54 fix only hardened the multi-sentence _emit_block path, which
+# this branch never reaches). A true single-sentence document — one with no
+# terminal-punctuation-then-whitespace boundary — longer than the cap was emitted
+# as one oversized chunk, silently breaching the documented hard ceiling.
+def test_semantic_single_sentence_respects_ceiling():
+    cap = 10
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(dim=8),
+        distance_threshold=0.4,
+        min_chunk_chars=0,
+        max_chunk_chars=cap,
+    )
+    text = "A" * 50  # one "sentence": no .!? boundary for the splitter
+    chunks = s.chunk(text, source_doc_id="d")
+    # The hard ceiling must hold on every char-split piece.
+    assert all(len(c.text) <= cap for c in chunks)
+    assert len(chunks) == 5  # 50 / 10
+    # Offset<->text contract holds on every piece, and they reconstruct the input.
+    for c in chunks:
+        assert text[c.start_offset : c.end_offset] == c.text
+    assert "".join(c.text for c in chunks) == text
+    # Char-split pieces carry the size_capped marker.
+    assert all(c.metadata.get("size_capped") for c in chunks)
+
+
+def test_semantic_within_cap_single_sentence_unchanged():
+    # Regression guard: a single sentence within the cap stays one chunk with the
+    # plain {distance_threshold} metadata — no spurious size_capped marker.
+    s = SemanticBoundaryStrategy(embedder=HashEmbedder(), distance_threshold=0.4, min_chunk_chars=0)
+    text = "Just one short sentence with no terminator"
+    chunks = s.chunk(text, source_doc_id="d")
+    assert len(chunks) == 1
+    assert chunks[0].text == text
+    assert "size_capped" not in chunks[0].metadata
+    assert chunks[0].metadata["distance_threshold"] == 0.4
+
+
 # Multi-sentence offset<->text contract (#50). `test_chunks_have_valid_offsets`
 # only ever produces single-sentence semantic chunks (every adjacent pair trips
 # threshold=0.4 under HashEmbedder), so the concatenation path went unchecked.
