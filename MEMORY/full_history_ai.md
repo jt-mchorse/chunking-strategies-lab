@@ -716,3 +716,25 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-24T19:20Z
+duration_min: 25
+issue: 66
+focus: cosine_helpers_non_finite_component_guard_semantic_distance_plus_metrics_similarity
+phase: day_session_phase_b_iteration_2
+delta:
+  files_changed: 2 # chunking_lab/strategies/semantic.py + chunking_lab/metrics.py
+  files_added: 1   # tests/test_cosine_finiteness.py
+  tests_added: 13  # nan/inf/-inf in either vector raise for both helpers + finite-unchanged + zero-norm-fallback regression guards
+context_for_next_session:
+  - two_sibling_cosine_seams_both_guarded_zero_norm_but_not_non_finite_components_strategies_semantic_cosine_distance_and_metrics_cosine_same_defect_class
+  - semantic_path_non_finite_dist_makes_dist_gte_distance_threshold_silently_false_boundary_suppressed_chunk_under_segmented_metrics_path_non_finite_sim_poisons_scored_sort_silently_corrupts_recall_at_k_snippet_hit_at_k_same_sorted_with_nan_failure_as_rag_kit_telemetry_80
+  - byo_embedder_protocol_minilm_or_custom_normalization_divide_by_zero_inf_overflow_nan_poisoned_model_reachable
+  - fix_check_result_finiteness_after_existing_zero_norm_guard_in_each_helper_raise_valueerror_not_fallback_because_only_line_of_defense_no_upstream_seam_validation_matches_cost_optimizer_88_cosine_result_check_but_raising
+  - direct_siblings_cost_optimizer_88_validate_embedding_plus_cosine_guard_and_rag_production_kit_82_to_pgvector_finiteness_both_in_same_run_finiteness_arc_also_62_retrievalrun_from_json_here
+  - prior_session_64_close_flagged_metrics_cosine_tie_ordering_determinism_as_runner_up_this_fix_is_adjacent_finiteness_not_tie_determinism_tie_determinism_still_open_as_minor_followup
+  - full_suite_green_ruff_clean_13_new_tests
+decisions_made: []
+followups: []
+---
