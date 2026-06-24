@@ -45,7 +45,24 @@ def _cosine_distance(a: list[float], b: list[float]) -> float:
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
         return 1.0
-    return 1.0 - (dot / (na * nb))
+    dist = 1.0 - (dot / (na * nb))
+    # The zero-norm degenerate input is handled above, but a non-finite
+    # (NaN/±Inf) component in `a`/`b` slips that guard and makes `dist`
+    # non-finite (#66). `SemanticBoundaryStrategy.chunk` then evaluates
+    # `dist >= distance_threshold`, which is silently False for a NaN, so the
+    # topic boundary is suppressed and the chunk is silently under-segmented.
+    # `Embedder` is a BYO Protocol (MiniLM or custom), so a normalization
+    # divide-by-zero / Inf overflow / NaN-poisoned model output can hand back
+    # such a component. This helper is the only line of defense (no upstream
+    # seam validation), so fail loud rather than return a fallback that would
+    # hide the poison — the result-finiteness check llm-cost-optimizer's
+    # cosine() uses (#88), but raising. Sibling of rag-production-kit #82.
+    if not math.isfinite(dist):
+        raise ValueError(
+            "non-finite cosine distance from a NaN/Inf embedding component; "
+            "the embedder returned a non-finite vector"
+        )
+    return dist
 
 
 @dataclass
