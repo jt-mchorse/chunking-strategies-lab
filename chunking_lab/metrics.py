@@ -63,6 +63,26 @@ class QueryResult:
         )
 
 
+def _validate_metric_map(name: str, mapping: dict[int, float]) -> None:
+    """Reject corrupt metric values on the read path.
+
+    ``recall_at_k`` / ``snippet_hit_at_k`` are proportions in ``[0, 1]``
+    (see :class:`RetrievalRun`). A hand-edited or externally-generated
+    result file can carry a non-finite (``NaN``/``±Inf``) or out-of-range
+    value; loaded silently, a ``NaN`` sorts unpredictably and an
+    out-of-range ``recall@k`` can crown the wrong strategy in the
+    comparison. Fail loud here, matching the loud-key contract of
+    ``from_json`` and the loader-finiteness guards in sibling repos.
+    """
+    for k, v in mapping.items():
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(f"{name}[{k}] must be a number; got {v!r}")
+        if not math.isfinite(v):
+            raise ValueError(f"{name}[{k}] must be finite; got {v!r}")
+        if not 0.0 <= v <= 1.0:
+            raise ValueError(f"{name}[{k}] must be in [0, 1]; got {v!r}")
+
+
 @dataclass(frozen=True)
 class RetrievalRun:
     """Aggregate output of `evaluate_strategy`.
@@ -123,16 +143,22 @@ class RetrievalRun:
         (pre-D-009) continue to load cleanly.
 
         Raises ``KeyError`` with the missing field name when a
-        required key is absent — the failure mode is loud, not silent.
+        required key is absent, and ``ValueError`` when a metric value
+        is non-numeric, non-finite, or outside ``[0, 1]`` — the failure
+        mode is loud, not silent, on both the key and the value axis.
         """
+        recall = {int(k): v for k, v in payload["recall_at_k"].items()}
+        snippet = {int(k): v for k, v in payload["snippet_hit_at_k"].items()}
+        _validate_metric_map("recall_at_k", recall)
+        _validate_metric_map("snippet_hit_at_k", snippet)
         return cls(
             strategy_name=payload["strategy_name"],
             embedder_model=payload["embedder_model"],
             dataset_version=payload["dataset_version"],
             n_queries=payload["n_queries"],
             n_chunks_total=payload["n_chunks_total"],
-            recall_at_k={int(k): v for k, v in payload["recall_at_k"].items()},
-            snippet_hit_at_k={int(k): v for k, v in payload["snippet_hit_at_k"].items()},
+            recall_at_k=recall,
+            snippet_hit_at_k=snippet,
             per_query=tuple(QueryResult.from_json(q) for q in payload.get("per_query", ())),
             wall_clock_ms=payload.get("wall_clock_ms", 0.0),
             notes=list(payload.get("notes", [])),

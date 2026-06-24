@@ -456,3 +456,17 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** none specific to this issue.
+
+---
+## 2026-06-24 — Issue #62: metrics from_json accepted corrupt recall@k / snippet-hit@k values
+**Duration:** ~24 min · **Branch:** `session/2026-06-24-0340-issue-62`
+
+- `RetrievalRun.from_json` promised a loud failure mode but only validated missing keys, not values. `recall_at_k` / `snippet_hit_at_k` are documented floats in [0, 1], yet a corrupt/hand-edited result file could load inf/NaN/negative/>1 silently — poisoning the strategy comparison (NaN sorts unpredictably; out-of-range recall can crown the wrong strategy) with no diagnostic.
+- Added a `_validate_metric_map` helper rejecting non-numeric / non-finite / out-of-[0,1] values with a descriptive ValueError naming the field and k, wired into `from_json` for both maps. Same loader value-validation class as llm-eval-harness #83/#86.
+- 12 new tests (parametrized corrupt values × both maps, non-numeric, inclusive 0.0/1.0 boundaries). Red via `git stash`, green after; committed canonical JSON round-trip still passes. Suite 272 → 284, ruff clean.
+
+**Why this work, this session:** chunking-strategies-lab was the last unworked priority-tier repo this run (by build-sequence tie-break); the semantic/structure/validate paths were saturated, so a dogfood sweep of the metrics/loader path surfaced this.
+
+**Open questions / blockers:** none.
+
+**Next session:** embedder.py / corpus.py / the fixed & recursive strategies remain the dogfood frontier in this repo; `wall_clock_ms` value validation is a small deferred follow-up if wanted.
