@@ -483,3 +483,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** `metrics.py` cosine-tie ordering determinism is a minor runner-up (exact-tie-only, no dropped text).
+
+---
+## 2026-06-24 — Issue #66: cosine helpers missed non-finite components (silent corruption)
+**Duration:** ~25 min · **Branch:** `session/2026-06-24-1920-issue-66`
+
+- Both cosine helpers — `strategies/semantic.py:_cosine_distance` and `metrics.py:_cosine` — guarded the zero-norm degenerate input but not a non-finite (`NaN`/`±Inf`) embedding component. A poisoned BYO-`Embedder` vector made the result non-finite, which silently corrupted downstream behavior: a suppressed topic boundary (semantic: `dist >= threshold` is False for NaN → under-segmented chunk) and a NaN-poisoned `scored.sort()` ranking (metrics → wrong recall@k / snippet-hit@k).
+- Added a result-finiteness check after the existing zero-norm guard in each helper, raising a clear `ValueError` (these helpers are the only line of defense, so a silent fallback would hide the poison). 13 tests including zero-norm-fallback regression guards. Full suite green, ruff clean.
+
+**Why this work, this session:** the direct chunking-lab sibling of the embedding-seam finiteness guards shipped this same run in `llm-cost-optimizer` (#88, merged in Phase A) and `rag-production-kit` (#82); the #64 session close had already flagged `metrics.py` cosine as a frontier. chunking-strategies-lab is in the D-009 priority tier.
+
+**Open questions / blockers:** none.
+
+**Next session:** `metrics.py` cosine exact-tie ordering determinism remains a minor open runner-up (tie-only, no dropped text); a broader per-component seam validation at each `embedder.embed(...)` site is a possible narrow follow-up.

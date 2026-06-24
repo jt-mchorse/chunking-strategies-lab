@@ -173,7 +173,23 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
         return 0.0
-    return dot / (na * nb)
+    sim = dot / (na * nb)
+    # Zero-norm is handled above, but a non-finite (NaN/±Inf) component in
+    # `a`/`b` slips that guard and makes `sim` non-finite (#66). In
+    # `evaluate_strategy` the score feeds `scored.sort(key=...)`, where a NaN
+    # sorts into an implementation-defined slot (all NaN comparisons are
+    # False) and silently corrupts the recall@k / snippet-hit@k ranking — the
+    # worst outcome for a measurement lab. `Embedder` is a BYO Protocol, so a
+    # poisoned vector is reachable; this helper is the only line of defense,
+    # so fail loud rather than return a fallback that would hide it. Same
+    # result-finiteness check as llm-cost-optimizer's cosine() (#88), but
+    # raising. Sibling of rag-production-kit #82.
+    if not math.isfinite(sim):
+        raise ValueError(
+            "non-finite cosine similarity from a NaN/Inf embedding component; "
+            "the embedder returned a non-finite vector"
+        )
+    return sim
 
 
 def evaluate_strategy(
