@@ -470,3 +470,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** embedder.py / corpus.py / the fixed & recursive strategies remain the dogfood frontier in this repo; `wall_clock_ms` value validation is a small deferred follow-up if wanted.
+
+---
+## 2026-06-24 — Issue #64: single-sentence semantic chunks breached the max_chunk_chars ceiling
+**Duration:** ~22 min · **Branch:** `session/2026-06-24-1538-issue-64`
+
+- `SemanticBoundaryStrategy.chunk` had a hand-rolled early return for the single-sentence case that emitted the whole sentence as one chunk without applying `max_chunk_chars`. The #54 fix hardened the cap on the multi-sentence `_emit_block` path, but that branch is never reached for a true single-sentence document (no terminal-punctuation boundary), so a long such doc was emitted as one oversized chunk.
+- Routed the single-sentence case through the existing, tested `_emit_block(0, 1)`: within the cap it stays one `{distance_threshold}` chunk (unchanged); over the cap it char-splits into `size_capped` pieces, preserving the offset contract. Zero new code paths. 2 tests, red-without / green-with, full suite 286 pass, ruff clean.
+
+**Why this work, this session:** found via a Phase A dogfood sweep (targeting the chunking strategies and metric aggregation); chunking-strategies-lab was next in build sequence among the priority tier (D-009) this run.
+
+**Open questions / blockers:** none.
+
+**Next session:** `metrics.py` cosine-tie ordering determinism is a minor runner-up (exact-tie-only, no dropped text).

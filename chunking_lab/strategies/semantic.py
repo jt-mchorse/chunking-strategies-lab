@@ -79,17 +79,17 @@ class SemanticBoundaryStrategy:
         if not sentences:
             return []
         if len(sentences) == 1:
-            sent, start = sentences[0]
-            return [
-                Chunk(
-                    text=sent,
-                    start_offset=start,
-                    end_offset=start + len(sent),
-                    source_doc_id=source_doc_id,
-                    strategy_name=self.name,
-                    metadata={"distance_threshold": self.distance_threshold},
-                )
-            ]
+            # Route through _emit_block so max_chunk_chars is applied even on the
+            # single-sentence path. The hand-rolled early return that lived here
+            # emitted the whole sentence uncapped, silently breaching the
+            # documented hard ceiling (line 61-62) — the #54 fix hardened only
+            # the multi-sentence path, which never reaches this branch (#64).
+            # _emit_block emits a single {distance_threshold} chunk within the
+            # cap (identical to the old behavior) and char-splits into
+            # size_capped pieces when over, preserving the offset contract (#50).
+            single: list[Chunk] = []
+            self._emit_block(text, sentences, 0, 1, source_doc_id, single)
+            return single
 
         # Embed each sentence; compute pairwise distances.
         embeddings = [self.embedder.embed(s) for s, _ in sentences]
