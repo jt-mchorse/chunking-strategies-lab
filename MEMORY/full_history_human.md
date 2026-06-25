@@ -496,3 +496,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** `metrics.py` cosine exact-tie ordering determinism remains a minor open runner-up (tie-only, no dropped text); a broader per-component seam validation at each `embedder.embed(...)` site is a possible narrow follow-up.
+
+---
+## 2026-06-25 — Issue #68: tied cosine scores ranked by insertion order (non-reproducible recall@k)
+**Duration:** ~25 min · **Branch:** `session/2026-06-25-1536-issue-68`
+
+- `evaluate_strategy` (in `chunking_lab/metrics.py`) ranked chunks with `scored.sort(key=score, reverse=True)`. On score ties — common with `HashEmbedder`, near-duplicate chunks, or genuine ties — Python's stable sort fell back to insertion order (the order `_materialize_vectors` emitted chunks, i.e. corpus iteration order), so the top-k set and `recall@k` / `snippet_hit@k` depended on incidental input ordering rather than the chunk set. For a strategy-comparison lab that's a reproducibility defect (this was flagged as a runner-up when #66 landed).
+- Broke ties on the chunk's stable identity `(source_doc_id, start_offset, end_offset)` via `key=(-score, source_doc_id, start_offset, end_offset)` — negating the score rather than `reverse=True` so the tiebreak isn't reversed too (scores are finite by `_cosine` #66). Ranking is now a pure function of the `(score, chunk)` set. Two regression tests with a constant-vector embedder (order-independence; identity tiebreak), red-without / green-with. Suite 288 → 301, ruff clean.
+
+**Why this work, this session:** chunking-strategies-lab is priority-tier (D-009) and was not touched earlier this run; this was its own already-acknowledged open follow-up, so a high-confidence real fix in a repo whose whole purpose is fair, reproducible measurement.
+
+**Open questions / blockers:** none.
+
+**Next session:** the determinism arc here now covers cosine finiteness (#66) and tie ordering (#68); no further tie-ordering gap known in the metrics path.
