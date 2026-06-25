@@ -247,7 +247,18 @@ def evaluate_strategy(
         scored: list[tuple[float, Chunk]] = []
         for chunk, vec in chunks_with_vecs:
             scored.append((_cosine(query_vec, vec), chunk))
-        scored.sort(key=lambda r: r[0], reverse=True)
+        # Deterministic, order-independent ranking (#68). Sorting on the score
+        # alone left score ties broken by insertion order — i.e. the order
+        # `_materialize_vectors` happened to emit chunks (corpus iteration
+        # order). For a measurement lab, recall@k / snippet-hit@k must be a pure
+        # function of the (score, chunk) set, not of how the corpus was read, so
+        # equal scores (common with HashEmbedder, near-duplicate chunks, or
+        # genuine ties) must resolve the same way every run. Break ties on the
+        # chunk's stable identity (source_doc_id, start/end offsets). Negate the
+        # score for an ascending composite sort instead of reverse=True (which
+        # would also reverse the tiebreak); scores are guaranteed finite by
+        # `_cosine`, which raises on NaN/Inf (#66), so negation is safe.
+        scored.sort(key=lambda r: (-r[0], r[1].source_doc_id, r[1].start_offset, r[1].end_offset))
         top = scored[:max_k]
         retrieved_docs = tuple(c.source_doc_id for _, c in top)
         snippet_in_chunk = tuple((q.expected_snippet in c.text) for _, c in top)

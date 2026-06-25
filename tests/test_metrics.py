@@ -665,3 +665,58 @@ def test_retrieval_run_from_json_loads_committed_canonical_jsons() -> None:
         assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(
             json.loads(path.read_text(encoding="utf-8")), sort_keys=True
         )
+
+
+# --- #68: tied-score ranking determinism ------------------------------------
+
+
+class _ConstantEmbedder:
+    """Every text maps to the same finite vector, so every cosine score ties
+    at 1.0 and chunk ranking is decided entirely by the tiebreak. Lets these
+    tests isolate tie-ordering determinism (#68) from the embedding itself."""
+
+    model_name = "constant-test-embedder"
+
+    def embed(self, text: str) -> list[float]:
+        return [1.0, 0.0, 1.0]
+
+
+def test_tied_scores_rank_independently_of_corpus_order() -> None:
+    # All scores tie, so the retrieved ranking is pure tiebreak. It must not
+    # depend on the order the corpus happened to be read/passed in — otherwise
+    # recall@k / snippet-hit@k aren't a reproducible function of the chunk set.
+    emb = _ConstantEmbedder()
+    strat = FixedSizeStrategy(chunk_chars=40, overlap_chars=0)
+    docs = [
+        Document(filename="a.md", text="alpha alpha alpha. beta beta beta. gamma gamma gamma."),
+        Document(filename="b.md", text="delta delta delta. epsilon epsilon. zeta zeta zeta zeta."),
+        Document(filename="c.md", text="eta eta eta. theta theta theta. iota iota iota iota."),
+    ]
+    queries = [Query(id="q1", question="anything", expected_doc="a.md", expected_snippet="alpha")]
+
+    run_fwd = evaluate_strategy(strat, docs, queries, emb, ks=(1, 3, 5))
+    run_rev = evaluate_strategy(strat, list(reversed(docs)), queries, emb, ks=(1, 3, 5))
+
+    assert (
+        run_fwd.per_query[0].retrieved_doc_ids_in_rank_order
+        == run_rev.per_query[0].retrieved_doc_ids_in_rank_order
+    )
+    assert run_fwd.recall_at_k == run_rev.recall_at_k
+    assert run_fwd.snippet_hit_at_k == run_rev.snippet_hit_at_k
+
+
+def test_tied_scores_break_by_chunk_identity() -> None:
+    # With all scores tied, the top chunk is the one with the smallest
+    # (source_doc_id, start_offset, end_offset) — a.md's first chunk — even
+    # though b.md is passed first. Pre-fix the insertion-order tiebreak would
+    # surface b.md first.
+    emb = _ConstantEmbedder()
+    strat = FixedSizeStrategy(chunk_chars=40, overlap_chars=0)
+    docs = [
+        Document(filename="b.md", text="delta delta delta. epsilon epsilon epsilon."),
+        Document(filename="a.md", text="alpha alpha alpha. beta beta beta beta."),
+    ]
+    queries = [Query(id="q1", question="anything", expected_doc="a.md", expected_snippet="alpha")]
+
+    run = evaluate_strategy(strat, docs, queries, emb, ks=(1, 3, 5))
+    assert run.per_query[0].retrieved_doc_ids_in_rank_order[0] == "a.md"
