@@ -18,11 +18,16 @@ Two metrics:
   retrieved chunks' `source_doc_id` list. Standard IR metric over the
   document granularity the queries file gives us.
 - **snippet-hit@k** — the expected-snippet *substring* is present in
-  the concatenated text of the top-k retrieved chunks. This is the
-  answer-faithfulness proxy for this layer (D-008): structural rather
-  than semantic, but cheap, hermetic, and gates strategies that
-  fragment the relevant passage across chunk boundaries (which is the
-  whole concern the lab exists to measure).
+  *some single* top-k retrieved chunk's text (per-chunk, not the
+  concatenation of the top-k). This is the answer-faithfulness proxy
+  for this layer (D-008): structural rather than semantic, but cheap,
+  hermetic, and it gates strategies that fragment the relevant passage
+  across chunk boundaries — which is the whole concern the lab exists
+  to measure. The per-chunk check is load-bearing: a snippet split
+  across two adjacent chunks is absent from every single chunk and so
+  scores a **miss**, even though concatenating the chunks would re-join
+  it. Matching against the concatenated top-k text instead would *heal*
+  fragmentation and invert the metric, so it is deliberately not done.
 """
 
 from __future__ import annotations
