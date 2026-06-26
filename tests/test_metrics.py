@@ -168,6 +168,68 @@ def test_snippet_hit_requires_substring_match():
     assert run.snippet_hit_at_k[5] == 0.0
 
 
+def test_snippet_hit_fragmentation_across_chunk_boundary_is_a_miss():
+    # The lab's central behavior (#70): a snippet split across a chunk boundary
+    # is absent from every *single* chunk and so scores a MISS, even though the
+    # concatenation of the retrieved chunks re-joins it. Matching against the
+    # concatenated top-k text instead would heal the fragmentation and invert
+    # the metric. `test_snippet_hit_requires_substring_match` only covers a
+    # snippet that appears nowhere; this covers the load-bearing case where the
+    # snippet is present-but-fragmented.
+    snippet = "FRAGMENTEDSNIPPET"
+    # 42 chars of filler push the 17-char snippet across the offset-50 boundary
+    # of a zero-overlap fixed-size chunker, splitting it between chunk[0] and
+    # chunk[1] ("FRAGMENT" + "EDSNIPPET").
+    text = ("x" * 42) + snippet + " trailing prose to populate the second chunk."
+    corpus = [Document(filename="frag.md", text=text)]
+    strategy = FixedSizeStrategy(chunk_chars=50, overlap_chars=0)
+
+    # Precondition: this is genuine fragmentation, not absence — the snippet is
+    # in NO single chunk but DOES appear once the chunks are joined. (Self-checks
+    # the offset arithmetic above: a stray whole-snippet chunk fails here loudly.)
+    chunks = strategy.chunk(text, source_doc_id="frag.md")
+    assert all(snippet not in c.text for c in chunks)
+    assert snippet in "".join(c.text for c in chunks)
+
+    queries = [
+        Query(
+            id="frag",
+            question="anything",
+            expected_doc="frag.md",
+            expected_snippet=snippet,
+        )
+    ]
+    run = evaluate_strategy(strategy, corpus, queries, HashEmbedder(), ks=(5,))
+    # All chunks fit in top-5, so both halves of the snippet are retrieved; the
+    # miss is due to per-chunk matching, not non-retrieval.
+    assert run.n_chunks_total <= 5
+    assert run.snippet_hit_at_k[5] == 0.0
+
+
+def test_snippet_hit_within_single_chunk_is_a_hit():
+    # Companion to the fragmentation test: the same snippet, kept whole inside a
+    # single chunk (large chunk_chars), is a HIT — so the per-chunk gate isn't
+    # trivially always-miss.
+    snippet = "FRAGMENTEDSNIPPET"
+    text = ("x" * 42) + snippet + " trailing prose to populate the second chunk."
+    corpus = [Document(filename="whole.md", text=text)]
+    strategy = FixedSizeStrategy(chunk_chars=800, overlap_chars=0)
+
+    chunks = strategy.chunk(text, source_doc_id="whole.md")
+    assert any(snippet in c.text for c in chunks)
+
+    queries = [
+        Query(
+            id="whole",
+            question="anything",
+            expected_doc="whole.md",
+            expected_snippet=snippet,
+        )
+    ]
+    run = evaluate_strategy(strategy, corpus, queries, HashEmbedder(), ks=(5,))
+    assert run.snippet_hit_at_k[5] == 1.0
+
+
 def test_empty_corpus_returns_zero_for_everything():
     run = evaluate_strategy(
         FixedSizeStrategy(chunk_chars=80, overlap_chars=20),
