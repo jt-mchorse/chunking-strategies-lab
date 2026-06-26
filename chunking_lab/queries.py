@@ -35,6 +35,30 @@ class Query:
     expected_doc: str
     expected_snippet: str
 
+    def __post_init__(self) -> None:
+        # `Query` is on the public surface and is constructed directly (in the
+        # metrics tests, the matrix script, and by any consumer who builds a
+        # query set in code rather than from JSONL), so `load_queries`'
+        # `_require_str` is not the only entry point. An unvalidated empty field
+        # silently corrupts measurement: an empty `expected_snippet` makes
+        # `expected_snippet in chunk.text` True for *every* chunk (`"" in s` is
+        # always True), so snippet-hit@k reads a trivial 1.0 for every strategy;
+        # an empty `expected_doc` is never a `source_doc_id`, so recall@k reads a
+        # trivial 0.0. Fail loud at the dataclass boundary, the same backstop
+        # pattern as `FixedSizeStrategy.__post_init__` (#29) and `_cosine` (#66).
+        # `load_queries` still validates first with file:lineno context; this is
+        # the in-memory invariant for the direct-construction path.
+        for name, value in (
+            ("id", self.id),
+            ("question", self.question),
+            ("expected_doc", self.expected_doc),
+            ("expected_snippet", self.expected_snippet),
+        ):
+            if not isinstance(value, str):
+                raise ValueError(f"{name} must be a string, got {type(value).__name__}")
+            if not value:
+                raise ValueError(f"{name} must be non-empty")
+
 
 def _require_str(value: object, name: str) -> str:
     if not isinstance(value, str):

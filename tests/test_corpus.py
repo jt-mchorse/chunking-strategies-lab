@@ -123,6 +123,54 @@ def test_queries_loader_rejects_missing_required_field(tmp_path):
         load_queries(p)
 
 
+# --- Query dataclass invariant (direct construction) ----------------------
+
+
+def _valid_query_kwargs() -> dict[str, str]:
+    return {
+        "id": "q1",
+        "question": "What is in bananas?",
+        "expected_doc": "bananas.md",
+        "expected_snippet": "potassium",
+    }
+
+
+def test_query_constructs_with_valid_fields():
+    q = Query(**_valid_query_kwargs())
+    assert q.id == "q1"
+    assert q.expected_snippet == "potassium"
+
+
+@pytest.mark.parametrize("field", ["id", "question", "expected_doc", "expected_snippet"])
+def test_query_rejects_empty_field_on_direct_construction(field):
+    # `Query` is public and built directly (not only via `load_queries`), so the
+    # dataclass itself must enforce non-empty fields. An empty `expected_snippet`
+    # is the worst case: `"" in chunk.text` is always True, so snippet-hit@k
+    # reads a trivial 1.0 for every strategy and silently corrupts the
+    # comparison (#72). Empty `expected_doc` is the mirror (recall trivially 0).
+    kwargs = _valid_query_kwargs()
+    kwargs[field] = ""
+    with pytest.raises(ValueError, match=f"{field} must be non-empty"):
+        Query(**kwargs)
+
+
+@pytest.mark.parametrize("field", ["id", "question", "expected_doc", "expected_snippet"])
+def test_query_rejects_non_string_field_on_direct_construction(field):
+    kwargs: dict[str, object] = dict(_valid_query_kwargs())
+    kwargs[field] = 123
+    with pytest.raises(ValueError, match=f"{field} must be a string"):
+        Query(**kwargs)  # type: ignore[arg-type]
+
+
+def test_empty_snippet_query_cannot_reach_snippet_hit_trivial_pass():
+    # Regression for the exact bypass #72 closes: before the __post_init__ guard,
+    # Query(expected_snippet="") was constructible and made snippet-hit a trivial
+    # 1.0. The guard now stops it at construction, so the corrupt query can never
+    # reach `evaluate_strategy`.
+    with pytest.raises(ValueError, match="expected_snippet must be non-empty"):
+        Query(id="bad", question="q", expected_doc="d.md", expected_snippet="")
+
+
 # --- Embedder -------------------------------------------------------------
 
 
