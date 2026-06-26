@@ -522,3 +522,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** iteration 2 — add `Query.__post_init__` non-empty validation; an empty `expected_snippet` makes snippet-hit trivially 1.0 (empty string is a substring of every chunk) and bypasses `load_queries`' guard since `Query` is a directly-constructible public frozen dataclass.
+
+## 2026-06-26 — Issue #72: Query field validation closes the empty-snippet snippet-hit bypass
+**Duration:** ~20 min · **Branch:** session/2026-06-26-1516-issue-72
+
+- `Query` is a public frozen dataclass constructed directly (metrics tests, the matrix script, any in-code query set), so `load_queries`' `_require_str` was not the only entry point and direct construction skipped all validation. The damaging case: an empty `expected_snippet` makes `expected_snippet in chunk.text` True for every chunk ("" is a substring of everything), so snippet-hit@k reads a trivial 1.0 for every strategy and silently corrupts the comparison; an empty `expected_doc` is the mirror (recall trivially 0).
+- Added a `Query.__post_init__` backstop rejecting empty/non-string fields — the same fail-loud dataclass pattern as `FixedSizeStrategy.__post_init__` (#29) and the `_cosine` guard (#66). `load_queries` keeps `_require_str` for its file:lineno error context; `__post_init__` is the in-memory invariant for direct construction, so valid and malformed-JSONL behavior is unchanged. 10 new tests in `test_corpus.py` (parametrized empty/non-string per field + a valid constructor + an explicit empty-snippet regression). Suite 301 → 311, ruff clean.
+
+**Why this work, this session:** filed as a deferred follow-up while working #70; both #70 and #72 harden the integrity of the lab's headline `snippet-hit@k` metric — #70 the semantics/lock, #72 the input validation.
+
+**Open questions / blockers:** none.
+
+**Next session:** snippet-hit@k integrity is now covered on both axes (metric semantics + input validation); no further known gap in that metric path.
