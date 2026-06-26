@@ -509,3 +509,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** the determinism arc here now covers cosine finiteness (#66) and tie ordering (#68); no further tie-ordering gap known in the metrics path.
+
+## 2026-06-26 — Issue #70: snippet-hit@k per-chunk docstring fix + fragmentation-gating lock test
+**Duration:** ~25 min · **Branch:** session/2026-06-26-1511-issue-70
+
+- Repo had zero open issues at session start; filed #70 from a code read during Phase A (chunking-strategies-lab is priority-tier and was stale past the 18h floor). Two defects around the headline `snippet-hit@k` metric.
+- The `metrics.py` module docstring said the snippet must be "present in the concatenated text of the top-k retrieved chunks" — but the implementation is per-chunk (`expected_snippet in c.text` for each single chunk), and per-chunk is correct: concatenating the chunks would *heal* a passage fragmented across a boundary and invert the metric. The next clause of the same docstring already claimed the metric "gates strategies that fragment the relevant passage," so the docstring contradicted itself. Rewrote it to describe per-chunk semantics and call out why concatenated matching is deliberately avoided. No behavior change — the code was already right.
+- The fragmentation case was asserted in the test-module docstring but never actually tested (the only snippet-miss test used a snippet absent everywhere). A refactor to concatenated matching would have passed every existing test while silently rewarding fragmenting strategies. Added a boundary-straddling regression test (`FixedSizeStrategy(chunk_chars=50, overlap_chars=0)`, a 17-char snippet pushed across offset 50 so it splits between two chunks; precondition asserts the snippet is in no single chunk but in their join, then `snippet_hit@k == 0`) plus an in-one-chunk positive companion. Suite 301 → 303, ruff clean.
+
+**Why this work, this session:** chunking-strategies-lab is priority-tier (D-009) and stale past 18h; with no open issues, the highest-value move was hardening the trustworthiness of the lab's central metric — a real self-contradiction in its spec plus a missing lock on the exact behavior the lab exists to measure.
+
+**Open questions / blockers:** none.
+
+**Next session:** iteration 2 — add `Query.__post_init__` non-empty validation; an empty `expected_snippet` makes snippet-hit trivially 1.0 (empty string is a substring of every chunk) and bypasses `load_queries`' guard since `Query` is a directly-constructible public frozen dataclass.
