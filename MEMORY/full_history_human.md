@@ -534,3 +534,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** snippet-hit@k integrity is now covered on both axes (metric semantics + input validation); no further known gap in that metric path.
+
+## 2026-06-26 — Issue #74: Semantic greedy-packing path drops inter-sentence whitespace
+**Duration:** ~25 min · **Branch:** `session/2026-06-26-2337-issue-74`
+
+- `SemanticBoundaryStrategy._emit_block` has two paths. The whole-block path slices `text[block_start:block_end]` contiguously, preserving inter-sentence whitespace (the #50 contract). The greedy-packing path (block over `max_chunk_chars`) started each new run at the *next sentence's start*, so the whitespace in the gap between a flushed run and the next run was assigned to no chunk and silently dropped. Reproduced: a 3-sentence block at cap 50 produced chunks `(0,50)` and `(51,73)` — the space at index 50 was dropped, so `"".join(text[c.start:c.end])` no longer reconstructed the source.
+- Fixed by beginning each new run where the previous one ended (`run_start = run_end`) instead of at the next sentence start, carrying the gap whitespace as the next run's leading text. Coverage now matches the whole-block path; cap accounting (span measured from `run_start` to the candidate sentence end) and the oversized-single-sentence char-split are unchanged. 2 regression tests; suite 313 → 315, ruff clean.
+- Posted a precision correction on the issue: the original "companions. The" snippet example was misleading (it straddles the genuine split, unmatchable regardless). The accurate invariants are coverage/reconstruction and retrievability of a snippet that *includes* the previously-dropped whitespace (`" The sky is blue"`), which the tests assert.
+
+**Why this work, this session:** fourth issue of a multi-issue DAY run. After rag-production-kit #90 I rotated to the next priority-tier repo in build sequence (chunking-strategies-lab), which had no open backlog, so I dogfooded it with an Explore agent and filed #74 from a reproduced finding.
+
+**Open questions / blockers:** none.
+
+**Next session:** `recursive.py` has a dead-equivalent duplicated brute-force block (`if not separators` and `sep == ""` branches are identical) — cosmetic redundancy, not a correctness bug; file separately if a session needs small cleanup work here.

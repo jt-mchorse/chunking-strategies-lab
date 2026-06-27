@@ -274,6 +274,43 @@ def test_semantic_max_split_preserves_offsets():
         assert len(c.text) <= 30
 
 
+def test_semantic_greedy_path_preserves_within_block_coverage():
+    # #74: the greedy-packing path (block over the cap) started each new run at
+    # the next sentence's start, dropping the inter-sentence whitespace in the
+    # gap — so the source no longer reconstructed from the chunk offsets. The
+    # whole-block path (large cap) already slices contiguously; this pins that
+    # the greedy path now matches it. threshold=2.0 -> one block; small cap ->
+    # greedy split.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=50
+    )
+    chunks = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")
+    assert len(chunks) > 1  # confirms we are on the greedy path
+    # Every character of the (single-block) source belongs to exactly one chunk:
+    # concatenating the slices in order reconstructs the source with no gap.
+    assert "".join(c.text for c in chunks) == _SEMANTIC_SPAN_TEXT
+    # The per-chunk offset contract still holds on every piece.
+    for c in chunks:
+        assert _SEMANTIC_SPAN_TEXT[c.start_offset : c.end_offset] == c.text
+        assert len(c.text) <= 50
+
+
+def test_semantic_greedy_path_whitespace_adjacent_snippet_retrievable():
+    # The whitespace that used to be dropped at a greedy split is now carried as
+    # the next run's leading text, so a snippet that includes that whitespace is
+    # retrievable (it previously fell into no chunk). This is the snippet-hit
+    # faithfulness harm #50 fixed for the whole-block path, now closed on the
+    # greedy path too.
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=2.0, min_chunk_chars=0, max_chunk_chars=50
+    )
+    chunks = s.chunk(_SEMANTIC_SPAN_TEXT, source_doc_id="d")
+    # " The sky is blue" (with the leading inter-sentence space) straddles the
+    # greedy split's dropped-whitespace position; it must now live in one chunk.
+    assert " The sky is blue" in _SEMANTIC_SPAN_TEXT
+    assert any(" The sky is blue" in c.text for c in chunks)
+
+
 # ----------------------------------------------------------------------
 # #54 — a single sentence longer than max_chunk_chars must be char-split so the
 # documented hard ceiling holds (sentence-boundary splitting alone can't reduce

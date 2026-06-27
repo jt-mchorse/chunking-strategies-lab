@@ -173,19 +173,26 @@ class SemanticBoundaryStrategy:
         # reduced at sentence granularity, so `_append_capped` char-splits it
         # (mirroring StructureAwareStrategy's section fallback) — otherwise the
         # documented hard ceiling (line 61-62) is silently breached.
-        run_start: int | None = None
+        run_start = block_start
         run_end = block_start
         for sent, sent_start in sentences[start_idx:end_idx]:
             sent_end = sent_start + len(sent)
-            if run_start is not None and (sent_end - run_start) > self.max_chunk_chars:
+            if run_start < run_end and (sent_end - run_start) > self.max_chunk_chars:
+                # Flush the packed run, then begin the next run where this one
+                # ended (`run_start = run_end`) — NOT at the next sentence's
+                # start. Starting at the sentence start dropped the
+                # inter-sentence whitespace in the gap, so concatenating chunks
+                # by offset no longer reconstructed the source and a snippet
+                # straddling a greedy split (inside one semantic block) became
+                # unmatchable (#74). Carrying the gap as the next run's leading
+                # text keeps coverage identical to the whole-block path above,
+                # extending the #50 whitespace-preservation contract to the cap
+                # path. Cap accounting is unchanged: the span is still measured
+                # from `run_start` to the candidate sentence end.
                 self._append_capped(text, run_start, run_end, source_doc_id, out)
-                run_start = sent_start
-                run_end = sent_end
-            else:
-                if run_start is None:
-                    run_start = sent_start
-                run_end = sent_end
-        if run_start is not None:
+                run_start = run_end
+            run_end = sent_end
+        if run_start < run_end:
             self._append_capped(text, run_start, run_end, source_doc_id, out)
 
     def _append_capped(
