@@ -547,3 +547,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** `recursive.py` has a dead-equivalent duplicated brute-force block (`if not separators` and `sep == ""` branches are identical) — cosmetic redundancy, not a correctness bug; file separately if a session needs small cleanup work here.
+
+## 2026-06-27 — Issue #76: run_matrix summary ignored a non-default --ks
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-0408-issue-76`
+
+- `_render_summary` hardcoded `recall_at_k.get(1/3/5, 0)` (and snippet equivalents), but `--ks` lets the operator choose which k values are computed, and the per-strategy JSONs are keyed by those k. So a non-default `--ks` (e.g. `2,4,6`) made every `.get` miss and the summary table showed `0.000` for cells whose JSONs held real values (recall@2=0.5, @4=0.83, @6=0.92) — a silent cross-module value drop. The header even still said recall@1/3/5.
+- Fixed by deriving the columns from `sorted(runs[0].recall_at_k)`; the per-column separators are unchanged, so the canonical `--ks 1,3,5` renders byte-identically (snapshot test untouched). Also fixed the per-strategy progress print, which hardcoded recall@5, to use `max(ks)` (= 5 on the default path, so unchanged there). Added a regression test. Suite 315 → 316, ruff clean.
+
+**Why this work, this session:** tenth issue of a multi-issue NIGHT run; surfaced by a second-pass dogfood of priority-tier chunking-strategies-lab (the first pass was clean) focused on the less-trodden matrix renderer.
+
+**Open questions / blockers:** none.
+
+**Next session:** the matrix summary + progress output now honor `--ks`; the core chunking/metrics surface remains clean per two dogfood passes.
