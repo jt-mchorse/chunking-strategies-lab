@@ -11,6 +11,7 @@ The plot extras (`[notebook]`) install `nbformat`. If `nbformat` is missing
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,23 @@ nbformat = pytest.importorskip("nbformat")
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _NOTEBOOK = _REPO_ROOT / "notebooks" / "comparison.ipynb"
+
+# Build script lives next to the notebook; import it so the lock test below can
+# inspect the actual `_LOAD_CELL` source that ships into comparison.ipynb.
+_NOTEBOOKS_DIR = _REPO_ROOT / "notebooks"
+if str(_NOTEBOOKS_DIR) not in sys.path:
+    sys.path.insert(0, str(_NOTEBOOKS_DIR))
+
+
+def _stamp_rank(stamp: str) -> tuple[int, str]:
+    """Recency key mirroring `_build_notebook._LOAD_CELL`'s `_stamp_rank`.
+
+    Timestamped runs use a digit prefix (`YYYYMMDDThhmmss`); committed fixtures
+    use the literal `canonical`. Plain `>` ranks `canonical` above every
+    digit-prefixed stamp ('c' > '0'-'9'), silently shadowing a fresh run — the
+    bug this guards. Rank `canonical` lowest so any timestamped run wins.
+    """
+    return (0, "") if stamp == "canonical" else (1, stamp)
 
 
 def test_notebook_committed():
@@ -62,7 +80,7 @@ def test_results_dir_loadable_by_notebook_helper():
         stamp = p.name.split("__")[0]
         payload = json.loads(p.read_text(encoding="utf-8"))
         name = payload["strategy_name"]
-        if name not in latest_stamp or stamp > latest_stamp[name]:
+        if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
             latest_by_strategy[name] = payload
             latest_stamp[name] = stamp
     # Every loaded run carries every chart-data field the notebook references.
@@ -89,4 +107,64 @@ def test_notebook_executed_outputs_exist():
     assert len(code_cells_with_output) >= 3, (
         f"only {len(code_cells_with_output)} executed code cells with outputs; "
         "did you forget `jupyter nbconvert --execute`?"
+    )
+
+
+def _select_latest(results_dir: Path) -> dict[str, str]:
+    """Stamp-selection logic from the notebook's load cell, returning the
+    chosen stamp per strategy (enough to assert which file won)."""
+    latest_stamp: dict[str, str] = {}
+    for p in sorted(results_dir.glob("*.json")):
+        stamp = p.name.split("__")[0]
+        name = json.loads(p.read_text(encoding="utf-8"))["strategy_name"]
+        if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
+            latest_stamp[name] = stamp
+    return latest_stamp
+
+
+def test_load_latest_prefers_timestamped_run_over_canonical(tmp_path: Path):
+    """Regression for #78: a fresh timestamped run must beat the committed
+    `canonical__*` baseline. The pre-fix `stamp > latest` compared lexically,
+    and 'canonical' > any digit prefix, so the stale fixture always won.
+
+    The existing `test_results_dir_loadable_by_notebook_helper` only runs
+    against the canonical-only `results/`, so it never exercises this tie.
+    """
+    (tmp_path / "canonical__fixed-size.json").write_text(
+        json.dumps({"strategy_name": "fixed-size", "recall_at_k": {"5": 0.111}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "20260627T120000__fixed-size.json").write_text(
+        json.dumps({"strategy_name": "fixed-size", "recall_at_k": {"5": 0.900}}),
+        encoding="utf-8",
+    )
+
+    chosen = _select_latest(tmp_path)
+    assert chosen["fixed-size"] == "20260627T120000", (
+        "loader kept the stale canonical fixture instead of the fresh "
+        "timestamped run (lexicographic stamp-compare bug, #78)"
+    )
+    # Sanity: a far-future stamp also beats canonical (not just this date).
+    (tmp_path / "99990101T000000__fixed-size.json").write_text(
+        json.dumps({"strategy_name": "fixed-size", "recall_at_k": {"5": 0.5}}),
+        encoding="utf-8",
+    )
+    assert _select_latest(tmp_path)["fixed-size"] == "99990101T000000"
+
+
+def test_build_notebook_load_cell_ships_the_stamp_rank_fix():
+    """Lock that the emitted load cell actually carries the rank-based compare.
+
+    Combined with `test_build_notebook_snapshot.py` (notebook == build script),
+    this guarantees the shipped `comparison.ipynb` ranks `canonical` lowest and
+    can't silently regress to a bare `stamp > latest_stamp[name]` compare.
+    """
+    import _build_notebook  # noqa: PLC0415
+
+    cell = _build_notebook._LOAD_CELL
+    assert "_stamp_rank" in cell, "load cell lost the _stamp_rank recency key (#78)"
+    assert "_stamp_rank(stamp) > _stamp_rank(latest_stamp[name])" in cell, (
+        "load cell no longer compares via _stamp_rank — a bare lexicographic "
+        "`stamp > latest_stamp[name]` would reintroduce the canonical-shadows-"
+        "fresh-run bug (#78)"
     )
