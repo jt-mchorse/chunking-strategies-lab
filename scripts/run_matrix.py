@@ -95,22 +95,27 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
             "for honest numbers."
         )
         lines.append("")
+    # Derive the recall@k / snippet-hit@k columns from the k values actually
+    # present in the runs (set by `--ks`). Hardcoding 1/3/5 made the renderer
+    # ignore a non-default `--ks` — every `.get(1/3/5, 0)` missed and the table
+    # showed 0.000 for cells whose JSONs held real values (#76). The canonical
+    # `--ks 1,3,5` renders byte-identically (same headers + separators), so the
+    # summary snapshot is unchanged.
+    ks = sorted(runs[0].recall_at_k) if runs else [1, 3, 5]
+    recall_headers = " | ".join(f"recall@{k}" for k in ks)
+    snippet_headers = " | ".join(f"snippet-hit@{k}" for k in ks)
+    recall_seps = " | ".join("-------:" for _ in ks)
+    snippet_seps = " | ".join("------------:" for _ in ks)
     lines.append(
-        "| strategy | n_chunks | recall@1 | recall@3 | recall@5 | snippet-hit@1 | snippet-hit@3 | snippet-hit@5 | wall-clock (ms) |"
+        f"| strategy | n_chunks | {recall_headers} | {snippet_headers} | wall-clock (ms) |"
     )
-    lines.append(
-        "| -------- | -------: | -------: | -------: | -------: | ------------: | ------------: | ------------: | --------------: |"
-    )
+    lines.append(f"| -------- | -------: | {recall_seps} | {snippet_seps} | --------------: |")
     for r in runs:
+        recall_cells = " | ".join(f"{r.recall_at_k.get(k, 0):.3f}" for k in ks)
+        snippet_cells = " | ".join(f"{r.snippet_hit_at_k.get(k, 0):.3f}" for k in ks)
         lines.append(
             f"| {r.strategy_name} | {r.n_chunks_total} | "
-            f"{r.recall_at_k.get(1, 0):.3f} | "
-            f"{r.recall_at_k.get(3, 0):.3f} | "
-            f"{r.recall_at_k.get(5, 0):.3f} | "
-            f"{r.snippet_hit_at_k.get(1, 0):.3f} | "
-            f"{r.snippet_hit_at_k.get(3, 0):.3f} | "
-            f"{r.snippet_hit_at_k.get(5, 0):.3f} | "
-            f"{r.wall_clock_ms:.0f} |"
+            f"{recall_cells} | {snippet_cells} | {r.wall_clock_ms:.0f} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -185,10 +190,14 @@ def main(argv: list[str] | None = None) -> int:
         prefix = "canonical" if args.canonical_out else stamp
         path = results_dir / f"{prefix}__{run.strategy_name}.json"
         atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
+        # Report the largest computed k (most informative). Hardcoding 5 showed
+        # 0.000 when `--ks` omitted 5; `max(ks)` is 5 for the default --ks 1,3,5
+        # so this line is unchanged on the canonical path (#76).
+        top_k = max(ks)
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
-            f"recall@5={run.recall_at_k.get(5, 0):.3f} "
-            f"snippet-hit@5={run.snippet_hit_at_k.get(5, 0):.3f} "
+            f"recall@{top_k}={run.recall_at_k.get(top_k, 0):.3f} "
+            f"snippet-hit@{top_k}={run.snippet_hit_at_k.get(top_k, 0):.3f} "
             f"wall_clock={run.wall_clock_ms:.0f}ms  →  {path}"
         )
         runs.append(run)
