@@ -571,3 +571,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** the notebook now always prefers a fresh run; nextjs-streaming-ai-patterns has a parallel dogfood find (error-recovery phase stuck on "recovering…") queued for this run.
+
+## 2026-06-27 — Issue #80: chunk offsets are codepoint, not byte, offsets
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-2338-issue-80`
+
+- `Chunk.start_offset`/`end_offset` were commented as "byte offset" but are populated by Python string slicing, so they're Unicode codepoint offsets. On multibyte text a consumer trusting the comment (`source.encode()[start:end]`) gets corrupted mid-character bytes. Found via a Phase A dogfood sweep and reproduced.
+- Corrected the field comments + module docstring to codepoint semantics with the `source[start:end] == text` invariant, and added a parametrized multibyte test locking the contract across all strategies (the old offset test was ASCII-only).
+- Suite 323 passed; ruff format/check clean.
+
+**Why this work, this session:** Real correctness-of-contract issue in a priority-tier repo, with a valuable invariant-locking test; one of only two actionable findings across 8 deep dogfood sweeps.
+
+**Open questions / blockers:** none.
+
+**Next session:** Portfolio is saturated; remaining open issues are JT-decision (`decision-revisit`) or demo-video captures.
