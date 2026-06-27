@@ -559,3 +559,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** the matrix summary + progress output now honor `--ks`; the core chunking/metrics surface remains clean per two dogfood passes.
+
+## 2026-06-27 — Issue #78: notebook charted stale fixtures over fresh runs
+**Duration:** ~35 min · **Branch:** `session/2026-06-27-1521-issue-78`
+
+- The comparison notebook's `_load_latest_per_strategy` selected the "newest" run per strategy with a plain lexicographic compare of the filename stamp prefix. Timestamped runs use a digit prefix (`YYYYMMDDThhmmss`) but the committed fixtures use the literal `canonical`, and `'c'` (0x63) sorts above every digit (0x30–0x39), so `"canonical" > "<any timestamp>"` is always `True`. Any fresh operator run sitting next to the committed `canonical__*` fixture was silently discarded and the notebook charted the stale HashEmbedder-era placeholder numbers — no error, no warning.
+- Added a `_stamp_rank` key that ranks `canonical` lowest so any timestamped run supersedes it, applied in `_build_notebook.py`'s load cell and mirrored in `tests/test_notebook.py`. Regenerated and re-executed the notebook. Added a regression test for the mixed canonical+timestamp case (the existing helper test only ran against the canonical-only `results/`, so it never tripped the tie) and a lock test asserting the emitted cell carries the rank-based compare.
+
+**Why this work, this session:** found via a 5-repo Phase A dogfood sweep of the priority tier; the other priority-tier repos returned honest "no solid bug" (heavily hardened), this was the highest-confidence reproducible find.
+
+**Open questions / blockers:** none.
+
+**Next session:** the notebook now always prefers a fresh run; nextjs-streaming-ai-patterns has a parallel dogfood find (error-recovery phase stuck on "recovering…") queued for this run.
