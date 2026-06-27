@@ -21,7 +21,9 @@ without dragging in siblings):
 
 `Chunk` carries `start_offset` / `end_offset` (D-005) so #3's metrics
 matrix can attribute retrieved chunks back to source documents without
-re-tokenizing.
+re-tokenizing. These are Unicode codepoint offsets (Python `str` indices):
+`source_text[start_offset:end_offset] == chunk.text`, which differs from a
+byte slice on multibyte text.
 """
 
 from __future__ import annotations
@@ -35,8 +37,13 @@ class Chunk:
     """One chunk produced by a strategy."""
 
     text: str
-    start_offset: int  # inclusive byte offset into source text
-    end_offset: int  # exclusive byte offset into source text
+    # Offsets are Unicode CODEPOINT offsets (Python str indices), NOT byte
+    # offsets: strategies populate them via `text[start:end]`, so the invariant
+    # is `source_text[start_offset:end_offset] == chunk.text`. On multibyte
+    # text these differ from byte offsets — slicing `source.encode()` with them
+    # splits characters. See tests/test_strategies.py offset-contract tests.
+    start_offset: int  # inclusive codepoint offset into source text
+    end_offset: int  # exclusive codepoint offset into source text
     source_doc_id: str
     strategy_name: str
     metadata: dict[str, Any] = field(default_factory=dict)

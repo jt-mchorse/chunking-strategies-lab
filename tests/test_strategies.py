@@ -80,6 +80,36 @@ def test_chunks_have_valid_offsets(strategy):
         assert DOC_TEXT[c.start_offset : c.end_offset] == c.text
 
 
+# Multibyte source text: 'é','ü','—','✓','日本語' are each a single codepoint
+# but 2–3 UTF-8 bytes. This locks the documented offset semantics (#80): the
+# offsets are CODEPOINT offsets, so `source[start:end] == text` holds while a
+# byte slice does not. Without this, the ASCII-only `test_chunks_have_valid_
+# offsets` above can't tell a codepoint interpretation from a byte one.
+_MULTIBYTE_DOC = (
+    "Café résumé naïve coördinate — façade jalapeño.\n\n"
+    "Vector search at 100M vectors: recall, latency, cost ✓ tradeoffs.\n\n"
+    "日本語のテキストもチャンクに分割できる。Anthropic prompt caching 90%."
+)
+
+
+@pytest.mark.parametrize("strategy", _all_strategies(), ids=lambda s: s.name)
+def test_offsets_are_codepoint_not_byte_offsets(strategy):
+    chunks = strategy.chunk(_MULTIBYTE_DOC, source_doc_id="doc-mb")
+    assert len(chunks) > 0
+    encoded = _MULTIBYTE_DOC.encode("utf-8")
+    saw_multibyte_chunk = False
+    for c in chunks:
+        # The documented invariant: codepoint slice of the source == chunk text.
+        assert _MULTIBYTE_DOC[c.start_offset : c.end_offset] == c.text
+        # A chunk that actually contains a multibyte char proves the offsets are
+        # NOT byte offsets: the same indices applied to the UTF-8 bytes do not
+        # round-trip to the chunk text (they split a character).
+        if len(c.text.encode("utf-8")) != len(c.text):
+            saw_multibyte_chunk = True
+            assert encoded[c.start_offset : c.end_offset] != c.text.encode("utf-8")
+    assert saw_multibyte_chunk, "fixture must exercise at least one multibyte chunk"
+
+
 @pytest.mark.parametrize("strategy", _all_strategies(), ids=lambda s: s.name)
 def test_empty_input_returns_empty(strategy):
     assert strategy.chunk("", source_doc_id="d") == []
