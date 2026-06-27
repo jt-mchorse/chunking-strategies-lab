@@ -416,6 +416,38 @@ def test_run_matrix_writes_one_json_per_strategy_plus_summary(tmp_path: Path):
         assert "per_query" in payload
 
 
+def test_run_matrix_summary_honors_non_default_ks(tmp_path: Path):
+    # #76: `_render_summary` hardcoded recall@1/3/5, so a non-default `--ks`
+    # produced an all-zeros table while the JSONs held real values. The summary
+    # columns must reflect the chosen ks and match the JSON cells.
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from run_matrix import main
+
+    rc = main(
+        ["--results-dir", str(tmp_path), "--embedder", "hash", "--canonical-out", "--ks", "2,4,6"]
+    )
+    assert rc == 0
+    summary = (tmp_path / "summary.md").read_text()
+    # Header reflects the chosen ks, not the old hardcoded 1/3/5.
+    for k in ("recall@2", "recall@4", "recall@6"):
+        assert k in summary
+    for k in ("recall@1", "recall@3", "recall@5"):
+        assert k not in summary
+
+    # The fixed-size recall@2 cell in the table must equal the JSON value, not a
+    # spurious 0.000.
+    payload = json.loads((tmp_path / "canonical__fixed-size.json").read_text())
+    expected_at_2 = payload["recall_at_k"]["2"]
+    row = next(line for line in summary.splitlines() if line.startswith("| fixed-size |"))
+    first_recall_cell = float(
+        row.split("|")[3].strip()
+    )  # cols: '', strategy, n_chunks, recall@2...
+    assert first_recall_cell == pytest.approx(expected_at_2, abs=5e-4)
+    # The bug rendered this as 0.000 while the JSON value is non-zero.
+    assert expected_at_2 > 0
+    assert first_recall_cell > 0
+
+
 def test_run_matrix_default_writes_timestamped_scratch(tmp_path: Path):
     """Default (non-canonical) runs write timestamped filenames so the
     regen scratch can't overwrite the tracked canonical fixtures."""
