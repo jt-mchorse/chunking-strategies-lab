@@ -54,6 +54,18 @@ _LOAD_CELL = dedent(
     RESULTS_DIR = REPO_ROOT / "results"
 
 
+    def _stamp_rank(stamp: str) -> tuple[int, str]:
+        """Recency key so a fresh run beats the committed `canonical` baseline.
+
+        Timestamped runs use a digit prefix (`YYYYMMDDThhmmss`); the committed
+        fixtures use the literal `canonical`. Plain `>` would rank `canonical`
+        above every digit-prefixed stamp ('c' > '0'-'9'), so a fresh operator
+        run alongside the canonical files would be silently ignored. Rank
+        `canonical` lowest instead; any timestamped run supersedes it.
+        """
+        return (0, "") if stamp == "canonical" else (1, stamp)
+
+
     def _load_latest_per_strategy(results_dir: Path) -> list[dict]:
         """Pick the most recent JSON per `strategy_name`."""
         files = sorted(results_dir.glob("*.json"))
@@ -63,7 +75,7 @@ _LOAD_CELL = dedent(
             stamp = p.name.split("__")[0]
             payload = json.loads(p.read_text(encoding="utf-8"))
             name = payload["strategy_name"]
-            if name not in latest_stamp or stamp > latest_stamp[name]:
+            if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
                 latest_by_strategy[name] = payload
                 latest_stamp[name] = stamp
         canonical = ["fixed-size", "recursive", "semantic", "late-chunking", "structure-aware"]
