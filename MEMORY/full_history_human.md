@@ -609,3 +609,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains.
+
+## 2026-06-28 — Issue #86: structure strategy dropped a whitespace-only preamble (coverage gap)
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-1940-issue-86`
+
+- `StructureAwareStrategy.chunk` only emitted the pre-first-heading span when it contained non-whitespace (the `.strip()` guard from #56). A document beginning with a blank line before its first `#` therefore had its leading whitespace dropped — the first chunk started at an offset > 0 and chunk spans no longer reconstructed the source. The tell was an internal inconsistency: the content-preamble path and the no-headings fallback both preserve full coverage (the fallback's invariant is locked by `test_structure_caps_oversized_unheaded_fallback`), and the `MD_DOC` fixture itself begins with `\n` so the path was already exercised — but existing tests only counted section chunks by `heading_level`, so the dropped newline went unnoticed.
+- Fixed by folding a whitespace-only/empty preamble's leading whitespace into the first heading section (start it at offset 0) rather than emitting a useless whitespace chunk or dropping the bytes. Content-preamble behavior unchanged. Added 2 regression tests; suite 326 → 328 passed, ruff clean.
+
+**Why this work, this session:** fourth substantive issue of a multi-issue DAY run, rotating to a fresh priority-tier repo each iteration (after #116, #104, #96) to avoid same-repo append-only MEMORY conflicts. chunking-strategies-lab had zero open issues; a Phase A dogfood sweep surfaced this single high-confidence finding (the other strategies/metrics verified robust).
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains.
