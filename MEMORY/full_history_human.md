@@ -597,3 +597,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** —
+
+## 2026-06-28 — Issue #84: duplicate `ks` values double-counted recall/snippet-hit
+**Duration:** ~25 min · **Branch:** `session/2026-06-28-1552-issue-84`
+
+- `evaluate_strategy` validated `ks` for positivity but never deduplicated it. The hit-counter dicts (`{k: 0 for k in ks}`) collapse duplicate keys, but the per-query counting loop iterates the *raw* `ks`, so a duplicate `k` was incremented once per occurrence — pushing `recall_hits[k] / n` above 1.0. The runner then emitted a `RetrievalRun` whose `recall_at_k[1] == 2.0`, which its own `from_json` validator (`floats in [0, 1]`) rejects — i.e. a run it cannot reload. `snippet_hit_at_k` had the same defect.
+- Reproduced firsthand with a single-doc corpus (top-1 always hits at k=1): `ks=(1, 1)` gave `recall_at_k = {1: 2.0}`. Fixed with a one-line order-preserving dedup (`ks = tuple(dict.fromkeys(ks))`) right after the positivity guard, so the counters, `max(ks)`, the loop, and the result dicts share one unique-key set. No behavior change for already-unique `ks`; the `set(keys) == set(ks)` contract from #27/#28 is preserved. Added a regression test proven to fail pre-fix; suite 325 → 326, ruff clean.
+
+**Why this work, this session:** third substantive issue of a multi-issue DAY run (after the mcp-server-cookbook rebases and llm-eval-harness #114). Priority-tier chunking-strategies-lab had zero open issues, so this was filed from a Phase A dogfood sweep and fixed the same session — and unlike the two preceding clean dogfood passes (rag-production-kit, python-async-llm-pipelines), it surfaced a genuine, self-evident contract violation.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains.
