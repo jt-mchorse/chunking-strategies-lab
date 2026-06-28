@@ -89,11 +89,15 @@ _LOAD_CELL = dedent(
     for r in runs:
         name = r["strategy_name"]
         n_chunks = r["n_chunks_total"]
-        recall5 = float(r["recall_at_k"]["5"])
-        snippet5 = float(r["snippet_hit_at_k"]["5"])
+        # Report the largest k actually present, not a hardcoded 5 — a run from a
+        # non-default `--ks` (a supported run_matrix.py flag) may omit 5. Mirrors
+        # run_matrix.py's `max(ks)` summary line; `kmax` is 5 on the default --ks.
+        kmax = max(int(k) for k in r["recall_at_k"])
+        recall_top = float(r["recall_at_k"][str(kmax)])
+        snippet_top = float(r["snippet_hit_at_k"][str(kmax)])
         wall = r.get("wall_clock_ms", 0.0)
         print(
-            f"  {name:18} chunks={n_chunks:3d}  recall@5={recall5:.3f}  snippet-hit@5={snippet5:.3f}  wall={wall:.0f}ms"
+            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall:.0f}ms"
         )
     '''
 )
@@ -110,7 +114,11 @@ _RECALL_CELL = dedent(
     """\
     import numpy as np
 
-    ks = [1, 3, 5]
+    # Derive k values from the loaded runs instead of hardcoding 1/3/5, so a
+    # non-default `--ks` (a supported run_matrix.py flag) renders the k's it
+    # actually produced rather than crashing on a missing key. Mirrors
+    # run_matrix.py's `sorted(runs[0].recall_at_k)`. Equals [1, 3, 5] on default.
+    ks = sorted(int(k) for k in runs[0]["recall_at_k"]) if runs else [1, 3, 5]
     strategies = [r["strategy_name"] for r in runs]
     x = np.arange(len(strategies))
     width = 0.25
@@ -118,7 +126,9 @@ _RECALL_CELL = dedent(
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     for i, k in enumerate(ks):
         vals = [float(r["recall_at_k"][str(k)]) for r in runs]
-        ax.bar(x + (i - 1) * width, vals, width, label=f"recall@{k}")
+        # Center the grouped bars around each tick for any len(ks); == (i - 1) for
+        # the default 3 k's, so the canonical chart is unchanged.
+        ax.bar(x + (i - (len(ks) - 1) / 2) * width, vals, width, label=f"recall@{k}")
     ax.set_xticks(x)
     ax.set_xticklabels(strategies, rotation=12)
     ax.set_ylabel("Recall (proportion of queries)")
@@ -146,7 +156,7 @@ _SNIPPET_CELL = dedent(
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     for i, k in enumerate(ks):
         vals = [float(r["snippet_hit_at_k"][str(k)]) for r in runs]
-        ax.bar(x + (i - 1) * width, vals, width, label=f"snippet-hit@{k}")
+        ax.bar(x + (i - (len(ks) - 1) / 2) * width, vals, width, label=f"snippet-hit@{k}")
     ax.set_xticks(x)
     ax.set_xticklabels(strategies, rotation=12)
     ax.set_ylabel("Snippet-hit (proportion of queries)")

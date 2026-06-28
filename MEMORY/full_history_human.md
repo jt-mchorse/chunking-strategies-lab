@@ -584,3 +584,16 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** Portfolio is saturated; remaining open issues are JT-decision (`decision-revisit`) or demo-video captures.
+
+## 2026-06-28 — Issue #82: comparison notebook crashed on a non-default --ks
+**Duration:** ~30 min · **Branch:** `session/2026-06-28-0332-issue-82`
+
+- The comparison notebook builder hardcoded `ks=[1,3,5]` and indexed `recall_at_k["5"]`/`["1"]`/`["3"]`, so the headline visualization raised `KeyError` on any `results/` produced with a non-default `--ks` (a supported `run_matrix.py` flag). PR #76/#77 fixed this exact assumption in `run_matrix.py` but never propagated it to the notebook builder, which reads the same JSONs.
+- Fixed by deriving `ks` from the loaded runs (load cell reports `recall@{max k}`, chart cells `sorted(int(k) for k in runs[0]["recall_at_k"])`, dynamic bar centering) — byte-identical render on the canonical `--ks 1,3,5` path. Re-synced `comparison.ipynb` cell sources preserving executed outputs; ruff-format clean. Added 2 regression tests for a `--ks 2,4` payload. Full suite green.
+- Found via a Phase A dogfood sweep over 4 priority-tier repos (the other three — llm-eval-harness, rag-production-kit, nextjs-streaming-ai-patterns — came back clean/well-hardened).
+
+**Why this work, this session:** only solid finding from the dogfood sweep; a real crash on the project's headline surface for a documented flag.
+
+**Open questions / blockers:** none.
+
+**Next session:** —

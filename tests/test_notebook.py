@@ -168,3 +168,72 @@ def test_build_notebook_load_cell_ships_the_stamp_rank_fix():
         "`stamp > latest_stamp[name]` would reintroduce the canonical-shadows-"
         "fresh-run bug (#78)"
     )
+
+
+def _non_default_ks_runs() -> list[dict]:
+    """Result JSONs as produced by `run_matrix.py --ks 2,4` — no 1/3/5 keys."""
+    return [
+        {
+            "strategy_name": "fixed-size",
+            "n_chunks_total": 10,
+            "recall_at_k": {"2": 0.4, "4": 0.6},
+            "snippet_hit_at_k": {"2": 0.1, "4": 0.2},
+            "wall_clock_ms": 5.0,
+            "embedder_model": "HashEmbedder",
+            "n_queries": 4,
+        },
+        {
+            "strategy_name": "recursive",
+            "n_chunks_total": 12,
+            "recall_at_k": {"2": 0.5, "4": 0.7},
+            "snippet_hit_at_k": {"2": 0.15, "4": 0.25},
+            "wall_clock_ms": 6.0,
+            "embedder_model": "HashEmbedder",
+            "n_queries": 4,
+        },
+    ]
+
+
+def test_chart_cells_handle_non_default_ks():
+    """Regression for #82: the recall/snippet chart cells must derive `ks` from
+    the loaded runs, not hardcode 1/3/5, so a notebook built from a non-default
+    `--ks` (a supported run_matrix.py flag) renders instead of raising KeyError.
+
+    Pre-fix `ks = [1, 3, 5]` + `r["recall_at_k"][str(k)]` raised `KeyError: '1'`
+    on a `--ks 2,4` payload. `run_matrix.py:104` already derives ks dynamically;
+    this locks the notebook builder to the same behavior.
+    """
+    import matplotlib  # noqa: PLC0415
+
+    matplotlib.use("Agg")  # headless: plt.show() is a no-op
+    import _build_notebook  # noqa: PLC0415
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    runs = _non_default_ks_runs()
+    ns: dict = {"runs": runs, "plt": plt, "embedder": "HashEmbedder", "n_queries": 4}
+    # Each chart cell must run without KeyError on the --ks 2,4 payload.
+    exec(_build_notebook._RECALL_CELL, ns)  # noqa: S102  (defines ks, x, width, strategies)
+    exec(_build_notebook._SNIPPET_CELL, ns)  # noqa: S102  (reuses ns from recall cell)
+    plt.close("all")
+    assert ns["ks"] == [2, 4], f"chart cells did not derive ks from runs: {ns.get('ks')!r}"
+
+
+def test_load_cell_reports_max_available_k_not_hardcoded_five():
+    """Regression for #82: the load cell's per-run print must index the largest
+    k actually present (`max(...)`), not a hardcoded "5" that KeyErrors on a
+    non-default `--ks`. Also lock that the emitted source dropped the literals.
+    """
+    import _build_notebook  # noqa: PLC0415
+
+    load = _build_notebook._LOAD_CELL
+    recall = _build_notebook._RECALL_CELL
+    assert 'recall_at_k"]["5"]' not in load, "load cell still hardcodes recall_at_k['5'] (#82)"
+    assert "ks = [1, 3, 5]" not in recall, "recall chart cell still hardcodes ks = [1, 3, 5] (#82)"
+
+    # The kmax derivation the load cell now uses must pick the largest present k
+    # and index it without raising, on a payload that omits 5.
+    for r in _non_default_ks_runs():
+        kmax = max(int(k) for k in r["recall_at_k"])
+        assert kmax == 4
+        float(r["recall_at_k"][str(kmax)])  # must not raise
+        float(r["snippet_hit_at_k"][str(kmax)])
