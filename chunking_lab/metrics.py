@@ -237,6 +237,13 @@ def evaluate_strategy(
     bad_k = sorted({k for k in ks if k <= 0})
     if bad_k:
         raise ValueError(f"every k in ks must be positive; got {bad_k}")
+    # Deduplicate (order-preserving) so the counter dicts, `max(ks)`, and the
+    # per-query counting loop all operate on the same unique-key set. The hit
+    # dicts below already collapse duplicate keys, but the raw counting loop
+    # iterates `ks`, so a duplicate `k` would be counted once per occurrence and
+    # push `recall_hits[k] / n` above 1.0 — yielding a RetrievalRun that its own
+    # `from_json` validator rejects (#84). No effect for already-unique `ks`.
+    ks = tuple(dict.fromkeys(ks))
 
     t_start = time.perf_counter()
     chunks_with_vecs = _materialize_vectors(strategy, corpus, embedder)
