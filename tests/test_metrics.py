@@ -385,6 +385,43 @@ def test_evaluate_strategy_accepts_positive_ks(ks):
     assert set(run.snippet_hit_at_k.keys()) == set(ks)
 
 
+# Issue #84: duplicate values in `ks` double-counted in the per-query loop,
+# pushing recall_at_k / snippet_hit_at_k above 1.0 — a RetrievalRun the runner's
+# own `from_json` validator then rejects. A single-doc corpus is used so the
+# top-1 retrieval always hits at k=1; pre-fix, ks=(1, 1) yielded recall_at_k[1]
+# == 2.0 instead of 1.0.
+def test_evaluate_strategy_deduplicates_ks_no_double_count():
+    corpus = [
+        Document(
+            filename="only.md",
+            text="Apples are red fruit grown on apple trees in orchards. "
+            "Potassium is found in bananas.\n",
+        )
+    ]
+    queries = [
+        Query(
+            id="q01",
+            question="apples",
+            expected_doc="only.md",
+            expected_snippet="apple trees",
+        )
+    ]
+    strategy = FixedSizeStrategy(chunk_chars=40, overlap_chars=0)
+
+    dup = evaluate_strategy(strategy, corpus, queries, HashEmbedder(), ks=(1, 1, 3))
+    unique = evaluate_strategy(strategy, corpus, queries, HashEmbedder(), ks=(1, 3))
+
+    # No value escapes [0, 1]; duplicate k did not inflate the count.
+    assert all(0.0 <= v <= 1.0 for v in dup.recall_at_k.values())
+    assert all(0.0 <= v <= 1.0 for v in dup.snippet_hit_at_k.values())
+    # Duplicate-ks result matches the deduplicated request exactly.
+    assert dup.recall_at_k == unique.recall_at_k
+    assert dup.snippet_hit_at_k == unique.snippet_hit_at_k
+    assert set(dup.recall_at_k.keys()) == {1, 3}
+    # The runner emits a RetrievalRun it can reload (the pre-fix tell).
+    assert RetrievalRun.from_json(dup.to_json()).recall_at_k == dup.recall_at_k
+
+
 # ---------------------------------------------------------------------
 # run_matrix script
 # ---------------------------------------------------------------------
