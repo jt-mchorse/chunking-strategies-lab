@@ -567,6 +567,37 @@ def test_structure_caps_oversized_preamble():
     assert [c.metadata["piece_idx"] for c in preamble_pieces] == list(range(len(preamble_pieces)))
 
 
+def test_structure_whitespace_only_preamble_is_not_dropped():
+    # #86: a doc beginning with a blank line before its first `#` has a
+    # whitespace-only preamble. Pre-fix the `.strip()` guard skipped it, so the
+    # leading whitespace belonged to no chunk and the first chunk started > 0 —
+    # a coverage gap, inconsistent with the content-preamble path (#56) and the
+    # no-headings fallback's tested full-coverage invariant. The leading
+    # whitespace is now folded into the first section: full coverage, no useless
+    # whitespace chunk.
+    s = StructureAwareStrategy()
+    text = "\n\n# Heading\nbody text"
+    chunks = s.chunk(text)
+    # Full coverage: chunk spans tile the source from offset 0.
+    assert chunks[0].start_offset == 0
+    assert "".join(c.text for c in chunks) == text
+    assert all(text[c.start_offset : c.end_offset] == c.text for c in chunks)  # offset<->text (#50)
+    # No standalone whitespace-only chunk; the section still carries its title.
+    assert all(c.text.strip() for c in chunks)
+    assert chunks[0].metadata["title"] == "Heading"
+
+
+def test_structure_content_preamble_still_its_own_chunk():
+    # The fix must not regress the content-bearing preamble: it stays a separate
+    # <preamble> chunk and full coverage is preserved.
+    s = StructureAwareStrategy()
+    text = "intro line\n\n# Heading\nbody"
+    chunks = s.chunk(text)
+    assert chunks[0].metadata["title"] == "<preamble>"
+    assert chunks[0].start_offset == 0
+    assert "".join(c.text for c in chunks) == text
+
+
 # ----------------------------------------------------------------------
 # Run-time benchmark across the committed corpus (acceptance criterion 3)
 # ----------------------------------------------------------------------

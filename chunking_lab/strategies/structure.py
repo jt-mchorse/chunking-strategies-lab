@@ -103,21 +103,35 @@ class StructureAwareStrategy:
         # through the same cap-aware emitter as the sections so a long
         # preamble (a title block / abstract / intro before the first `#`)
         # can't bypass max_chunk_chars and produce a monster chunk.
-        if headings[0][0] > 0 and text[: headings[0][0]].strip():
+        first_heading_start = headings[0][0]
+        if first_heading_start > 0 and text[:first_heading_start].strip():
             self._emit_capped(
                 text,
                 0,
-                headings[0][0],
+                first_heading_start,
                 {"title": "<preamble>", "heading_level": None},
                 chunks,
                 source_doc_id,
             )
+            first_section_start = first_heading_start
+        else:
+            # An empty or whitespace-only preamble: don't emit a useless
+            # whitespace chunk, but don't DROP those source codepoints either.
+            # Fold any leading whitespace into the first section so the heading
+            # path preserves full coverage — matching the content-preamble path
+            # above (#56) and the no-headings fallback, whose full-coverage
+            # invariant is locked by test_structure_caps_oversized_unheaded_
+            # fallback. Pre-fix, a doc beginning with a blank line before its
+            # first `#` dropped the leading whitespace (the corner #56 missed).
+            # When there's no preamble at all this is just 0 == first_heading_start.
+            first_section_start = 0
 
         for i, (h_start, _h_end, level, title) in enumerate(headings):
+            start = first_section_start if i == 0 else h_start
             section_end = headings[i + 1][0] if i + 1 < len(headings) else len(text)
             self._emit_capped(
                 text,
-                h_start,
+                start,
                 section_end,
                 {"title": title, "heading_level": level},
                 chunks,
