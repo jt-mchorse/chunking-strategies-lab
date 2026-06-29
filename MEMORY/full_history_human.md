@@ -632,3 +632,19 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** the finding-code count in architecture.md matches the validator.
+
+## 2026-06-29 — Issue #90: semantic chunker dropped the inter-block separator at topic boundaries (coverage gap)
+**Duration:** ~30 min · **Branch:** `session/2026-06-29-1931-issue-90`
+
+- `SemanticBoundaryStrategy._emit_block` ended each block right after its last sentence's text (`block_end = sentences[end_idx-1][1] + len(...)`), while the next block started at the next sentence's offset. The whitespace separator *between* adjacent topic blocks — matched and skipped by `_SENTENCE_RE` in `_split_sentences_with_offsets` — was therefore emitted in no chunk. Those source characters fell into a coverage gap, so concatenating chunk text by offset no longer reconstructed the source. This is the between-block twin of the within-block gaps #50 (whole-block whitespace) and #74 (greedy-split within a block) closed; both prior fixes only covered paths inside a single block.
+- The bug was latent because every existing semantic coverage test forces a *single* block (`distance_threshold=2.0`), and the per-chunk `text[start:end] == chunk.text` invariant held either way (each block slices its own text), so the offset tests passed. Reproduced firsthand: `"First sentence here.\n\nSecond sentence here."` at `distance_threshold=0.0` produced chunks `(0,20)` and `(22,43)` — indices 20,21 (`\n\n`) in no chunk.
+- Fixed by tiling blocks contiguously: `block_end` now derives from the next block's start (`sentences[end_idx][1]`, or `len(text)` for the final block), carrying the inter-block separator as the preceding block's trailing text; the greedy path's final piece extends to `block_end` likewise. Since the next block's `block_start` is exactly `sentences[end_idx][1]`, consecutive blocks abut with no gap and no overlap. Post-fix, reconstruction + per-chunk slicing + contiguous tiling hold across empty, single-sentence, multi-block, unicode, and greedy+min-merge inputs. 2 lock tests on the previously-untested multi-block path, both confirmed failing on pre-fix code. Suite 328 → 330, ruff clean.
+- A first-draft "boundary-straddling snippet is retrievable" test was dropped as a false premise: a snippet spanning a *real* topic split inherently lives in two chunks regardless of the fix — the genuine invariant is coverage/reconstruction, not single-chunk retrievability across a true split.
+
+**Why this work, this session:** third substantive issue of a multi-issue DAY run (after `llm-eval-harness` #120 and `llm-cost-optimizer` #110). Rotated to priority-tier `chunking-strategies-lab` (build-sequence pos 6, zero open issues); a dogfood hunter targeting the offset/tiling invariant across strategies surfaced this between-block coverage gap.
+
+**Open questions / blockers:** none.
+
+**Process note:** the fix was written before the issue/plan were posted this time (a discipline slip); corrected by filing #90 and posting the plan, then moving the uncommitted work onto the session branch. Nothing was ever committed or pushed to `main`.
+
+**Next session:** continue the loop on another repo if time remains.
