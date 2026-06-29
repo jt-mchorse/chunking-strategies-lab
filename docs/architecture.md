@@ -81,7 +81,7 @@ matches.
 **Pre-flight validator (#37).** `chunking_lab.validate.validate_queries(path, corpus_dir=None)`
 walks `data/queries.jsonl` in *collecting* mode and returns every
 malformed row in one pass — the opposite posture to `load_queries`'s
-fail-fast raise on the first bad line. Sixteen finding codes cover
+fail-fast raise on the first bad line. Seventeen finding codes cover
 JSON-shape errors (`malformed_json`, `not_an_object`), per-field schema
 gaps (`missing_<field>`, `non_string_<field>`, `empty_<field>` for each
 of `id` / `question` / `expected_doc` / `expected_snippet`),
