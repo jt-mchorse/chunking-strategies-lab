@@ -959,3 +959,21 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-29T04:01Z
+issue: 88
+focus: architecture_md_sixteen_finding_codes_but_validator_emits_seventeen
+phase: night_session_phase_b_iteration_10
+duration_min: 9
+delta:
+  files_changed: 1 # docs/architecture.md
+  tests_added: 0   # doc-only count correction
+context_for_next_session:
+  - architecture_md_84_said_sixteen_finding_codes_but_own_inline_enumeration_and_validate_py_sum_to_17_5_fixed_malformed_json_not_an_object_duplicate_id_empty_expected_doc_not_found_plus_3_per_field_prefixes_times_4_required_fields_12
+  - test_validate_py_9_12_confirms_15_parametrized_plus_2_separate_expected_doc_not_found_and_empty_equals_17_its_15_codes_docstring_correct_as_written_counts_parametrized_subset_unchanged
+  - test_architecture_doc_py_locks_path_tokens_decisions_banned_phrases_not_counts_so_off_by_one_slipped
+  - fix_doc_only_sixteen_to_seventeen_tenth_issue_this_night_run_from_second_doc_contract_subagent_batch
+decisions_made: []
+followups: []
+---
