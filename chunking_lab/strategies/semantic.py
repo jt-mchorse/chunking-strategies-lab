@@ -151,7 +151,20 @@ class SemanticBoundaryStrategy:
         if start_idx >= end_idx:
             return
         block_start = sentences[start_idx][1]
-        block_end = sentences[end_idx - 1][1] + len(sentences[end_idx - 1][0])
+        # Tile blocks contiguously: end this block at the NEXT block's start (the
+        # next sentence's offset), or len(text) for the final block — carrying the
+        # inter-block separator as this block's trailing text. Deriving block_end
+        # from the last sentence's text end instead dropped the whitespace BETWEEN
+        # topic blocks: those characters fell into no chunk (a coverage gap), so
+        # concatenating chunks by offset no longer reconstructed the source and a
+        # snippet straddling a topic boundary became unretrievable. This is the
+        # between-block twin of the within-block gaps #50/#74 closed — those fixes
+        # only covered the whole-block and greedy-split-within-a-block paths.
+        # Per-chunk `text[start:end] == chunk.text` held either way (each block's
+        # offsets sliced its own text), which is why the offset tests missed it.
+        # Because the next block's `block_start` is exactly this `sentences[
+        # end_idx][1]`, consecutive blocks now abut with no gap and no overlap.
+        block_end = sentences[end_idx][1] if end_idx < len(sentences) else len(text)
 
         if (block_end - block_start) <= self.max_chunk_chars:
             out.append(
@@ -192,8 +205,12 @@ class SemanticBoundaryStrategy:
                 self._append_capped(text, run_start, run_end, source_doc_id, out)
                 run_start = run_end
             run_end = sent_end
-        if run_start < run_end:
-            self._append_capped(text, run_start, run_end, source_doc_id, out)
+        # Extend the final run to `block_end` (not the last sentence's text end)
+        # so the trailing inter-block separator is carried in the last piece too,
+        # matching the whole-block tiling above. Intermediate runs still flush at
+        # sentence ends, carrying within-block gaps as the next run's leading text.
+        if run_start < block_end:
+            self._append_capped(text, run_start, block_end, source_doc_id, out)
 
     def _append_capped(
         self,
