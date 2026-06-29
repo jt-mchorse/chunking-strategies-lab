@@ -621,3 +621,14 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains.
+
+## 2026-06-29 — Issue #88: architecture.md undercounted finding codes (16 vs 17)
+**Duration:** ~9 min · **Branch:** `session/2026-06-29-0401-arch-finding-code-count`
+
+- `docs/architecture.md:84` said "Sixteen finding codes" but the validator (and the doc's own inline enumeration) sum to 17: 5 fixed + 3 per-field prefixes × 4 required fields. `test_validate.py` confirms (15 parametrized + 2 separate). Doc-only correction.
+
+**Why this work, this session:** tenth issue of the night run, from the second parallel doc-contract subagent batch.
+
+**Open questions / blockers:** none.
+
+**Next session:** the finding-code count in architecture.md matches the validator.
