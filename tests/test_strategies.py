@@ -341,6 +341,48 @@ def test_semantic_greedy_path_whitespace_adjacent_snippet_retrievable():
     assert any(" The sky is blue" in c.text for c in chunks)
 
 
+def test_semantic_between_block_coverage_preserves_source():
+    # The between-block twin of #50/#74: every existing semantic coverage test
+    # forces a SINGLE block (distance_threshold=2.0), so the topic-boundary split
+    # path went untested. With boundaries between every sentence (threshold=0.0),
+    # the inter-block separator (here the multi-char "\n\n") fell into no chunk —
+    # concatenating chunk text by offset did not reconstruct the source. Pin that
+    # consecutive blocks tile the source with no gap and no overlap.
+    text = "First topic here.\n\nSecond topic here.\n\nThird topic here."
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0, max_chunk_chars=10_000
+    )
+    chunks = s.chunk(text, source_doc_id="d")
+    assert len(chunks) > 1  # confirms we are on the boundary-split (multi-block) path
+    # Concatenating the slices in order reconstructs the source — no dropped chars.
+    assert "".join(c.text for c in chunks) == text
+    # Chunks tile contiguously: each starts where the previous ended, ending at len.
+    prev = 0
+    for c in chunks:
+        assert c.start_offset == prev
+        assert text[c.start_offset : c.end_offset] == c.text  # per-chunk offset contract
+        prev = c.end_offset
+    assert prev == len(text)
+
+
+def test_semantic_between_block_separator_is_not_dropped():
+    # The concrete harm of the dropped separator: the inter-block whitespace
+    # characters belonged to NO chunk. Pin that the separator survives as the
+    # trailing text of the preceding block (it cannot live in a single chunk that
+    # also holds both sides of a real topic split, but it must not vanish).
+    text = "First topic here.\n\nSecond topic here."
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0, max_chunk_chars=10_000
+    )
+    chunks = s.chunk(text, source_doc_id="d")
+    covered = set()
+    for c in chunks:
+        covered.update(range(c.start_offset, c.end_offset))
+    sep_indices = {i for i, ch in enumerate(text) if ch == "\n"}
+    assert sep_indices, "fixture must contain the separator under test"
+    assert sep_indices <= covered, "inter-block separator characters were dropped"
+
+
 # ----------------------------------------------------------------------
 # #54 — a single sentence longer than max_chunk_chars must be char-split so the
 # documented hard ceiling holds (sentence-boundary splitting alone can't reduce
