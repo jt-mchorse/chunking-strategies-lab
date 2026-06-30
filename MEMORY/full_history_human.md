@@ -648,3 +648,15 @@ open and ready.
 **Process note:** the fix was written before the issue/plan were posted this time (a discipline slip); corrected by filing #90 and posting the plan, then moving the uncommitted work onto the session branch. Nothing was ever committed or pushed to `main`.
 
 **Next session:** continue the loop on another repo if time remains.
+
+## 2026-06-30 — Issue #92: whitespace-only required fields slipped #72's non-empty guard, silently corrupting metrics
+**Duration:** ~20 min · **Branch:** `session/2026-06-30-1540-issue-92`
+
+- #72 added a non-empty guard for the four required query fields but used `if not value`, which only rejects the literal empty string. A whitespace-only value like `"   "` is truthy and slipped through at all three enforcement points (`Query.__post_init__`, `load_queries._require_str`, `validate_queries._validate_row`), reintroducing the exact silent-metric corruption #72 closed: `expected_snippet="   "` makes `"   " in chunk.text` True for any chunk with three consecutive spaces, so snippet-hit@k reads a trivial 1.0; a blank `expected_doc` deflates recall to 0. Reproduced firsthand (all four fields accept `"   "`; the snippet case drove `snippet_hit_at_k == {1:1.0, 3:1.0, 5:1.0}`).
+- Fixed `if not value` → `if not value.strip()` at all three points, kept in lockstep (whitespace-only now flagged under the same `empty_<field>` linter code; messages extended to "… non-empty or whitespace-only", which keeps the existing `… must be non-empty` test regexes matching). +23 tests including an inverse safety net (whitespace cases fail pre-fix), an over-rejection guard (internal whitespace like `"a b"` still accepted), and a regression mirror that a `"   "` snippet can't reach `evaluate_strategy`. Suite 330 → 353, ruff clean.
+
+**Why this work, this session:** fourth issue of a DAY multi-issue run; `chunking-strategies-lab` had **zero open issues**, so dogfood-and-file. I reviewed metrics/validate/semantic/structure myself (all exhaustively guarded — and checking firsthand killed a bogus empty-snippet lead, since `Query.__post_init__` already rejects literal-empty) while an Explore hunter scanned the other seven modules; it surfaced this whitespace gap plus a BOM load-failure (filed as **#93**). Picked chunking-strategies-lab per the priority-tier build sequence after eval-harness/cost-optimizer/rag-production-kit, all shipped earlier this run.
+
+**Open questions / blockers:** none — ready for review. #93 (BOM / `utf-8-sig`) left for a future session to avoid a same-repo MEMORY conflict with this PR.
+
+**Next session:** continue the loop on another repo.

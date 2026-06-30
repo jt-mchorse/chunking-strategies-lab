@@ -56,15 +56,21 @@ class Query:
         ):
             if not isinstance(value, str):
                 raise ValueError(f"{name} must be a string, got {type(value).__name__}")
-            if not value:
-                raise ValueError(f"{name} must be non-empty")
+            # `not value.strip()`, not `not value`: a whitespace-only field is as
+            # corrupting as an empty one. `expected_snippet="   "` makes
+            # `"   " in chunk.text` True for any chunk with three consecutive
+            # spaces, so snippet-hit@k still reads a trivial 1.0 — the exact #72
+            # bypass, reached with whitespace instead of "". `value.strip()` is
+            # falsy for both, so the literal-empty case is still rejected.
+            if not value.strip():
+                raise ValueError(f"{name} must be non-empty or whitespace-only")
 
 
 def _require_str(value: object, name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{name} must be a string, got {type(value).__name__}")
-    if not value:
-        raise ValueError(f"{name} must be non-empty")
+    if not value.strip():
+        raise ValueError(f"{name} must be non-empty or whitespace-only")
     return value
 
 

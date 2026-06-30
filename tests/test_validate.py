@@ -126,6 +126,9 @@ def test_collects_multiple_findings_not_failing_fast(tmp_path: Path) -> None:
         *(({**_valid_row(), field: 123}, f"non_string_{field}") for field in REQUIRED_FIELDS),
         # empty_<field>
         *(({**_valid_row(), field: ""}, f"empty_{field}") for field in REQUIRED_FIELDS),
+        # empty_<field> via whitespace-only (#92): a blank field is flagged under
+        # the same code as a literal-empty one, in lockstep with the loader.
+        *(({**_valid_row(), field: "   "}, f"empty_{field}") for field in REQUIRED_FIELDS),
     ],
 )
 def test_one_positive_case_per_finding_code(tmp_path: Path, row: dict | str, code: str) -> None:

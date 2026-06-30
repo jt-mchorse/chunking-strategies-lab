@@ -123,6 +123,19 @@ def test_queries_loader_rejects_missing_required_field(tmp_path):
         load_queries(p)
 
 
+def test_queries_loader_rejects_whitespace_only_field_with_lineno(tmp_path):
+    # #92: `_require_str` must reject a blank field on the load path too, with
+    # file:lineno context. Pre-fix the `if not value` guard let "   " through.
+    p = tmp_path / "blank.jsonl"
+    p.write_text(
+        '{"id":"q1","question":"a","expected_doc":"x.md","expected_snippet":"y"}\n'
+        '{"id":"q2","question":"b","expected_doc":"x.md","expected_snippet":"   "}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="expected_snippet.*must be non-empty or whitespace-only"):
+        load_queries(p)
+
+
 # --- Query dataclass invariant (direct construction) ----------------------
 
 
@@ -169,6 +182,36 @@ def test_empty_snippet_query_cannot_reach_snippet_hit_trivial_pass():
     # reach `evaluate_strategy`.
     with pytest.raises(ValueError, match="expected_snippet must be non-empty"):
         Query(id="bad", question="q", expected_doc="d.md", expected_snippet="")
+
+
+@pytest.mark.parametrize("field", ["id", "question", "expected_doc", "expected_snippet"])
+@pytest.mark.parametrize("blank", ["   ", "\t", "\n", " \t\n "])
+def test_query_rejects_whitespace_only_field_on_direct_construction(field, blank):
+    # #92 completes #72: a whitespace-only field is as corrupting as an empty one
+    # (`"   " in chunk.text` is True for any chunk with three consecutive spaces,
+    # so snippet-hit@k still reads a trivial 1.0). The old `if not value` guard
+    # missed these because `"   "` is truthy. Inverse safety net: pre-fix these
+    # were constructible.
+    kwargs = _valid_query_kwargs()
+    kwargs[field] = blank
+    with pytest.raises(ValueError, match=f"{field} must be non-empty or whitespace-only"):
+        Query(**kwargs)
+
+
+def test_query_accepts_field_with_internal_whitespace():
+    # Over-rejection guard: only *blank* fields are rejected; a field with
+    # internal/surrounding-plus-content whitespace is legitimate content.
+    q = Query(id="q 1", question="what is x?", expected_doc="a b.md", expected_snippet="a b c")
+    assert q.id == "q 1"
+    assert q.expected_snippet == "a b c"
+
+
+def test_whitespace_only_snippet_query_cannot_reach_snippet_hit_trivial_pass():
+    # The whitespace twin of test_empty_snippet_query_cannot_reach_snippet_hit_
+    # trivial_pass: a "   " snippet must be stopped at construction so it can
+    # never inflate snippet-hit@k inside `evaluate_strategy`.
+    with pytest.raises(ValueError, match="expected_snippet must be non-empty or whitespace-only"):
+        Query(id="bad", question="q", expected_doc="d.md", expected_snippet="   ")
 
 
 # --- Embedder -------------------------------------------------------------
