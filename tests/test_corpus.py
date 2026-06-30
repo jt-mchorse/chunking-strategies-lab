@@ -123,6 +123,29 @@ def test_queries_loader_rejects_missing_required_field(tmp_path):
         load_queries(p)
 
 
+def test_queries_loader_handles_utf8_bom(tmp_path):
+    # Issue #93: a UTF-8 BOM (EF BB BF — Windows Notepad / some spreadsheet
+    # exports) survives `.strip()` (U+FEFF is not whitespace) and reaches
+    # json.loads on line 1. utf-8-sig strips it transparently. A BOM file must
+    # load identically to its BOM-less twin.
+    body = (
+        '{"id":"q1","question":"a","expected_doc":"x.md","expected_snippet":"y"}\n'
+        '{"id":"q2","question":"b","expected_doc":"z.md","expected_snippet":"w"}\n'
+    )
+    bomful = tmp_path / "bom.jsonl"
+    bomless = tmp_path / "plain.jsonl"
+    bomful.write_text(body, encoding="utf-8-sig")  # prepends the BOM
+    bomless.write_text(body, encoding="utf-8")
+    # Sanity: the on-disk bytes actually differ by the BOM.
+    assert bomful.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert not bomless.read_bytes().startswith(b"\xef\xbb\xbf")
+
+    from_bom = load_queries(bomful)
+    from_plain = load_queries(bomless)
+    assert [q.id for q in from_bom] == ["q1", "q2"]
+    assert from_bom == from_plain
+
+
 def test_queries_loader_rejects_whitespace_only_field_with_lineno(tmp_path):
     # #92: `_require_str` must reject a blank field on the load path too, with
     # file:lineno context. Pre-fix the `if not value` guard let "   " through.
