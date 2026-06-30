@@ -128,7 +128,10 @@ def validate_queries(
     n_rows = 0
     n_valid = 0
 
-    with path.open("r", encoding="utf-8") as fh:
+    # utf-8-sig strips a leading BOM, matching load_queries for parity (#93):
+    # otherwise a BOM-prefixed file reports a spurious malformed_json finding on
+    # line 1 (`.strip()` does not remove U+FEFF).
+    with path.open("r", encoding="utf-8-sig") as fh:
         for line_no, raw_line in enumerate(fh, start=1):
             stripped = raw_line.strip()
             if not stripped:

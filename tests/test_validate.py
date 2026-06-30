@@ -82,6 +82,21 @@ def test_shipped_queries_validate_clean() -> None:
     assert report.n_valid == 12
 
 
+def test_validate_queries_handles_utf8_bom(tmp_path: Path) -> None:
+    # Issue #93: parity with load_queries — a UTF-8 BOM must not produce a
+    # spurious malformed_json finding on line 1. utf-8-sig strips it; `.strip()`
+    # does not (U+FEFF is not whitespace).
+    body = json.dumps(_valid_row("q01")) + "\n" + json.dumps(_valid_row("q02")) + "\n"
+    p = tmp_path / "bom.jsonl"
+    p.write_text(body, encoding="utf-8-sig")  # prepends the BOM
+    assert p.read_bytes().startswith(b"\xef\xbb\xbf")
+
+    report = validate_queries(p)
+    assert report.ok, f"BOM-prefixed file unexpectedly has findings: {report.findings}"
+    assert report.n_rows == 2
+    assert report.n_valid == 2
+
+
 def test_shipped_queries_with_corpus_dir_validate_clean() -> None:
     """Cross-file invariant holds for the pinned substrate."""
     report = validate_queries(SHIPPED_QUERIES, corpus_dir=SHIPPED_CORPUS)

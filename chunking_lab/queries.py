@@ -81,7 +81,11 @@ def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
         raise FileNotFoundError(f"queries file not found: {p}")
     out: list[Query] = []
     seen_ids: set[str] = set()
-    with p.open("r", encoding="utf-8") as f:
+    # utf-8-sig transparently strips a leading BOM (EF BB BF — the default for
+    # Windows Notepad and some spreadsheet exports) and is a no-op for BOM-less
+    # UTF-8. `.strip()` below does not remove U+FEFF, so without this the BOM
+    # reaches json.loads on line 1 and the whole file fails to load (#93).
+    with p.open("r", encoding="utf-8-sig") as f:
         for lineno, raw in enumerate(f, start=1):
             line = raw.strip()
             if not line:
