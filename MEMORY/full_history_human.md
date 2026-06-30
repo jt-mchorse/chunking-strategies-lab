@@ -660,3 +660,15 @@ open and ready.
 **Open questions / blockers:** none — ready for review. #93 (BOM / `utf-8-sig`) left for a future session to avoid a same-repo MEMORY conflict with this PR.
 
 **Next session:** continue the loop on another repo.
+
+## 2026-06-30 — Issue #93: queries readers failed on a BOM-prefixed JSONL (utf-8 → utf-8-sig)
+**Duration:** ~15 min · **Branch:** `session/2026-06-30-1940-issue-93`
+
+- `load_queries` (`queries.py:84`) and `validate_queries` (`validate.py:131`) opened with `encoding="utf-8"`. A UTF-8 BOM (`EF BB BF` — Windows Notepad / some spreadsheet exports) survives `.strip()` (U+FEFF is not whitespace in Python), so it reaches `json.loads` on line 1: `load_queries` raised `ValueError: Unexpected UTF-8 BOM`, and `validate_queries` reported a spurious `malformed_json` finding. Fixed by opening both with `encoding="utf-8-sig"`, which strips a leading BOM transparently and is a no-op for BOM-less UTF-8.
+- +2 tests: a BOM-prefixed file loads identically to its BOM-less twin via `load_queries` (asserting the on-disk bytes differ by the BOM), and `validate_queries` reports it clean with `n_rows == 2`. Both fail pre-fix (stash-and-rerun) with the exact `Unexpected UTF-8 BOM` error. (Edit slip: my first `old_string` for the shipped-clean test dropped its trailing `n_rows==12`/`n_valid==12` asserts, orphaning them into the new test — pytest surfaced `assert 2 == 12`; restored in a follow-up edit.) Suite 353 → 355, ruff clean.
+
+**Why this work, this session:** fourth issue of a DAY multi-issue run (after nextjs #70, rag #108, llm-eval-harness #128). Picked as the last clean priority-tier issue once `llm-cost-optimizer` #97 fell through (decision-revisit, D-007). Filed **#95** for the parallel `load_corpus` BOM gap (`corpus.py:46`), which is silent rather than fatal — a BOM there becomes an invisible leading char in document text, shifting chunk offsets — deliberately out of this PR's scope.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop. #95 (corpus BOM) awaits this PR merging first to avoid a same-repo MEMORY conflict.
