@@ -33,8 +33,10 @@ match ``load_queries``):
   ``missing_expected_snippet`` — required field absent.
 - ``non_string_<field>``       — field present but not a string (one per
                                  required field).
-- ``empty_<field>``            — field present, string, empty (one per
-                                 required field).
+- ``empty_<field>``            — field present, string, empty *or
+                                 whitespace-only* (one per required field;
+                                 #92 — a blank field corrupts metrics the same
+                                 way an empty one does).
 - ``duplicate_id``             — same ``id`` seen at multiple lines.
 - ``expected_doc_not_found``   — *only when corpus_dir is provided* —
                                  ``corpus_dir / expected_doc`` doesn't
@@ -252,11 +254,17 @@ def _validate_row(obj: dict[str, Any], line_no: int) -> list[ValidationFinding]:
                 )
             )
             continue
-        if value == "":
+        if value.strip() == "":
+            # `value.strip()`, not `value == ""`: a whitespace-only field is as
+            # corrupting as an empty one (an `expected_snippet` of "   " matches
+            # any chunk with three consecutive spaces → trivial snippet-hit@k),
+            # so it is flagged under the same `empty_<field>` code. Keeps the
+            # linter in lockstep with `Query.__post_init__` / `_require_str`,
+            # which reject both (chunking-strategies-lab #92, completing #72).
             findings.append(
                 ValidationFinding(
                     line_no=line_no,
-                    reason=f"field {field!r} must not be empty",
+                    reason=f"field {field!r} must not be empty or whitespace-only",
                     code=f"empty_{field}",
                 )
             )
