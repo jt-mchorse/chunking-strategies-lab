@@ -36,14 +36,20 @@ def load_corpus(corpus_dir: PathLike[str] | str | None = None) -> list[Document]
     """Load every ``*.md`` document from the corpus directory.
 
     Results are sorted by filename so iteration is deterministic. Files
-    are read as UTF-8.
+    are read as UTF-8, tolerating a leading BOM (see below).
     """
     base = Path(corpus_dir) if corpus_dir is not None else DEFAULT_CORPUS_DIR
     if not base.exists():
         raise FileNotFoundError(f"corpus directory not found: {base}")
     docs: list[Document] = []
     for path in sorted(base.glob("*.md")):
-        docs.append(Document(filename=path.name, text=path.read_text(encoding="utf-8")))
+        # utf-8-sig transparently strips a leading BOM (EF BB BF — the default
+        # for Windows Notepad and some doc exporters) and is a no-op for
+        # BOM-less UTF-8. Without it the U+FEFF survives into the document text
+        # as an invisible leading char, shifting first-chunk offsets by one and
+        # leaking into snippet-match comparisons (#95). Parity with the queries
+        # loader / validator fixed in #93.
+        docs.append(Document(filename=path.name, text=path.read_text(encoding="utf-8-sig")))
     if not docs:
         raise FileNotFoundError(f"no markdown documents in: {base}")
     return docs
