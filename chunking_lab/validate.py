@@ -18,9 +18,13 @@ A frozen ``ValidationReport`` carries the result: ``n_rows``,
 the file produced at least one valid row AND zero findings.
 
 When ``corpus_dir`` is provided, each row's ``expected_doc`` is checked
-against ``corpus_dir / expected_doc`` on disk — the cross-file invariant
-that catches typo'd doc references that silently invalidate recall
-metrics (the run completes, the number becomes meaningless).
+for membership in the *loaded* corpus — the set of ``*.md`` files
+``load_corpus`` enumerates, keyed by basename — not merely for existence
+on disk. This is the cross-file invariant that catches typo'd doc
+references that silently invalidate recall metrics (the run completes,
+the number becomes meaningless): a non-``.md`` file, a directory named
+``*.md``, or a case-mismatched name resolves on disk but is never a
+loaded ``Document.filename``, so recall for that query is permanently 0.
 
 Finding codes (1-indexed line numbers; blank lines silently skipped to
 match ``load_queries``):
@@ -39,8 +43,8 @@ match ``load_queries``):
                                  way an empty one does).
 - ``duplicate_id``             — same ``id`` seen at multiple lines.
 - ``expected_doc_not_found``   — *only when corpus_dir is provided* —
-                                 ``corpus_dir / expected_doc`` doesn't
-                                 resolve on disk.
+                                 ``expected_doc`` is not a loaded corpus
+                                 document (a ``*.md`` file matched by name).
 - ``empty``                    — file contained zero rows; reported once
                                  with ``line_no=0``.
 
@@ -118,10 +122,21 @@ def validate_queries(
         raise FileNotFoundError(path)
 
     corpus_root: Path | None = None
+    corpus_docs: set[str] | None = None
     if corpus_dir is not None:
         corpus_root = Path(corpus_dir)
         if not corpus_root.exists():
             raise FileNotFoundError(corpus_root)
+        # Mirror load_corpus's enumeration EXACTLY — `base.glob("*.md")` keyed by
+        # `path.name`, files only — instead of a raw `.exists()` on
+        # `corpus_root / expected_doc`. `.exists()` accepts anything on disk under
+        # the corpus dir that is never a loaded `Document.filename`: a non-`.md`
+        # file (recall silently 0.0 for that query), a directory named `*.md`
+        # (load_corpus then crashes on read), or a case-mismatched name on a
+        # case-insensitive FS. Comparing against the real document set closes all
+        # three — exactly the "typo'd doc reference that invalidates recall" this
+        # check exists to catch (#98).
+        corpus_docs = {p.name for p in corpus_root.glob("*.md") if p.is_file()}
 
     findings: list[ValidationFinding] = []
     seen_ids: dict[str, int] = {}
@@ -195,13 +210,16 @@ def validate_queries(
             if row_findings or row_has_duplicate:
                 continue
 
-            if corpus_root is not None:
+            if corpus_docs is not None:
                 expected_doc = obj["expected_doc"]
-                if not (corpus_root / expected_doc).exists():
+                if expected_doc not in corpus_docs:
                     findings.append(
                         ValidationFinding(
                             line_no=line_no,
-                            reason=(f"expected_doc {expected_doc!r} not found under {corpus_root}"),
+                            reason=(
+                                f"expected_doc {expected_doc!r} is not a loaded corpus "
+                                f"document (*.md file) under {corpus_root}"
+                            ),
                             code="expected_doc_not_found",
                         )
                     )
