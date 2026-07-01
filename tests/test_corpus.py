@@ -50,6 +50,30 @@ def test_corpus_loader_rejects_empty_directory(tmp_path):
         load_corpus(tmp_path / "data" / "corpus")
 
 
+def test_corpus_loader_handles_utf8_bom(tmp_path):
+    # Issue #95: a UTF-8 BOM (EF BB BF — Windows Notepad / some doc exporters)
+    # is not whitespace, so reading with plain "utf-8" leaves U+FEFF as an
+    # invisible leading char in the document text, shifting first-chunk offsets
+    # and leaking into snippet matches. utf-8-sig strips it transparently. A
+    # BOM-prefixed document must load identically to its BOM-less twin. Parity
+    # with the queries loader (#93).
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    body = "# Heading\n\nFirst paragraph of technical prose about chunking.\n"
+    bomful = corpus / "bom.md"
+    bomless = corpus / "plain.md"
+    bomful.write_text(body, encoding="utf-8-sig")  # prepends the BOM
+    bomless.write_text(body, encoding="utf-8")
+    # Sanity: the on-disk bytes actually differ by the BOM.
+    assert bomful.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert not bomless.read_bytes().startswith(b"\xef\xbb\xbf")
+
+    docs = {d.filename: d.text for d in load_corpus(corpus)}
+    assert docs["bom.md"] == body  # no leading U+FEFF
+    assert not docs["bom.md"].startswith("﻿")
+    assert docs["bom.md"] == docs["plain.md"]
+
+
 # --- Queries --------------------------------------------------------------
 
 

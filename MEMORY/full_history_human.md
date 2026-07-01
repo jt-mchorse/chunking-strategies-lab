@@ -672,3 +672,15 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop. #95 (corpus BOM) awaits this PR merging first to avoid a same-repo MEMORY conflict.
+
+## 2026-06-30 — Issue #95: corpus loader silently kept a BOM in document text (utf-8 → utf-8-sig)
+**Duration:** ~15 min · **Branch:** `session/2026-06-30-2309-issue-95`
+
+- `load_corpus` (`corpus.py:46`) read each `*.md` with `encoding="utf-8"`. A UTF-8 BOM (`EF BB BF` — Windows Notepad / some doc exporters) is not whitespace, so unlike the queries path it does **not** raise — it silently kept `U+FEFF` as an invisible leading character in the document text, shifting the first chunk's offsets by one and leaking `﻿` into snippet-match comparisons against a BOM-less twin. Fixed by reading with `encoding="utf-8-sig"`, which strips a leading BOM transparently and is a no-op for BOM-less UTF-8. This completes the BOM-tolerance arc started in #93/#96 — all three readers (`load_queries`, `validate_queries`, `load_corpus`) now use `utf-8-sig`.
+- +1 test: `test_corpus_loader_handles_utf8_bom` writes a BOM-prefixed and a BOM-less copy of the same body into a tmp corpus dir, asserts the on-disk bytes differ by the BOM, then asserts the loaded text equals the body (no leading `﻿`) and that the two load identically. Fails pre-fix (stash-and-rerun) with the `﻿# Heading` leak; passes post-fix. Suite 355 → 356, ruff + format clean.
+
+**Why this work, this session:** first issue of a DAY multi-issue run. `#95` was the followup filed during #93 for the third (silent) BOM reader; picked once `llm-cost-optimizer` #97 fell through as a decision-revisit needing JT (D-007).
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop on another repo.
