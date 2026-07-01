@@ -684,3 +684,15 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop on another repo.
+
+## 2026-07-01 — Issue #98: validate_queries accepted expected_doc refs that never load (recall silently 0)
+**Duration:** ~25 min · **Branch:** `session/2026-07-01-1939-issue-98`
+
+- `validate_queries` checked each query's `expected_doc` against the corpus with a raw `(corpus_root / expected_doc).exists()`, but `load_corpus` only enumerates `*.md` files keyed by basename and `metrics` scores recall on that exact filename. So the validator green-lit an `expected_doc` that never becomes a loaded document: a non-`.md` file in the corpus dir (recall silently 0.0), a directory named `*.md` (which then crashes `load_corpus` with `IsADirectoryError`), or a case-mismatched name on macOS's case-insensitive FS. That is exactly the "typo'd doc reference that silently invalidates recall" the check's docstring promises to catch. Reproduced all three firsthand before filing.
+- Fixed by checking membership against the real document set — `{p.name for p in corpus_root.glob("*.md") if p.is_file()}` — built once, mirroring `load_corpus`'s contract; the `is_file()` filter also pre-empts the directory crash. Docstring updated accordingly. +4 tests (three false-negatives flagged + a real-`.md` over-rejection guard); suite 356 → 360, ruff clean. Inverse safety net confirmed via `git stash`.
+
+**Why this work, this session:** third issue of the DAY run. `chunking-strategies-lab` was selected by the D-009 priority-tier bias (no hard staleness rule fired). Its five chunking strategies came back clean under a 5000-doc fuzz sweep; the metrics/validate cluster surfaced this genuine validation gap.
+
+**Open questions / blockers:** none — PR #99 ready for review.
+
+**Next session:** `load_corpus` still crashes on a `*.md` directory even when no query references it — a separate, very-edge robustness gap left unfiled. Continue the loop.
