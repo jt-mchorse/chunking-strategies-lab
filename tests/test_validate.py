@@ -263,6 +263,79 @@ def test_corpus_dir_check_flags_missing_expected_doc(tmp_path: Path) -> None:
     assert "no_such_file.md" in report.findings[0].reason
 
 
+def _make_corpus(tmp_path: Path) -> Path:
+    """A corpus dir with one real ``*.md`` doc, a non-``.md`` file, a directory
+    named ``*.md``, and a differently-cased ``*.md`` — the four things a raw
+    ``.exists()`` check confused with a loaded document (#98)."""
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "01_hnsw.md").write_text("# HNSW\nef_construction controls the build list.\n")
+    (corpus / "readme.txt").write_text("not a markdown document\n")
+    (corpus / "notes.md").mkdir()  # a *directory* whose name ends in .md
+    (corpus / "Guide.md").write_text("# Guide\nprose.\n")
+    return corpus
+
+
+def test_corpus_dir_check_flags_non_md_file(tmp_path: Path) -> None:
+    # A non-.md file exists on disk under the corpus dir but is never enumerated
+    # by load_corpus (`glob("*.md")`), so a query pointing at it recalls nothing
+    # (recall@k silently 0.0). The old `.exists()` check passed it; membership
+    # against the real *.md set must flag it (#98).
+    corpus = _make_corpus(tmp_path)
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [{**_valid_row("q01"), "expected_doc": "readme.txt"}])
+    report = validate_queries(p, corpus_dir=corpus)
+    assert not report.ok
+    assert report.n_valid == 0
+    assert [f.code for f in report.findings] == ["expected_doc_not_found"]
+    assert "readme.txt" in report.findings[0].reason
+
+
+def test_corpus_dir_check_flags_md_directory(tmp_path: Path) -> None:
+    # A directory named `*.md` matches `glob("*.md")` but isn't a file, so
+    # load_corpus would crash reading it (IsADirectoryError). The validator must
+    # flag a query referencing it rather than green-light a run that can't load
+    # the corpus (#98).
+    corpus = _make_corpus(tmp_path)
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [{**_valid_row("q01"), "expected_doc": "notes.md"}])
+    report = validate_queries(p, corpus_dir=corpus)
+    assert not report.ok
+    assert report.n_valid == 0
+    assert [f.code for f in report.findings] == ["expected_doc_not_found"]
+
+
+def test_corpus_dir_check_flags_case_mismatch(tmp_path: Path) -> None:
+    # load_corpus keys documents by exact `path.name` and metrics matches
+    # expected_doc as an exact string, so `guide.md` never matches on-disk
+    # `Guide.md` (recall 0.0). A raw `.exists()` slips this on a case-insensitive
+    # FS; exact-string set membership flags it on every FS (#98).
+    corpus = _make_corpus(tmp_path)
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [{**_valid_row("q01"), "expected_doc": "guide.md"}])
+    report = validate_queries(p, corpus_dir=corpus)
+    assert not report.ok
+    assert [f.code for f in report.findings] == ["expected_doc_not_found"]
+
+
+def test_corpus_dir_check_accepts_real_md_document(tmp_path: Path) -> None:
+    # Over-rejection guard: a real *.md file (exact name) must still validate
+    # clean, so the tightened membership check doesn't reject valid queries.
+    corpus = _make_corpus(tmp_path)
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            {**_valid_row("q01"), "expected_doc": "01_hnsw.md"},
+            {**_valid_row("q02"), "expected_doc": "Guide.md"},
+        ],
+    )
+    report = validate_queries(p, corpus_dir=corpus)
+    assert report.ok
+    assert report.n_valid == 2
+    assert report.findings == ()
+
+
 def test_corpus_dir_check_skipped_when_not_provided(tmp_path: Path) -> None:
     """``expected_doc_not_found`` only fires when corpus_dir is given."""
     p = tmp_path / "queries.jsonl"
