@@ -141,3 +141,42 @@ def test_each_strategy_json_loads_into_a_retrieval_run(strategy: str) -> None:
     for k in (1, 3, 5):
         assert k in run.recall_at_k, f"{strategy}: recall@{k} missing"
         assert k in run.snippet_hit_at_k, f"{strategy}: snippet-hit@{k} missing"
+
+
+def test_render_summary_escapes_pipe_in_strategy_name_so_columns_dont_break() -> None:
+    # #100 (sibling to rag-kit comment #130, llm-eval-harness #134,
+    # embedding-model-shootout #79): `strategy_name` is the one free-form GFM
+    # table cell (every other is a formatted number). It reaches
+    # `_render_summary` pipe-free from the five shipped strategies, but a BYO
+    # `Strategy` whose `name` carries a `|`, or a `RetrievalRun` loaded from
+    # external JSON via `from_json`, can inject one. GFM splits table cells on
+    # unescaped pipes, so a piped name adds a spurious column and corrupts the
+    # summary table. The fix escapes `|` -> `\|`; the invariant is that the
+    # data row's unescaped-pipe count equals the header's. Fails pre-fix
+    # (the piped row carried 11 unescaped pipes vs the header's 10).
+    import re
+
+    run = RetrievalRun(
+        strategy_name="fixed|256",
+        embedder_model="HashEmbedder",
+        dataset_version="v1",
+        n_queries=3,
+        n_chunks_total=10,
+        recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
+        snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
+        per_query=(),
+        wall_clock_ms=12.0,
+    )
+    md = _render_summary([run], "HashEmbedder")
+    lines = md.splitlines()
+    header_line = next(line for line in lines if line.startswith("| strategy "))
+    row_line = next(line for line in lines if "fixed" in line and "recall" not in line)
+
+    def unescaped_pipes(s: str) -> int:
+        # A `\|` renders as a literal pipe and does NOT split the cell; only a
+        # bare, unescaped `|` is a column delimiter.
+        return len(re.findall(r"(?<!\\)\|", s))
+
+    assert unescaped_pipes(row_line) == unescaped_pipes(header_line)
+    # The literal pipe is preserved (escaped), not dropped.
+    assert "fixed\\|256" in row_line

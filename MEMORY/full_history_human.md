@@ -696,3 +696,11 @@ open and ready.
 **Open questions / blockers:** none — PR #99 ready for review.
 
 **Next session:** `load_corpus` still crashes on a `*.md` directory even when no query references it — a separate, very-edge robustness gap left unfiled. Continue the loop.
+
+## 2026-07-02 — Issue #100: escape pipes in the summary table (~15 min)
+
+**What got done.** `scripts/run_matrix.py::_render_summary` builds the GFM summary table, interpolating each run's `strategy_name` into a cell. `strategy_name` is the one free-form cell (all others are formatted numbers), and it wasn't escaping `|` — so a pipe in it would split the cell into extra columns and corrupt the whole table when GitHub rendered it. Escaped `|` → `\|` before interpolation and added a lock test asserting the data row's unescaped-pipe count equals the header's (and the literal pipe survives). Reproduced firsthand first (`strategy_name="fixed|256"` gave 11 unescaped pipes vs the header's 10); verified the test fails pre-fix and passes post-fix. Full suite green (361 passed), ruff clean, and the committed `results/summary.md` snapshot is byte-unchanged since the five shipped strategies have pipe-free names.
+
+**Why prioritized.** First issue of the day run. The priority-tier scan turned up only blockers or empty backlogs elsewhere (llm-cost #97 is a JT-decision one-way revisit, #18/nextjs #16 are operator-blocked demo captures, llm-eval-harness and rag-production-kit have zero open issues). #100 was the one actionable, unblocked, priority-tier issue — and it's the last latent instance of the confirmed recurring GFM-table pipe-escaping class already fixed in rag-kit #130, llm-eval-harness #134, and embedding-model-shootout #79.
+
+**Open questions / blockers.** None. This closes the pipe-escaping class across all currently-cloned repos.

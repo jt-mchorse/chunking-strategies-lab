@@ -113,8 +113,19 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     for r in runs:
         recall_cells = " | ".join(f"{r.recall_at_k.get(k, 0):.3f}" for k in ks)
         snippet_cells = " | ".join(f"{r.snippet_hit_at_k.get(k, 0):.3f}" for k in ks)
+        # `strategy_name` is the one free-form cell (every other is a formatted
+        # number). It reaches here pipe-free from the five shipped strategies,
+        # but a BYO `Strategy` whose `name` carries a `|`, or a `RetrievalRun`
+        # loaded from external JSON via `from_json`, can inject one. GFM splits
+        # table cells on unescaped pipes, so an unescaped `|` adds a spurious
+        # column and corrupts the summary table's alignment. Escape `|` -> `\|`
+        # (GitHub renders `\|` as a literal pipe, contributing zero column
+        # delimiters) — same fix as comment `_row_to_md` (rag-kit #130),
+        # `calibration.render_report` (llm-eval-harness #134), and
+        # `aggregate_markdown` (embedding-model-shootout #79); applied here (#100).
+        strategy_name = r.strategy_name.replace("|", "\\|")
         lines.append(
-            f"| {r.strategy_name} | {r.n_chunks_total} | "
+            f"| {strategy_name} | {r.n_chunks_total} | "
             f"{recall_cells} | {snippet_cells} | {r.wall_clock_ms:.0f} |"
         )
     return "\n".join(lines) + "\n"
