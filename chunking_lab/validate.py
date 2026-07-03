@@ -188,9 +188,18 @@ def validate_queries(
             # KeyError and avoids registering a junk `seen_ids` entry. A valid id
             # is recorded even when the row has other errors, so a later row
             # reusing it is still flagged.
+            # `id_value.strip() != ""`, not `id_value != ""`: a whitespace-only
+            # id (`"  "`) is already reported as `empty_id` by `_validate_row`
+            # (`value.strip() == ""`, the #92 rule), so it is NOT a valid,
+            # registrable id. The old literal-empty guard let it through, which
+            # both registered a junk `seen_ids` entry (the exact thing the
+            # comment above says it avoids) and emitted a spurious `duplicate_id`
+            # finding on a repeat -- flagging as "duplicate" a value already
+            # flagged as "empty". Stripping keeps the duplicate check in lockstep
+            # with `_validate_row`'s emptiness check (#102).
             row_has_duplicate = False
             id_value = obj.get("id")
-            if isinstance(id_value, str) and id_value != "":
+            if isinstance(id_value, str) and id_value.strip() != "":
                 if id_value in seen_ids:
                     row_has_duplicate = True
                     findings.append(

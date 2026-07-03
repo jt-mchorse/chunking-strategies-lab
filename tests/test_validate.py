@@ -222,6 +222,54 @@ def test_valid_id_on_field_invalid_row_still_shadows_later_reuse(tmp_path: Path)
     assert "line 1" in dup[0].reason
 
 
+def test_whitespace_only_id_is_empty_not_duplicate(tmp_path: Path) -> None:
+    # #102: a whitespace-only id is already reported as `empty_id` by
+    # `_validate_row` (`value.strip() == ""`, the #92 rule), so it is NOT a
+    # valid, registrable id. The old duplicate guard used `id_value != ""`,
+    # which only excludes the literally-empty string — so two rows sharing a
+    # whitespace-only id emitted a spurious `duplicate_id` on the second row on
+    # top of the two `empty_id` findings. The fix strips before the guard, so a
+    # whitespace-only id never registers in `seen_ids` and never reports as a
+    # duplicate. It is fully described by `empty_id`.
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            {**_valid_row("  "), "question": "Q1"},
+            {**_valid_row("  "), "question": "Q2"},
+        ],
+    )
+    report = validate_queries(p)
+    assert not report.ok
+    assert report.n_rows == 2
+    assert report.n_valid == 0
+    codes = [f.code for f in report.findings]
+    assert codes == ["empty_id", "empty_id"]
+    assert not any(f.code == "duplicate_id" for f in report.findings)
+
+
+def test_whitespace_only_id_does_not_shadow_a_later_real_id(tmp_path: Path) -> None:
+    # #102 corollary: because a whitespace-only id no longer registers in
+    # `seen_ids`, a later *distinct* real id is not mistaken for a reuse of it.
+    # (Pre-fix, only same-whitespace ids collided, but the junk registration was
+    # the root defect this guards against permanently.) The whitespace row is
+    # `empty_id`; the real row is clean and counts toward n_valid.
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(
+        p,
+        [
+            {**_valid_row("   "), "question": "Q1"},  # whitespace-only id -> empty_id
+            _valid_row("realid"),  # distinct, clean
+        ],
+    )
+    report = validate_queries(p)
+    assert report.n_rows == 2
+    assert report.n_valid == 1
+    codes = [f.code for f in report.findings]
+    assert codes == ["empty_id"]
+    assert not any(f.code == "duplicate_id" for f in report.findings)
+
+
 def test_empty_file_surfaces_empty_finding(tmp_path: Path) -> None:
     p = tmp_path / "queries.jsonl"
     p.write_text("", encoding="utf-8")
