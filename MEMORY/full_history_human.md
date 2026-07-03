@@ -714,3 +714,13 @@ open and ready.
 **Open questions / blockers.** None — ready for review. Deferred (out of scope): whether the linter/loader should treat ` abc ` and `abc` as the same id (id normalization) — separate concern, file low-priority if it proves real.
 
 **Next in this session's loop:** rotate per selection — chunking-strategies-lab now worked; next priority-tier repo crossing the 18h floor is llm-cost-optimizer (16h, soon), else a non-tier repo by build sequence (python-async-llm-pipelines 52h and ai-app-integration-tests 44h are the stalest overall).
+
+## 2026-07-03 — Issue #104: symbol-resolution doc-lock (propagates portfolio-ops #55) (~30 min)
+
+**What got done.** `tests/test_architecture_doc.py` locked path tokens, active-decision coverage, and banned phrases — but never checked that the symbols `docs/architecture.md` *names* actually exist. That's the drift class portfolio-ops #55 catalogued portfolio-wide (a doc naming a nonexistent `BatchAPIBackend` / `compute_frontier` passes CI). Added `test_doc_symbol_refs_resolve` for the two citation styles this doc uses: `<submodule>.<symbol>` attribute refs and multi-word CamelCase public types (`HashEmbedder`, `LateChunkingStrategy`, `MiniLMEmbedder`, `RetrievalRun`), resolved against the `chunking_lab` package, its submodules, the `strategies` subpackage, and Python `builtins` (so the doc's `ValueError` / `KeyboardInterrupt` mentions stay valid without a hand-maintained allow-list). Single-word capitalized tokens and bare snake_case are excluded to avoid prose/field-name false positives. Baked in an inverse-safety-net test that injects a drifted symbol and asserts it's flagged, plus hard-pins for the skip-extension and subpackage sets. Suite 363 → 367, ruff clean.
+
+**Why prioritized.** First worked issue of the DAY run. Phase A merged 4 clean ready PRs (chunking #103 whitespace-id fix, plus symbol-resolution locks in llm-eval #141, rag #119, llm-cost #123) and the audit came back clean (12 repos + the known operator-blocked portfolio-ops `trending-daily` stale-schedule). The actionable, non-blocked backlog is portfolio-ops #55 propagation; a portfolio-wide sweep showed chunking-strategies-lab (priority tier), vector-search-at-scale, python-async-llm-pipelines, and prompt-regression-suite still lack the lock. chunking is priority-tier, so it was the natural first pick.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next in this session's loop:** continue #55 propagation to the remaining gap repos — vector-search-at-scale, python-async-llm-pipelines, prompt-regression-suite — one small PR each.
