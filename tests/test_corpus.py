@@ -179,7 +179,9 @@ def test_queries_loader_rejects_whitespace_only_field_with_lineno(tmp_path):
         '{"id":"q2","question":"b","expected_doc":"x.md","expected_snippet":"   "}\n',
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="expected_snippet.*must be non-empty or whitespace-only"):
+    with pytest.raises(
+        ValueError, match="expected_snippet.*must be non-empty and not whitespace-only"
+    ):
         load_queries(p)
 
 
@@ -241,7 +243,7 @@ def test_query_rejects_whitespace_only_field_on_direct_construction(field, blank
     # were constructible.
     kwargs = _valid_query_kwargs()
     kwargs[field] = blank
-    with pytest.raises(ValueError, match=f"{field} must be non-empty or whitespace-only"):
+    with pytest.raises(ValueError, match=f"{field} must be non-empty and not whitespace-only"):
         Query(**kwargs)
 
 
@@ -257,7 +259,9 @@ def test_whitespace_only_snippet_query_cannot_reach_snippet_hit_trivial_pass():
     # The whitespace twin of test_empty_snippet_query_cannot_reach_snippet_hit_
     # trivial_pass: a "   " snippet must be stopped at construction so it can
     # never inflate snippet-hit@k inside `evaluate_strategy`.
-    with pytest.raises(ValueError, match="expected_snippet must be non-empty or whitespace-only"):
+    with pytest.raises(
+        ValueError, match="expected_snippet must be non-empty and not whitespace-only"
+    ):
         Query(id="bad", question="q", expected_doc="d.md", expected_snippet="   ")
 
 
