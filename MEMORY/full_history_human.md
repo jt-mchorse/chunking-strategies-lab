@@ -724,3 +724,14 @@ open and ready.
 **Open questions / blockers.** None — ready for review.
 
 **Next in this session's loop:** continue #55 propagation to the remaining gap repos — vector-search-at-scale, python-async-llm-pipelines, prompt-regression-suite — one small PR each.
+
+## 2026-07-04 — Issue #106: inverted Query validation error message
+**Duration:** ~15 min · **Branch:** `session/2026-07-04-1526-issue-106` · **PR:** #107
+
+- The `Query` field guard (`chunking_lab/queries.py:66,73`) raised `"{name} must be non-empty or whitespace-only"` when `not value.strip()` — i.e. exactly when the value IS empty or whitespace-only. The "or" phrasing reads as "whitespace-only is acceptable", the inverse of what the guard enforces. Reworded to `"must be non-empty and not whitespace-only"` in both `Query.__post_init__` and `_require_str`. The wording survived because three `tests/test_corpus.py` matchers hard-coded it (they were locking the bug); updated those three, while the two `must be non-empty`-prefix matchers stay valid because the new message preserves that prefix. Behavior unchanged (already correct per #72/#92); message-correctness only. Full pytest 367 passed, ruff check + format-check clean.
+
+**Why this work, this session:** second issue of the DAY loop. Portfolio is deeply saturated — the pipe-escaping sweep (#89, in agent-orchestration-platform) closed the one substantive defect, and three parallel correctness bug-hunts of the priority-tier repos (llm-cost-optimizer, llm-eval-harness, rag-production-kit) all came up empty. A hunt of chunking-strategies-lab was clean on correctness but surfaced this one real user-facing message defect, verified by reading the guard directly.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** the priority-tier repos are correctness-clean this run; further dogfood hunts hit diminishing returns (three empties). Wind down toward the session cap.
