@@ -63,14 +63,14 @@ class Query:
             # bypass, reached with whitespace instead of "". `value.strip()` is
             # falsy for both, so the literal-empty case is still rejected.
             if not value.strip():
-                raise ValueError(f"{name} must be non-empty or whitespace-only")
+                raise ValueError(f"{name} must be non-empty and not whitespace-only")
 
 
 def _require_str(value: object, name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{name} must be a string, got {type(value).__name__}")
     if not value.strip():
-        raise ValueError(f"{name} must be non-empty or whitespace-only")
+        raise ValueError(f"{name} must be non-empty and not whitespace-only")
     return value
 
 
