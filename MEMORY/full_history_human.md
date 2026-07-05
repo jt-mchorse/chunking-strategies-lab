@@ -747,3 +747,14 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** correctness surface saturated (8 empty hunts); the remaining productive vein is re-examining hunter-dismissed "design choice" leads against objective invariants (invalid HTML, validator/loader parity). Continue only if another such lead survives firsthand reproduction.
+
+## 2026-07-05 — Issue #110: load_queries raises AttributeError on well-formed non-object JSONL line
+**Duration:** ~20 min · **Branch:** `session/2026-07-05-2311-issue-110` · **PR:** #111
+
+- `load_queries` called `rec.get("id")` immediately after `json.loads` with no `isinstance(rec, dict)` guard, so a line that is well-formed JSON but not an object (a bare number, string, array, or bool) escaped as an uncaught `AttributeError` — breaking the loader's documented "raises `ValueError` on the first malformed line" contract. A caller catching `ValueError` around the loader would let the `AttributeError` slip through. Reproduced firsthand on all four non-object shapes before fixing.
+- This was a loader/validator parity gap: the sibling validator `validate.py` already reports this exact shape as a `not_an_object` finding (with `got {type(obj).__name__}`) and has a test for it, while the loader had neither guard nor test. Fixed by adding `if not isinstance(rec, dict): raise ValueError(...)` mirroring the validator's message, plus a parametrized lock test. 371 → 372 passing, ruff clean.
+- This is the direct sibling of #108, which fixed the same `isinstance`-style parity gap on `load_corpus` vs. `validate.py`. There are only two `json.loads` sites in the repo — the validator (already guarded) and this loader (was the last unguarded one), so loader/validator parity on malformed input is now complete.
+
+**Why this work, this session:** portfolio is deeply saturated — Phase A merged two ready PRs (leh #143 GFM newline escaping, ops #59 memory) and found nothing else auto-mergeable, and the audit was clean. Of three collision/parity dogfood hunts (rag `fusion.py`, lco `pricing.py`/`router.py`, chunking `metrics.py`/`queries.py`), the first two came up empty (confirmed saturated), and only the loader/validator-parity lens on `queries.py` yielded a real, firsthand-reproduced bug.
+
+**Open questions / blockers:** none — ready for review.
