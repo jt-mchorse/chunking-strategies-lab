@@ -94,6 +94,17 @@ def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
                 rec = json.loads(line)
             except json.JSONDecodeError as e:
                 raise ValueError(f"{p}:{lineno}: invalid JSON: {e}") from e
+            # A line can be well-formed JSON yet not an object — a bare number,
+            # string, array, or bool. Without this guard the very next
+            # `rec.get(...)` raises `AttributeError`, which escapes the
+            # documented `ValueError` contract a caller catches around this
+            # loader. The sibling validator (`validate.py`) already reports this
+            # exact shape as a `not_an_object` finding; this keeps the two
+            # file-walkers in parity on the same malformed input.
+            if not isinstance(rec, dict):
+                raise ValueError(
+                    f"{p}:{lineno}: row must be a JSON object, got {type(rec).__name__}"
+                )
             try:
                 q = Query(
                     id=_require_str(rec.get("id"), f"{p}:{lineno} 'id'"),
