@@ -157,6 +157,22 @@ def test_queries_loader_rejects_invalid_json(tmp_path):
         load_queries(p)
 
 
+@pytest.mark.parametrize("payload", ["42", '"hello"', "[1,2,3]", "true"])
+def test_queries_loader_rejects_valid_json_non_object(tmp_path, payload):
+    # Issue #110: a line can be well-formed JSON yet not an object (a bare
+    # number, string, array, or bool). The `not valid json` case above trips
+    # `JSONDecodeError` (a different code path); a well-formed non-object used
+    # to reach `rec.get(...)` and escape as `AttributeError`, breaking the
+    # documented "raises ValueError on the first malformed line" contract a
+    # caller catches. This is loader/validator parity: `validate.py` already
+    # reports this exact shape as a `not_an_object` finding. The error must be a
+    # `ValueError` carrying file:lineno context, not an `AttributeError`.
+    p = tmp_path / "nonobj.jsonl"
+    p.write_text(payload + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r":1: row must be a JSON object"):
+        load_queries(p)
+
+
 def test_queries_loader_rejects_missing_required_field(tmp_path):
     p = tmp_path / "missing.jsonl"
     p.write_text('{"id":"q1","question":"q"}\n', encoding="utf-8")
