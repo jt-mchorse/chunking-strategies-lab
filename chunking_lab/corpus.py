@@ -43,6 +43,16 @@ def load_corpus(corpus_dir: PathLike[str] | str | None = None) -> list[Document]
         raise FileNotFoundError(f"corpus directory not found: {base}")
     docs: list[Document] = []
     for path in sorted(base.glob("*.md")):
+        # Files only. `glob("*.md")` also matches a *directory* whose name ends
+        # in `.md` (e.g. an exported `bundle.md/` folder); without this guard the
+        # `read_text()` below crashes with IsADirectoryError. validate.py's corpus
+        # enumeration already filters `if p.is_file()`, and its #98 comment asserts
+        # it "Mirror[s] load_corpus's enumeration EXACTLY … files only" — but the
+        # loader was never brought into that parity, so a corpus with a stray
+        # `*.md` directory passed validation clean yet crashed on load (#108). A
+        # non-file `*.md` entry is never a loadable Document, so skip it.
+        if not path.is_file():
+            continue
         # utf-8-sig transparently strips a leading BOM (EF BB BF — the default
         # for Windows Notepad and some doc exporters) and is a no-op for
         # BOM-less UTF-8. Without it the U+FEFF survives into the document text

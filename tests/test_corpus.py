@@ -74,6 +74,23 @@ def test_corpus_loader_handles_utf8_bom(tmp_path):
     assert docs["bom.md"] == docs["plain.md"]
 
 
+def test_corpus_loader_skips_directory_named_md(tmp_path):
+    # Issue #108: glob("*.md") also matches a *directory* whose name ends in
+    # `.md` (e.g. an exported `bundle.md/` folder). Before the fix load_corpus
+    # called read_text() on it and crashed with IsADirectoryError, even though
+    # validate.py's corpus enumeration already filters `if p.is_file()` and its
+    # #98 comment claims the two enumerations mirror each other. The loader must
+    # skip non-file entries so it stays in parity: a stray `*.md` directory is
+    # not a loadable Document and must not crash the load.
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "real.md").write_text("# Real doc\n\nActual prose.\n", encoding="utf-8")
+    (corpus / "bundle.md").mkdir()  # a directory whose name ends in .md
+
+    docs = load_corpus(corpus)
+    assert [d.filename for d in docs] == ["real.md"]  # directory skipped, no crash
+
+
 # --- Queries --------------------------------------------------------------
 
 
