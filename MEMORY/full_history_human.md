@@ -735,3 +735,15 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next in this session's loop:** the priority-tier repos are correctness-clean this run; further dogfood hunts hit diminishing returns (three empties). Wind down toward the session cap.
+
+## 2026-07-05 — Issue #108: load_corpus crashes on a directory named *.md (validator/loader parity gap)
+**Duration:** ~20 min · **Branch:** `session/2026-07-05-1530-issue-108` · **PR:** #109
+
+- `load_corpus` (`corpus.py:45`) globbed `*.md` and immediately `read_text()`'d each match, but `glob("*.md")` also matches a *directory* whose name ends in `.md` (e.g. an exported `bundle.md/` folder) — so such an entry crashed the load with `IsADirectoryError`. The sibling validator (`validate.py:139`) already filters `if p.is_file()` and its `#98` comment asserts it mirrors `load_corpus` "files only" and even names this exact crash — but the loader was never brought into that parity. A corpus with a stray `*.md` directory therefore passed validation clean yet crashed on load. Reproduced firsthand on `main`.
+- Fixed with `if not path.is_file(): continue` before the read; benchmark-neutral (shipped corpus has no such entry). Added a lock test verified to fail with `IsADirectoryError` pre-fix and pass post-fix. 367 → 368 passing, ruff clean. (Use `.venv`, not `test_venv` — the latter lacks pyyaml and errors 3 workflow-yaml tests on collection.)
+
+**Why this work, this session:** second issue of the DAY loop. Portfolio is deeply saturated — Phase A found no mergeable PRs and a clean audit; eight dogfood hunts across two waves came up empty. Both shipped fixes (#107 in prompt-regression-suite, this one) came from leads a generic hunter *under-rated* as "design choices": here the hunter called it "a loud crash on exotic input, defensive rather than wrong-output," but the `#98` validator comment documents the crash as a known parity gap, making it a real intended-to-be-fixed bug.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next in this session's loop:** correctness surface saturated (8 empty hunts); the remaining productive vein is re-examining hunter-dismissed "design choice" leads against objective invariants (invalid HTML, validator/loader parity). Continue only if another such lead survives firsthand reproduction.
