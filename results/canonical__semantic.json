@@ -1,7 +1,7 @@
 {
   "dataset_version": "v0",
   "embedder_model": "HashEmbedder",
-  "n_chunks_total": 84,
+  "n_chunks_total": 86,
   "n_queries": 12,
   "notes": [],
   "per_query": [
@@ -10,16 +10,16 @@
       "expected_snippet": "ef_construction",
       "query_id": "q01",
       "retrieved_doc_ids_in_rank_order": [
-        "04_eval_harness.md",
+        "02_rrf.md",
         "01_hnsw.md",
-        "01_hnsw.md",
-        "03_prompt_caching.md",
-        "03_prompt_caching.md"
+        "05_async_pipelines.md",
+        "05_async_pipelines.md",
+        "05_async_pipelines.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
         false,
-        true,
+        false,
         false,
         false
       ]
@@ -29,11 +29,11 @@
       "expected_snippet": "M=16, ef_construction=64",
       "query_id": "q02",
       "retrieved_doc_ids_in_rank_order": [
+        "01_hnsw.md",
         "05_async_pipelines.md",
-        "01_hnsw.md",
-        "01_hnsw.md",
         "02_rrf.md",
-        "01_hnsw.md"
+        "02_rrf.md",
+        "05_async_pipelines.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -48,11 +48,11 @@
       "expected_snippet": "Re-index when you change the embedding model",
       "query_id": "q03",
       "retrieved_doc_ids_in_rank_order": [
-        "01_hnsw.md",
+        "02_rrf.md",
         "03_prompt_caching.md",
-        "04_eval_harness.md",
-        "04_eval_harness.md",
-        "05_async_pipelines.md"
+        "01_hnsw.md",
+        "05_async_pipelines.md",
+        "04_eval_harness.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -68,9 +68,9 @@
       "query_id": "q04",
       "retrieved_doc_ids_in_rank_order": [
         "05_async_pipelines.md",
-        "02_rrf.md",
-        "02_rrf.md",
+        "04_eval_harness.md",
         "01_hnsw.md",
+        "05_async_pipelines.md",
         "03_prompt_caching.md"
       ],
       "snippet_hits_in_rank_order": [
@@ -86,11 +86,11 @@
       "expected_snippet": "doesn't require the participating rankers to produce comparable score scales",
       "query_id": "q05",
       "retrieved_doc_ids_in_rank_order": [
-        "05_async_pipelines.md",
-        "02_rrf.md",
         "04_eval_harness.md",
+        "03_prompt_caching.md",
         "05_async_pipelines.md",
-        "05_async_pipelines.md"
+        "04_eval_harness.md",
+        "04_eval_harness.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -107,8 +107,8 @@
       "retrieved_doc_ids_in_rank_order": [
         "04_eval_harness.md",
         "03_prompt_caching.md",
-        "03_prompt_caching.md",
         "02_rrf.md",
+        "01_hnsw.md",
         "03_prompt_caching.md"
       ],
       "snippet_hits_in_rank_order": [
@@ -124,11 +124,11 @@
       "expected_snippet": "cache_read_input_tokens",
       "query_id": "q07",
       "retrieved_doc_ids_in_rank_order": [
+        "05_async_pipelines.md",
         "01_hnsw.md",
-        "05_async_pipelines.md",
-        "05_async_pipelines.md",
         "04_eval_harness.md",
-        "03_prompt_caching.md"
+        "04_eval_harness.md",
+        "04_eval_harness.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -143,11 +143,11 @@
       "expected_snippet": "200-token system prompt and unique user messages",
       "query_id": "q08",
       "retrieved_doc_ids_in_rank_order": [
+        "03_prompt_caching.md",
         "04_eval_harness.md",
-        "05_async_pipelines.md",
+        "01_hnsw.md",
         "04_eval_harness.md",
-        "04_eval_harness.md",
-        "01_hnsw.md"
+        "05_async_pipelines.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -164,9 +164,9 @@
       "retrieved_doc_ids_in_rank_order": [
         "01_hnsw.md",
         "05_async_pipelines.md",
-        "04_eval_harness.md",
+        "02_rrf.md",
         "01_hnsw.md",
-        "01_hnsw.md"
+        "03_prompt_caching.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -182,8 +182,8 @@
       "query_id": "q10",
       "retrieved_doc_ids_in_rank_order": [
         "01_hnsw.md",
-        "05_async_pipelines.md",
-        "02_rrf.md",
+        "04_eval_harness.md",
+        "04_eval_harness.md",
         "03_prompt_caching.md",
         "03_prompt_caching.md"
       ],
@@ -201,10 +201,10 @@
       "query_id": "q11",
       "retrieved_doc_ids_in_rank_order": [
         "03_prompt_caching.md",
-        "04_eval_harness.md",
         "05_async_pipelines.md",
         "01_hnsw.md",
-        "05_async_pipelines.md"
+        "02_rrf.md",
+        "02_rrf.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -219,14 +219,14 @@
       "expected_snippet": "structured concurrency primitives that propagate exceptions cleanly",
       "query_id": "q12",
       "retrieved_doc_ids_in_rank_order": [
-        "05_async_pipelines.md",
         "01_hnsw.md",
-        "05_async_pipelines.md",
+        "03_prompt_caching.md",
         "02_rrf.md",
-        "05_async_pipelines.md"
+        "05_async_pipelines.md",
+        "04_eval_harness.md"
       ],
       "snippet_hits_in_rank_order": [
-        true,
+        false,
         false,
         false,
         false,
@@ -236,14 +236,14 @@
   ],
   "recall_at_k": {
     "1": 0.16666666666666666,
-    "3": 0.75,
-    "5": 0.8333333333333334
+    "3": 0.5833333333333334,
+    "5": 0.6666666666666666
   },
   "snippet_hit_at_k": {
-    "1": 0.08333333333333333,
-    "3": 0.16666666666666666,
-    "5": 0.16666666666666666
+    "1": 0.0,
+    "3": 0.0,
+    "5": 0.0
   },
   "strategy_name": "semantic",
-  "wall_clock_ms": 81.66575012728572
+  "wall_clock_ms": 76.51325012557209
 }
