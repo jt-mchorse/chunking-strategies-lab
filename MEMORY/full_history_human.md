@@ -758,3 +758,13 @@ open and ready.
 **Why this work, this session:** portfolio is deeply saturated — Phase A merged two ready PRs (leh #143 GFM newline escaping, ops #59 memory) and found nothing else auto-mergeable, and the audit was clean. Of three collision/parity dogfood hunts (rag `fusion.py`, lco `pricing.py`/`router.py`, chunking `metrics.py`/`queries.py`), the first two came up empty (confirmed saturated), and only the loader/validator-parity lens on `queries.py` yielded a real, firsthand-reproduced bug.
 
 **Open questions / blockers:** none — ready for review.
+
+## 2026-07-06 — Issue #112: stale semantic canonical fixture + regen-drift guard (~35 min)
+
+**What got done.** The tracked `semantic` canonical fixture had gone stale: the current chunker deterministically produces `n_chunks_total = 86` (with shifted recall@k / snippet-hit@k), but `results/canonical__semantic.json` and the `summary.md` semantic row still carried the 84-chunk numbers from the 2026-05-18 regen — so `run_matrix.py --canonical-out` no longer reproduced the committed fixtures. Verified firsthand that the drift is isolated to `semantic` (the other four match modulo the always-varying `wall_clock_ms`, and metrics are deterministic across runs). Regenerated just the semantic fixture and re-rendered `summary.md` from the committed JSONs for a minimal, single-row diff. Added `tests/test_canonical_fixture_freshness.py`, which re-runs every strategy with `HashEmbedder` and asserts the committed canonical metrics match a fresh run (excluding timing) — it fails on the pre-fix stale fixture and runs in ~0.2s. Full suite 378 passed, ruff clean.
+
+**Why prioritized.** Second real bug of the NIGHT loop, surfaced by the wave-3 "run the documented example and verify against its claims" lens — the same lens that found mcp-server-cookbook #86 earlier this run. CI missed the drift because `test_summary_snapshot.py` only re-renders committed JSONs (internal consistency) and never runs the strategies.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** portfolio remains saturated; the "run-the-shipped-example-and-diff-against-committed-artifacts" lens is the productive vein in this state (2/2 real bugs this run). Other repos' examples were checked clean this run (ems 379 pass, leh CLI all offline commands verified).
