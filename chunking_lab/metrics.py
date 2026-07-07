@@ -59,6 +59,12 @@ class QueryResult:
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> QueryResult:
         """Inverse of the dict shape emitted by ``RetrievalRun.to_json``."""
+        # A non-object per_query row makes the `payload[...]` lookups below raise
+        # `TypeError` ('int'/'str' object is not subscriptable), escaping the
+        # loud KeyError/ValueError contract — parity with the RetrievalRun
+        # metric-map guard and the load_queries non-object guard (#110/#111).
+        if not isinstance(payload, dict):
+            raise ValueError(f"per_query row must be a JSON object, got {type(payload).__name__}")
         return cls(
             query_id=payload["query_id"],
             expected_doc=payload["expected_doc"],
@@ -152,6 +158,26 @@ class RetrievalRun:
         is non-numeric, non-finite, or outside ``[0, 1]`` — the failure
         mode is loud, not silent, on both the key and the value axis.
         """
+        # A non-object top-level payload (a bare JSON array/scalar/null from a
+        # hand-edit or a truncated write) makes the `payload[...]` lookups below
+        # raise `TypeError`/`AttributeError`, escaping the documented loud
+        # `KeyError`/`ValueError` contract. Guard the container axis first, same
+        # as the sibling `load_queries` non-object guard (#110/#111).
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"run JSON top-level value must be a JSON object, got {type(payload).__name__}"
+            )
+        # A present-but-wrong-shape metric map (a JSON array/scalar written by a
+        # hand-edit or an external generator) makes the very next `.items()`
+        # raise `AttributeError`, escaping the documented `KeyError`/`ValueError`
+        # loud contract on the container axis — the same class of bug the sibling
+        # `load_queries` non-object guard fixed (#110/#111). Convert it to the
+        # documented `ValueError` before iterating.
+        for _name in ("recall_at_k", "snippet_hit_at_k"):
+            if not isinstance(payload[_name], dict):
+                raise ValueError(
+                    f"{_name} must be a JSON object, got {type(payload[_name]).__name__}"
+                )
         recall = {int(k): v for k, v in payload["recall_at_k"].items()}
         snippet = {int(k): v for k, v in payload["snippet_hit_at_k"].items()}
         _validate_metric_map("recall_at_k", recall)

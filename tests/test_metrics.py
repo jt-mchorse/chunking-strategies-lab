@@ -851,3 +851,38 @@ def test_tied_scores_break_by_chunk_identity() -> None:
 
     run = evaluate_strategy(strat, docs, queries, emb, ks=(1, 3, 5))
     assert run.per_query[0].retrieved_doc_ids_in_rank_order[0] == "a.md"
+
+
+# Container-shape parity gap: from_json documents a loud KeyError (missing key) /
+# ValueError (bad value) contract, and #62 closed the value axis — but a
+# present-but-wrong-shape container (a metric map or per_query row that is a bare
+# JSON array/scalar/null) reached `.items()` / `payload["query_id"]` and leaked a
+# raw AttributeError/TypeError, escaping the documented contract on the container
+# axis. Same class the sibling `load_queries` non-object guard fixed (#110/#111).
+@pytest.mark.parametrize("bad", [[1, 2, 3], 42, "a string", None])
+def test_retrieval_run_from_json_rejects_non_object_toplevel(bad: object) -> None:
+    with pytest.raises(ValueError, match="top-level value must be a JSON object"):
+        RetrievalRun.from_json(bad)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("metric", ["recall_at_k", "snippet_hit_at_k"])
+@pytest.mark.parametrize("bad", [[0.5, 0.7], 0.5, "x", None])
+def test_retrieval_run_from_json_rejects_non_object_metric_map(metric: str, bad: object) -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload[metric] = bad
+    with pytest.raises(ValueError, match=rf"{metric} must be a JSON object"):
+        RetrievalRun.from_json(payload)
+
+
+@pytest.mark.parametrize("bad", [42, "a string", [1], None])
+def test_retrieval_run_from_json_rejects_non_object_per_query_row(bad: object) -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["per_query"] = [bad]
+    with pytest.raises(ValueError, match="per_query row must be a JSON object"):
+        RetrievalRun.from_json(payload)
+
+
+@pytest.mark.parametrize("bad", [42, "a string", [1], None])
+def test_query_result_from_json_rejects_non_object(bad: object) -> None:
+    with pytest.raises(ValueError, match="per_query row must be a JSON object"):
+        QueryResult.from_json(bad)  # type: ignore[arg-type]
