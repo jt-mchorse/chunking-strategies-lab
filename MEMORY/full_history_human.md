@@ -768,3 +768,16 @@ open and ready.
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** portfolio remains saturated; the "run-the-shipped-example-and-diff-against-committed-artifacts" lens is the productive vein in this state (2/2 real bugs this run). Other repos' examples were checked clean this run (ems 379 pass, leh CLI all offline commands verified).
+
+## 2026-07-07 — Issue #114: from_json container-shape parity gap
+**Duration:** ~25 min · **Branch:** `session/2026-07-07-1520-issue-114`
+
+- `RetrievalRun.from_json` / `QueryResult.from_json` document a loud `KeyError`/`ValueError` contract (#62 closed the value axis), but a present-but-wrong-shape container escaped it: a metric map that is a JSON array/scalar hit `.items()` → `AttributeError`; a non-object `per_query` row or top-level payload hit `payload[...]` → `TypeError`. Reproduced firsthand on clean main.
+- Added `isinstance(..., dict)` → `ValueError` guards at the top-level payload, both metric maps, and the `QueryResult` per-row payload — mirroring the sibling `load_queries` non-object guard (#110/#111). Parametrized regression tests across `[list, scalar, string, null]`; missing-key `KeyError` + corrupt-value `ValueError` confirmed unchanged.
+- Reachable via `notebooks/_build_notebook.py` loading operator-regenerated `results/*.json`. Full suite 398 passed; ruff clean.
+
+**Why this work, this session:** Same isinstance-after-`json.loads` container-parity vein as the `load_queries` fix (#110/#111) I shipped last week and the leh#150 fix landed earlier this same run; `from_json` was the last loader in the repo still missing the container guard. Found by a parallel dogfood hunt, verified firsthand.
+
+**Open questions / blockers:** none.
+
+**Next session:** metrics loaders now fully container-guarded; strategies/offset-contract/cosine all audited saturated.
