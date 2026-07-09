@@ -809,3 +809,15 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the isinstance-after-json.loads container-parity class is now fully swept in chunking (top-level + metric-map + per-row + list-containers) and leh (#156). Don't re-sweep.
+
+## 2026-07-09 (PM) — Issue #120: from_json non-array `notes` — the last list container
+**Duration:** ~20 min · **Branch:** `session/2026-07-09-1912-issue-120` · **PR:** #121
+
+- #114 and #118 guarded the top-level payload, both metric maps, `per_query`, and the two rank-order lists — but neither touched `notes`, the one remaining list container built via `list(payload.get("notes", []))` on the `from_json` read path. A present-but-non-array `notes` (scalar/null) reached `list(...)` and raised a raw `TypeError`, escaping the documented loud `KeyError`/`ValueError` contract; a JSON string silently char-split (`"oops"` → `['o','o','p','s']`).
+- Guarded `notes` as a JSON array with a clean `ValueError` before `list(...)`, mirroring the `per_query`/rank-order guards. 5 regression tests (scalar/float/null/bool + explicit string-char-splat lock), all failing pre-fix. Full suite 416 pass, ruff format/check clean.
+
+**Why this work, this session:** found via the sibling-incomplete-fix meta-lens applied to my own prior #118 fix — reproduced firsthand before filing. This completes the chunking container-guard sweep: metric maps, per_query, rank-order, and now notes are all isinstance-guarded; no further list containers remain in `from_json`.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** chunking + leh container-guard class is now fully exhausted (leh dataset/calibration loaders re-verified fully hardened this run). Don't re-sweep this class in either repo.
