@@ -781,3 +781,19 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** metrics loaders now fully container-guarded; strategies/offset-contract/cosine all audited saturated.
+
+---
+
+## 2026-07-09 — Issue #116: summary.md embedder header diverges from persisted embedder_model
+**Duration:** ~35 min · **Branch:** `session/2026-07-09-0315-issue-116` · **PR:** #117
+
+- `scripts/run_matrix.py` rendered the `results/summary.md` embedder header from `type(embedder).__name__`, but every persisted `RetrievalRun.embedder_model` (and `test_summary_snapshot`'s re-render) uses `metrics._embedder_model_name(embedder)`, the canonical name source introduced with D-011. The two agree only for `HashEmbedder` (no `model_name` attr → class-name fallback), so CI (which only exercises the hash path) never caught it. For `MiniLMEmbedder` they diverge: header `MiniLMEmbedder` vs persisted `sentence-transformers/all-MiniLM-L6-v2`.
+- Impact: the README documents the honest-numbers refresh of the *tracked* fixtures as `--canonical-out --embedder minilm`. Running that wrote a `summary.md` whose header disagreed with the committed `canonical__*.json`, permanently failing `test_committed_summary_md_matches_render_from_committed_results` on a correctly-regenerated honest fixture set — same "run the documented refresh and diff" failure class as #112.
+- Fix: render the header from `_embedder_model_name(embedder)` (single canonical source). Byte-identical on the HashEmbedder canonical path (verified: `--canonical-out` regen changes only the non-deterministic `wall_clock_ms` column; header + metrics unchanged; disclaimer gate at line 89 still fires), self-consistent on the minilm path, empty-runs-safe (doesn't index `runs[0]`). Restored the timing-only regen churn per benchmark integrity.
+- Added an end-to-end regression driving the real `main()` with a `model_name`-bearing stub embedder; fails pre-fix, passes after. Full suite 399 passed; ruff check + format clean.
+
+**Why this work, this session:** Static priority-high queue globally exhausted; chunking-strategies-lab was the earliest stale priority-tier repo (>18h). Three parallel dogfood hunts (strategies / validate+loaders / run_matrix+rendering); two returned clean NONE, the run_matrix RUN-THE-DOCUMENTED-EXAMPLE lens surfaced this — the same lens that yielded #112 here. Verified firsthand before adopting.
+
+**Open questions / blockers:** none.
+
+**Next session:** chunking summary/render surface now single-sourced on `_embedder_model_name`; strategies, validate/loaders, offset-contract all re-swept saturated this run.
