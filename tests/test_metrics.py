@@ -886,3 +886,32 @@ def test_retrieval_run_from_json_rejects_non_object_per_query_row(bad: object) -
 def test_query_result_from_json_rejects_non_object(bad: object) -> None:
     with pytest.raises(ValueError, match="per_query row must be a JSON object"):
         QueryResult.from_json(bad)  # type: ignore[arg-type]
+
+
+# Issue #118: the #114 container guards covered the top-level payload, both
+# metric maps, and each per_query *row*, but left three list *containers*
+# unguarded — a present-but-non-array `per_query` / `retrieved_doc_ids_in_rank_order`
+# / `snippet_hits_in_rank_order` reached `for q in ...` / `tuple(...)` and leaked a
+# raw TypeError, escaping the documented KeyError/ValueError contract. These lock
+# the list-container siblings.
+@pytest.mark.parametrize("bad", [42, 0.5, None, True])
+def test_retrieval_run_from_json_rejects_non_array_per_query(bad: object) -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["per_query"] = bad
+    with pytest.raises(ValueError, match="per_query must be a JSON array"):
+        RetrievalRun.from_json(payload)
+
+
+@pytest.mark.parametrize("field", ["retrieved_doc_ids_in_rank_order", "snippet_hits_in_rank_order"])
+@pytest.mark.parametrize("bad", [42, 0.5, None, True])
+def test_query_result_from_json_rejects_non_array_rank_order(field: str, bad: object) -> None:
+    payload = {
+        "query_id": "q",
+        "expected_doc": "d",
+        "expected_snippet": "s",
+        "retrieved_doc_ids_in_rank_order": [],
+        "snippet_hits_in_rank_order": [],
+    }
+    payload[field] = bad
+    with pytest.raises(ValueError, match=rf"{field} must be a JSON array"):
+        QueryResult.from_json(payload)
