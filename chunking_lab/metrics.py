@@ -65,6 +65,16 @@ class QueryResult:
         # metric-map guard and the load_queries non-object guard (#110/#111).
         if not isinstance(payload, dict):
             raise ValueError(f"per_query row must be a JSON object, got {type(payload).__name__}")
+        # A present-but-non-array rank-order field (a JSON scalar/null) makes
+        # `tuple(...)` raise a raw `TypeError` ('int' object is not iterable),
+        # escaping the loud KeyError/ValueError contract — the same list-container
+        # sibling as `per_query` in `RetrievalRun.from_json`. (A JSON string would
+        # silently splat into a char-tuple; requiring a list rejects that too.)
+        for _field in ("retrieved_doc_ids_in_rank_order", "snippet_hits_in_rank_order"):
+            if not isinstance(payload[_field], list):
+                raise ValueError(
+                    f"{_field} must be a JSON array, got {type(payload[_field]).__name__}"
+                )
         return cls(
             query_id=payload["query_id"],
             expected_doc=payload["expected_doc"],
@@ -182,6 +192,14 @@ class RetrievalRun:
         snippet = {int(k): v for k, v in payload["snippet_hit_at_k"].items()}
         _validate_metric_map("recall_at_k", recall)
         _validate_metric_map("snippet_hit_at_k", snippet)
+        # A present-but-non-array `per_query` (a JSON scalar/null from a hand-edit
+        # or truncated write) makes the `for q in ...` below raise a raw
+        # `TypeError`, escaping the documented `KeyError`/`ValueError` loud
+        # contract — the list-container sibling of the metric-map guards above
+        # (#114 guarded the top-level and both metric maps, not this container).
+        per_query_raw = payload.get("per_query", ())
+        if not isinstance(per_query_raw, (list, tuple)):
+            raise ValueError(f"per_query must be a JSON array, got {type(per_query_raw).__name__}")
         return cls(
             strategy_name=payload["strategy_name"],
             embedder_model=payload["embedder_model"],
@@ -190,7 +208,7 @@ class RetrievalRun:
             n_chunks_total=payload["n_chunks_total"],
             recall_at_k=recall,
             snippet_hit_at_k=snippet,
-            per_query=tuple(QueryResult.from_json(q) for q in payload.get("per_query", ())),
+            per_query=tuple(QueryResult.from_json(q) for q in per_query_raw),
             wall_clock_ms=payload.get("wall_clock_ms", 0.0),
             notes=list(payload.get("notes", [])),
         )

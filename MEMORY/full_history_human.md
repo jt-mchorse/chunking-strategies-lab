@@ -797,3 +797,15 @@ open and ready.
 **Open questions / blockers:** none.
 
 **Next session:** chunking summary/render surface now single-sourced on `_embedder_model_name`; strategies, validate/loaders, offset-contract all re-swept saturated this run.
+
+## 2026-07-09 — Issue #118: from_json raw TypeError on non-array list containers
+**Duration:** ~20 min · **Branch:** `session/2026-07-09-1600-issue-118` · **PR:** #119
+
+- #114 guarded the top-level payload, both metric maps, and each per-row shape in the metrics `from_json`, but left three list *containers* unguarded: a scalar/null `per_query` (RetrievalRun) or `retrieved_doc_ids_in_rank_order` / `snippet_hits_in_rank_order` (QueryResult) reached `for q in ...` / `tuple(...)` and raised a raw `TypeError`, escaping the documented `KeyError`/`ValueError` contract.
+- Guarded all three as JSON arrays with a clean `ValueError`, mirroring #114's metric-map guard. 12 regression tests, all failing pre-fix. Full suite 411 pass, ruff clean. (The hunt agent flagged only `per_query`; I found and fixed the two additional QueryResult container siblings — not leaving my own fix incomplete.)
+
+**Why this work, this session:** found via the sibling-branch-incomplete-fix meta-lens — the fifth hit of this run via that lens; reproduced firsthand before fixing.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the isinstance-after-json.loads container-parity class is now fully swept in chunking (top-level + metric-map + per-row + list-containers) and leh (#156). Don't re-sweep.
