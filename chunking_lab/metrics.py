@@ -200,6 +200,16 @@ class RetrievalRun:
         per_query_raw = payload.get("per_query", ())
         if not isinstance(per_query_raw, (list, tuple)):
             raise ValueError(f"per_query must be a JSON array, got {type(per_query_raw).__name__}")
+        # A present-but-non-array `notes` (a JSON scalar/null from a hand-edit or
+        # external generator) reaches `list(...)` below and raises a raw
+        # `TypeError`, escaping the documented `KeyError`/`ValueError` loud
+        # contract; a JSON string silently char-splats into a per-character list.
+        # This is the last list container built via `list(...)` on the read path
+        # — the same sibling class #114 guarded for the top-level/metric maps and
+        # #118 guarded for `per_query`/rank-order, neither of which touched `notes`.
+        notes_raw = payload.get("notes", [])
+        if not isinstance(notes_raw, list):
+            raise ValueError(f"notes must be a JSON array, got {type(notes_raw).__name__}")
         return cls(
             strategy_name=payload["strategy_name"],
             embedder_model=payload["embedder_model"],
@@ -210,7 +220,7 @@ class RetrievalRun:
             snippet_hit_at_k=snippet,
             per_query=tuple(QueryResult.from_json(q) for q in per_query_raw),
             wall_clock_ms=payload.get("wall_clock_ms", 0.0),
-            notes=list(payload.get("notes", [])),
+            notes=list(notes_raw),
         )
 
 

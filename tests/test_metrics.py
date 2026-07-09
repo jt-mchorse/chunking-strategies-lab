@@ -915,3 +915,25 @@ def test_query_result_from_json_rejects_non_array_rank_order(field: str, bad: ob
     payload[field] = bad
     with pytest.raises(ValueError, match=rf"{field} must be a JSON array"):
         QueryResult.from_json(payload)
+
+
+# Issue #120: `notes` is the last list container built via `list(...)` on the
+# read path. #114/#118 guarded the top-level payload, both metric maps,
+# per_query, and the rank-order lists — but never touched `notes`. A scalar/null
+# reached `list(...)` and leaked a raw TypeError; a JSON string silently
+# char-splat into a per-character list. These lock the remaining sibling.
+@pytest.mark.parametrize("bad", [42, 0.5, None, True])
+def test_retrieval_run_from_json_rejects_non_array_notes(bad: object) -> None:
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["notes"] = bad
+    with pytest.raises(ValueError, match="notes must be a JSON array"):
+        RetrievalRun.from_json(payload)
+
+
+def test_retrieval_run_from_json_rejects_string_notes_no_silent_char_splat() -> None:
+    """A JSON string `notes` must raise, not silently splat into a
+    per-character list (`"oops"` -> `['o','o','p','s']`)."""
+    payload = _synthetic_run(with_per_query=False).to_json()
+    payload["notes"] = "oops"
+    with pytest.raises(ValueError, match="notes must be a JSON array"):
+        RetrievalRun.from_json(payload)
