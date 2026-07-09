@@ -180,3 +180,49 @@ def test_render_summary_escapes_pipe_in_strategy_name_so_columns_dont_break() ->
     assert unescaped_pipes(row_line) == unescaped_pipes(header_line)
     # The literal pipe is preserved (escaped), not dropped.
     assert "fixed\\|256" in row_line
+
+
+class _NamedStubEmbedder:
+    """A deterministic, dep-free embedder whose reported `model_name` differs
+    from its Python class name — exactly the shape of `MiniLMEmbedder`
+    (`model_name = "sentence-transformers/all-MiniLM-L6-v2"`), which is what
+    exposes #116. `HashEmbedder` has no `model_name`, so it can't."""
+
+    model_name = "stub-embedder/v1"
+
+    def embed(self, text: str) -> list[float]:
+        # Constant non-zero vector: cosine is well-defined and finite; the exact
+        # values don't matter for the header/name invariant under test.
+        return [1.0, 0.0, 0.0, 0.0]
+
+
+def test_run_matrix_summary_header_matches_persisted_embedder_model(tmp_path, monkeypatch) -> None:
+    """#116: the `summary.md` embedder header must be rendered from the SAME
+    canonical name source (`_embedder_model_name`) that `evaluate_strategy`
+    persists into every `RetrievalRun.embedder_model` — not `type().__name__`.
+
+    Pre-fix the runner rendered the header from `type(embedder).__name__`
+    (`_NamedStubEmbedder`) while the JSONs carried `embedder_model` =
+    `stub-embedder/v1`, so an honest `--canonical-out --embedder minilm` refresh
+    wrote a `summary.md` that permanently failed
+    `test_committed_summary_md_matches_render_from_committed_results`. Drive the
+    real `main()` end-to-end (into a tmp results dir, so the committed fixtures
+    are untouched) and assert the written header agrees with the persisted JSON.
+    """
+    import scripts.run_matrix as rm
+    from chunking_lab.metrics import _embedder_model_name
+
+    stub = _NamedStubEmbedder()
+    monkeypatch.setattr(rm, "_build_embedder", lambda _name: stub)
+
+    rc = rm.main(["--embedder", "minilm", "--canonical-out", "--results-dir", str(tmp_path)])
+    assert rc == 0
+
+    summary_header = (tmp_path / "summary.md").read_text().splitlines()[2]
+    persisted = json.loads((tmp_path / "canonical__fixed-size.json").read_text())["embedder_model"]
+
+    # The persisted model name is the canonical `model_name`, not the class name.
+    assert persisted == _embedder_model_name(stub) == "stub-embedder/v1"
+    # Pre-fix this was `_embedder_: `_NamedStubEmbedder`` and this assertion failed.
+    assert f"`{persisted}`" in summary_header
+    assert "_NamedStubEmbedder" not in summary_header

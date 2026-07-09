@@ -40,7 +40,11 @@ if str(_REPO_ROOT) not in sys.path:
 from chunking_lab.corpus import load_corpus  # noqa: E402
 from chunking_lab.embedder import CANONICAL_EMBEDDING_MODEL, Embedder, HashEmbedder  # noqa: E402
 from chunking_lab.io_utils import atomic_write_text  # noqa: E402
-from chunking_lab.metrics import RetrievalRun, evaluate_strategy  # noqa: E402
+from chunking_lab.metrics import (  # noqa: E402
+    RetrievalRun,
+    _embedder_model_name,
+    evaluate_strategy,
+)
 from chunking_lab.queries import load_queries  # noqa: E402
 from chunking_lab.strategies import (  # noqa: E402
     FixedSizeStrategy,
@@ -230,7 +234,19 @@ def main(argv: list[str] | None = None) -> int:
         summary_path = results_dir / "summary.md"
     else:
         summary_path = results_dir / f"{stamp}__summary.md"
-    atomic_write_text(summary_path, _render_summary(runs, type(embedder).__name__))
+    # Render the header from the SAME canonical name source that
+    # `evaluate_strategy` persists into every `RetrievalRun.embedder_model`
+    # (`_embedder_model_name`, per D-011) — NOT `type(embedder).__name__`. The
+    # two agree only for `HashEmbedder` (no `model_name` → class-name fallback),
+    # so the canonical hash path is byte-identical and the line-89 disclaimer
+    # gate still fires. They diverge for any `model_name`-bearing embedder
+    # (e.g. `MiniLMEmbedder` → `sentence-transformers/all-MiniLM-L6-v2`): with
+    # the old class-name source, an honest `--canonical-out --embedder minilm`
+    # refresh wrote a `summary.md` whose header disagreed with the committed
+    # JSONs, permanently failing `test_summary_snapshot`'s re-render (which
+    # reads `runs[0].embedder_model`). Using `_embedder_model_name(embedder)`
+    # keeps the summary self-consistent with the fixtures and is empty-runs-safe.
+    atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
     print(f"\nsummary wrote {summary_path}")
     return 0
 
