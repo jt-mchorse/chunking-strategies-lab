@@ -834,3 +834,14 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the mermaid node-label field-name drift class is now locked in chunking. Check the sibling repos' architecture docs for the same class — a diagram node annotating a type with a field list that has drifted from the code.
+
+## 2026-07-13 (night) — Issue #124: validate CLI non-UTF-8 file exits 2, not a traceback
+**Duration:** ~15 min · **Branch:** `session/2026-07-13-1120-issue-124` · **PR:** #125
+
+`python -m chunking_lab.validate` documents the exit-code contract "Exit 0 clean / 1 findings / 2 I/O error" (`validate.py:314`), and `main()` catches `FileNotFoundError`/`OSError` → exit 2. But `validate_queries` opens the queries file with `encoding="utf-8-sig"` and decodes lazily while iterating the file handle, outside the per-row `json.loads` try. A non-UTF-8 byte raises `UnicodeDecodeError` — a `ValueError` subclass, not an `OSError` — which escaped both catches and leaked a raw traceback at exit 1. Added an `except UnicodeDecodeError` clause → clean message + exit 2. This is the direct cross-repo sibling of the same fix in llm-eval-harness #174, prompt-regression-suite #126, and embedding-model-shootout #102; it also corrects a stale prior-session note that claimed chunking "has no CLI/contract" (it does — `validate.py` has an explicit documented exit-code contract). One CLI lock test; full suite (420) green, ruff clean.
+
+**Why this work, this session:** Second hit of the night run, surfaced by a sibling-incomplete-fix hunt and verified firsthand.
+
+**Open questions / blockers:** none — PR #125 ready for review.
+
+**Next session:** Phase A merge PR for #124.
