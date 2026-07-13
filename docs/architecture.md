@@ -59,7 +59,7 @@ flowchart LR
     F["data/corpus/*.md (5)"] --> CL["load_corpus()"]
     Q["data/queries.jsonl (12)"] --> QL["load_queries()"]
     CL --> Doc["Document (filename, text)"]
-    QL --> Quer["Query (id, text, expected_doc, expected_snippet)"]
+    QL --> Quer["Query (id, question, expected_doc, expected_snippet)"]
     Doc --> E["chunking_lab/embedder.py:<br/>HashEmbedder | MiniLMEmbedder"]
 ```
 
@@ -104,7 +104,7 @@ one strategy without dragging in siblings.
 
 ```mermaid
 flowchart LR
-    DOC["Document.text"] --> S1["FixedSizeStrategy<br/>(chunk_chars, overlap)"]
+    DOC["Document.text"] --> S1["FixedSizeStrategy<br/>(chunk_chars, overlap_chars)"]
     DOC --> S2["RecursiveStrategy<br/>(separator hierarchy)"]
     DOC --> S3["SemanticBoundaryStrategy<br/>(cosine-peak split)"]
     DOC --> S4["LateChunkingStrategy<br/>(doc-blended vectors)"]

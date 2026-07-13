@@ -44,10 +44,15 @@ weaken the guard.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 
 import pytest
+
+from chunking_lab.corpus import Document
+from chunking_lab.queries import Query
+from chunking_lab.strategies.fixed import FixedSizeStrategy
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOC = REPO_ROOT / "docs" / "architecture.md"
@@ -374,3 +379,108 @@ def test_min_active_decision_id_hard_pin() -> None:
 
 def test_operator_supplied_paths_hard_pin_set() -> None:
     assert OPERATOR_SUPPLIED_PATHS == ()
+
+
+# ---------------------------------------------------------------------------
+# Diagram field-label lock (#122).
+#
+# A few mermaid node labels annotate a dataclass type with a parenthesized,
+# comma-separated field list, e.g. ``Query (id, question, expected_doc,
+# expected_snippet)`` or ``FixedSizeStrategy<br/>(chunk_chars, overlap_chars)``.
+# Those labels are NOT backtick-quoted and their tokens are bare snake_case, so
+# neither ``test_backtick_paths_resolve_on_disk`` (slash paths) nor
+# ``test_doc_symbol_refs_resolve`` (dotted / CamelCase symbols) catches a wrong
+# field name in them. That is exactly how ``Query (id, text, ...)`` (real field
+# is ``question``) and ``FixedSizeStrategy (chunk_chars, overlap)`` (real field
+# is ``overlap_chars``) drifted through CI green. Tie each such label's tokens
+# to the live ``dataclasses.fields(...)`` of the type it names.
+
+
+# Doc-named type -> the dataclass whose field names its diagram label must
+# match. Only types whose label is a pure comma-separated field list belong
+# here; the descriptive labels (``Chunk[] (text + start/end offsets)``,
+# ``LateChunk[] (text + offsets + vector)``) are prose, not field lists, and are
+# intentionally excluded. Hard-pinned by
+# ``test_diagram_field_label_types_hard_pin_set``.
+DIAGRAM_FIELD_LABEL_TYPES: dict[str, type] = {
+    "Query": Query,
+    "Document": Document,
+    "FixedSizeStrategy": FixedSizeStrategy,
+}
+
+_IDENT_RE = re.compile(r"[a-z_][a-z0-9_]*")
+
+
+def _diagram_field_lists(text: str, type_name: str) -> list[list[str]]:
+    """Every parenthesized comma-separated identifier list the doc attaches to
+    ``type_name`` in a mermaid node label.
+
+    Matches ``type_name`` as a whole word (so ``Query`` does not match inside
+    ``QueryResult``) optionally followed by a ``<br/>`` line break or spaces,
+    then a ``(...)`` group. Only groups whose entire content is a comma-list of
+    snake_case identifiers are returned -- descriptive labels such as
+    ``(separator hierarchy)`` are skipped so the resolver checks genuine field
+    claims only.
+    """
+    pattern = re.compile(re.escape(type_name) + r"\b(?:<br/>|\s)*\(([^)]*)\)")
+    lists: list[list[str]] = []
+    for m in pattern.finditer(text):
+        tokens = [t.strip() for t in m.group(1).split(",")]
+        if tokens and all(_IDENT_RE.fullmatch(t) for t in tokens):
+            lists.append(tokens)
+    return lists
+
+
+def test_diagram_node_label_fields_are_real_dataclass_fields(doc_text: str) -> None:
+    """Every field named in a pinned type's mermaid node label is a real
+    ``dataclasses.fields(...)`` name of that type (#122).
+
+    Catches the field-label drift class the path/symbol locks miss: an
+    un-backticked bare-identifier field list inside a node label, e.g.
+    ``Query (id, text, ...)`` where the real field is ``question``.
+    """
+    problems: list[str] = []
+    for type_name, cls in DIAGRAM_FIELD_LABEL_TYPES.items():
+        real = {f.name for f in dataclasses.fields(cls)}
+        lists = _diagram_field_lists(doc_text, type_name)
+        assert lists, (
+            f"expected at least one `{type_name} (field, ...)` node label in "
+            "docs/architecture.md -- the field-label lock would be vacuous for "
+            f"{type_name} otherwise"
+        )
+        for tokens in lists:
+            for tok in tokens:
+                if tok not in real:
+                    problems.append(
+                        f"{type_name} label names `{tok}`, not a field of "
+                        f"{cls.__module__}.{cls.__qualname__} "
+                        f"(real fields: {', '.join(sorted(real))})"
+                    )
+    assert not problems, (
+        "docs/architecture.md mermaid node labels name fields that don't exist "
+        "on the dataclass they annotate:\n"
+        + "\n".join(f"  - {p}" for p in problems)
+        + "\n(fix the label to match the shipped dataclass field name)"
+    )
+
+
+def test_diagram_field_label_resolver_flags_injected_drift() -> None:
+    """Inverse safety net: a wrong field name in a node label is flagged while a
+    correct sibling token still resolves (guards a vacuously-green resolver).
+
+    Mirrors the #122 drift shape -- ``text`` in place of the real ``question``
+    field -- so a future refactor that neutered extraction or resolution fails.
+    """
+    real = {f.name for f in dataclasses.fields(Query)}
+    good = _diagram_field_lists('QL --> Q["Query (id, question)"]', "Query")
+    bad = _diagram_field_lists('QL --> Q["Query (id, text)"]', "Query")
+    assert good == [["id", "question"]]
+    assert bad == [["id", "text"]]
+    assert all(t in real for t in good[0])
+    assert "text" not in real  # the exact drift this lock rules out
+    # Whole-word match: `Query` must not match inside `QueryResult`.
+    assert _diagram_field_lists('R["QueryResult (query_id, expected_doc)"]', "Query") == []
+
+
+def test_diagram_field_label_types_hard_pin_set() -> None:
+    assert tuple(DIAGRAM_FIELD_LABEL_TYPES) == ("Query", "Document", "FixedSizeStrategy")
