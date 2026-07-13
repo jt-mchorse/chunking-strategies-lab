@@ -821,3 +821,16 @@ open and ready.
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** chunking + leh container-guard class is now fully exhausted (leh dataset/calibration loaders re-verified fully hardened this run). Don't re-sweep this class in either repo.
+
+## 2026-07-13 (Night) — Issue #122: architecture.md mermaid node labels named wrong dataclass fields
+**Duration:** ~22 min · **Branch:** `session/2026-07-13-0510-issue-122` · **PR:** #123
+
+- Two mermaid node labels in `docs/architecture.md` named fields that don't exist on the dataclasses they annotate. §1 labeled the `Query` node `Query (id, text, ...)`, but the dataclass field is `question` (the same doc's §1 prose and `data/queries.jsonl` both say `question`; a reader copying `query.text` from the diagram would hit `AttributeError`). §2 labeled `FixedSizeStrategy (chunk_chars, overlap)`, but the field is `overlap_chars` — the label pairs an exact param name with an inexact one.
+- These labels are un-backticked and their tokens are bare snake_case, so the existing architecture-doc lock (which pins backtick slash-paths, dotted/CamelCase symbols, active-decision coverage, and banned phrases) never covered them and the drift stayed CI-green.
+- Corrected both labels and added a code-tied lock: extract the parenthesized comma-separated field list next to a pinned set of type names (`Query`, `Document`, `FixedSizeStrategy`) and assert every token is a real `dataclasses.fields()` name of that type, with a whole-word match (`Query` ≠ `QueryResult`) and an inverse injected-drift guard. Verified the new lock flags exactly `text` on the pre-fix doc. Full suite 419 pass; the arch-doc lock file goes 14 → 17 tests; ruff format/check clean.
+
+**Why this work, this session:** found via the "arch-doc drift beyond the lock lens" saturation-beater — hunt README/architecture claims the lock tests *don't* pin. The `Document`, `Chunk`, and `LateChunk` labels were audited and are accurate (the latter two are descriptive prose, not field lists), so only `Query` and `FixedSizeStrategy` needed fixing.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the mermaid node-label field-name drift class is now locked in chunking. Check the sibling repos' architecture docs for the same class — a diagram node annotating a type with a field list that has drifted from the code.
