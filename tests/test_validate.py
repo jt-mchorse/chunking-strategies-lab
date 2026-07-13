@@ -516,6 +516,23 @@ def test_cli_missing_file_exit_two(tmp_path: Path) -> None:
     assert "file not found" in proc.stderr
 
 
+def test_cli_non_utf8_file_exit_two_not_traceback(tmp_path: Path) -> None:
+    # A present-but-non-UTF-8 queries file decodes-lazily while iterating the
+    # file handle (open with encoding="utf-8-sig"), outside the per-row
+    # json.loads try. The resulting UnicodeDecodeError is a ValueError subclass,
+    # NOT an OSError, so it escaped main()'s FileNotFoundError/OSError catches and
+    # leaked a raw traceback at exit 1 — breaking the documented "0 clean / 1
+    # findings / 2 I/O error" contract. A whole-file decode failure is an I/O
+    # error (exit 2), not a per-row malformed_json finding. Sibling of the
+    # llm-eval-harness validate/run non-UTF-8 fix.
+    p = tmp_path / "bad.jsonl"
+    p.write_bytes(b"\xff\xfe\x00not utf-8")
+    proc = _run_cli(str(p))
+    assert proc.returncode == 2, proc.stderr
+    assert "not valid UTF-8" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
 def test_cli_shipped_queries_clean_with_corpus_dir() -> None:
     proc = _run_cli(str(SHIPPED_QUERIES), "--corpus-dir", str(SHIPPED_CORPUS))
     assert proc.returncode == 0, proc.stderr
