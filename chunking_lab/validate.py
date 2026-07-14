@@ -354,6 +354,17 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as e:
         sys.stderr.write(f"failed to read {args.queries}: {e}\n")
         return 2
+    except UnicodeDecodeError as e:
+        # `validate_queries` decodes lazily while iterating the file handle
+        # (open with encoding="utf-8-sig"), outside the per-row json.loads try.
+        # A non-UTF-8 byte raises UnicodeDecodeError — a ValueError subclass, NOT
+        # an OSError — which the narrow catches above miss, so it escaped as a
+        # raw traceback at exit 1, breaking the documented "0 clean / 1 findings /
+        # 2 I/O error" contract. A whole-file decode failure is an I/O error
+        # (exit 2), not a per-row malformed_json finding. Sibling of the
+        # llm-eval-harness validate/run non-UTF-8 fix and prs/ems snapshot reads.
+        sys.stderr.write(f"failed to read {args.queries}: not valid UTF-8: {e}\n")
+        return 2
 
     if args.as_json:
         rendered = json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
