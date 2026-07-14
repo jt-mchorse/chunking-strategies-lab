@@ -869,3 +869,11 @@ Fixed by porting the rag#128 fix (`_cap_base_for_temp`, 200-byte char-boundary b
 **Open questions / blockers:** none — PR #129 ready for review.
 
 **Next session:** Phase A merge PR for #128; continue the atomic-write sweep on the 4 non-tier repos.
+
+## 2026-07-14 (night, issue #130) — strategy_name GFM cell escapes pipe but not newline (sibling of #100, ems#105)
+
+`_render_summary` escaped `|` in the free-form `strategy_name` cell but not `\n`/`\r`. A GFM row is a single physical line, so a newline in the name split one result across two physical lines and broke every row after it, corrupting `results/summary.md`. Reachability is identical to the `|` case already guarded at the same site: the #100 comment documents `strategy_name` arriving from a BYO Strategy name or a `RetrievalRun` loaded from external JSON via `from_json`, and `from_json` (metrics.py:214) takes the raw value with no charset restriction.
+
+Fix: collapse `[\r\n]+ → " "` after the pipe-escape (portfolio `md_table_cell` pattern, leh#134/ems#105). Verified firsthand: `from_json` with a newline strategy_name split the rendered row pre-fix; post-fix it's one line. Full suite 423 passed, ruff clean.
+
+Found by a second-order hunt applying the corrected GFM-newline lens right after shipping ems#105: grep every sibling GFM emitter for an existing `|`-escape (the tell that the cell takes untrusted input), then check whether it also collapses newlines. chunking's `run_matrix` had the pipe-escape (#100) but no newline collapse. Shipped as PR #131. (vsas `cost_table` `source_cell` and aop `comment.ts` `escape()` also have pipe-escapes — aop is being hunted by a running agent; check vsas cost_table next.)
