@@ -560,6 +560,24 @@ def test_cli_out_writes_human_summary_to_file_not_stdout(tmp_path: Path) -> None
     assert body.endswith("\n"), "trailing newline required for parity"
 
 
+def test_cli_unwritable_out_exit_two_not_traceback(tmp_path: Path) -> None:
+    # The output path is operator input too: an unwritable --out must land as a
+    # clean exit 2, not a raw OSError traceback (breaking the "0 clean / 1 findings
+    # / 2 I/O error" contract by colliding with the findings code). Output-write
+    # sibling of the #125 input-read guard. A path whose parent component is a FILE
+    # makes atomic_write_text's mkdir raise NotADirectoryError (an OSError) — a
+    # deterministic, portable unwritable target.
+    p = tmp_path / "queries.jsonl"
+    _write_jsonl(p, [_valid_row("a"), _valid_row("b")])
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x")
+    out = blocker / "sub" / "report.txt"
+    proc = _run_cli(str(p), "--out", str(out))
+    assert proc.returncode == 2, proc.stderr
+    assert "failed to write" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
 def test_cli_out_writes_json_payload_to_file(tmp_path: Path) -> None:
     """``--out`` + ``--json`` writes the report dict as JSON to disk;
     stdout silent; the file parses cleanly and carries the expected shape."""

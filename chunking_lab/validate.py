@@ -381,7 +381,18 @@ def main(argv: list[str] | None = None) -> int:
             f"findings={len(report.findings)}\n"
         )
     if args.out:
-        atomic_write_text(args.out, rendered)
+        # The output path is operator input too: an unwritable `--out` (a read-only
+        # filesystem, a permission-denied dir, or a path component that is a file)
+        # makes `atomic_write_text` raise OSError, which without this guard escaped
+        # as a raw traceback at exit 1 — colliding with the "findings" code and
+        # breaking the documented "0 clean / 1 findings / 2 I/O error" contract.
+        # A whole-file write failure is an I/O error (exit 2), the output-write
+        # sibling of the #125 input-read guard on this same script.
+        try:
+            atomic_write_text(args.out, rendered)
+        except OSError as e:
+            sys.stderr.write(f"failed to write {args.out}: {e}\n")
+            return 2
     else:
         sys.stdout.write(rendered)
     return 0 if report.ok else 1
