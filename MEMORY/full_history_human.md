@@ -845,3 +845,14 @@ open and ready.
 **Open questions / blockers:** none — PR #125 ready for review.
 
 **Next session:** Phase A merge PR for #124.
+
+## 2026-07-14 (night) — Issue #126: validate --out output-write seam leaks a raw OSError
+**Duration:** ~15 min · **Branch:** `session/2026-07-14-0538-issue-126` · **PR:** #127
+
+`chunking_lab/validate.py` documents a "0 clean / 1 findings / 2 I/O error" exit-code contract, and #125 just hardened its input-read seam (non-UTF-8 → exit 2). But the output-write seam (`atomic_write_text(args.out, rendered)`) was unguarded: an unwritable `--out` (read-only filesystem, permission denied, or a path component that is a file → `NotADirectoryError`) made it raise `OSError`, escaping as a raw traceback at exit 1 — colliding with the "findings" code and breaking the I/O-error-is-exit-2 contract. Fixed by wrapping the write in `try/except OSError` → clean stderr + `return 2` (output-write sibling of #125; cross-repo sibling of llm-eval-harness #158/#159, vector-search-at-scale #97, python-async-llm-pipelines #84). Verified firsthand. One lock test; full suite (421) green, ruff clean. Scoped to validate.py only — `run_matrix.py`'s `--results-dir` write has no documented exit-code contract (only returns 0), so guarding it would establish a new contract, not fix a sibling.
+
+**Why this work, this session:** Fifth hit of the night run — a firsthand cross-repo write-seam sweep continuation (pyasync #84 → vsas #97 → here), landing on the output-write sibling of my own #125 on the same file.
+
+**Open questions / blockers:** none — PR #127 ready for review.
+
+**Next session:** Phase A merge PR for #126.
