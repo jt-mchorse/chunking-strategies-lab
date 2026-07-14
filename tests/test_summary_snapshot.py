@@ -182,6 +182,35 @@ def test_render_summary_escapes_pipe_in_strategy_name_so_columns_dont_break() ->
     assert "fixed\\|256" in row_line
 
 
+def test_render_summary_collapses_newline_in_strategy_name_so_row_stays_one_line() -> None:
+    # Newline sibling of #100 at the same site (mirrors embedding-model-shootout
+    # #105): a GFM row is a single physical line, so a `\n`/`\r` in `strategy_name`
+    # (reachable via `RetrievalRun.from_json` on an external result file, or a BYO
+    # Strategy name — the same input the pipe-escape guards) splits one result
+    # across two lines and breaks every row after it. The fix collapses `[\r\n]+`
+    # -> a single space so the row stays on one line.
+    run = RetrievalRun(
+        strategy_name="ev\nil\r\nx",
+        embedder_model="HashEmbedder",
+        dataset_version="v1",
+        n_queries=3,
+        n_chunks_total=10,
+        recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
+        snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
+        per_query=(),
+        wall_clock_ms=12.0,
+    )
+    md = _render_summary([run], "HashEmbedder")
+    row_lines = [line for line in md.splitlines() if line.startswith("|")]
+    # header + separator + exactly one data row — no extra physical line from the
+    # embedded newlines.
+    assert len(row_lines) == 3, f"newline split the row: {row_lines}"
+    data_row = row_lines[2]
+    assert "ev il x" in data_row
+    assert "\n" not in data_row
+    assert "\r" not in data_row
+
+
 class _NamedStubEmbedder:
     """A deterministic, dep-free embedder whose reported `model_name` differs
     from its Python class name — exactly the shape of `MiniLMEmbedder`
