@@ -856,3 +856,16 @@ open and ready.
 **Open questions / blockers:** none — PR #127 ready for review.
 
 **Next session:** Phase A merge PR for #126.
+
+## 2026-07-14 (night) — Issue #128: atomic_write_text overflows NAME_MAX on a long basename
+**Duration:** ~12 min · **Branch:** `session/2026-07-14-0741-issue-128` · **PR:** #129
+
+`atomic_write_text` built its temp file name as `.<basename>.<random>.tmp`, so a destination basename near `NAME_MAX` (255 bytes) overflowed the limit and raised `OSError` ENAMETOOLONG — even though a plain `write_text` of that same path succeeds. Reachable from `validate.py --out` and `run_matrix.py`'s per-strategy JSON writes. Identical to `rag-production-kit#128` and `mcp-server-cookbook#96`. Verified firsthand.
+
+Fixed by porting the rag#128 fix (`_cap_base_for_temp`, 200-byte char-boundary budget). One regression test; full suite (422) green, ruff clean.
+
+**Why this work, this session:** Seventh hit of the night run, part of a cross-repo `atomic_write_text` overflow sweep. The identical vulnerable helper was confirmed this run in **every** remaining Python repo; I fixed it in the priority-tier repos (leh #175, chunking #128, lco next) and **deferred the non-tier repos (ems, prs, pyasync, vsas) to the next run** — a real known cross-repo follow-up, prioritized not dropped per D-009. To resume: grep `prefix=f".{target.name}."` in `emb_shootout/io_utils.py`, `prompt_regression/io.py`, `async_pipelines/io_utils.py`, `vector_bench/io_utils.py` and port the same 200-byte cap; each has operator `--out` reachability.
+
+**Open questions / blockers:** none — PR #129 ready for review.
+
+**Next session:** Phase A merge PR for #128; continue the atomic-write sweep on the 4 non-tier repos.
