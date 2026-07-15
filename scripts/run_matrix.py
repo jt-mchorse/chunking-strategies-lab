@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -127,7 +128,17 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
         # delimiters) — same fix as comment `_row_to_md` (rag-kit #130),
         # `calibration.render_report` (llm-eval-harness #134), and
         # `aggregate_markdown` (embedding-model-shootout #79); applied here (#100).
+        #
+        # A `\n`/`\r` in the same cell is the sibling corruption: a GFM row is a
+        # single physical line, so an embedded newline splits one result across
+        # two lines and breaks every row after it. The pipe-escape closed the
+        # column-delimiter class at this site but left the row-delimiter class
+        # open; collapse `[\r\n]+` -> a single space (same external-input
+        # reachability as the pipe: `from_json` accepts an arbitrary
+        # `strategy_name`, or a BYO Strategy name). Portfolio `md_table_cell`
+        # pattern, newline sibling of embedding-model-shootout #105.
         strategy_name = r.strategy_name.replace("|", "\\|")
+        strategy_name = re.sub(r"[\r\n]+", " ", strategy_name)
         lines.append(
             f"| {strategy_name} | {r.n_chunks_total} | "
             f"{recall_cells} | {snippet_cells} | {r.wall_clock_ms:.0f} |"
