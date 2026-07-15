@@ -89,7 +89,20 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     lines: list[str] = []
     lines.append("# Chunking strategies — retrieval metrics matrix")
     lines.append("")
-    lines.append(f"_embedder_: `{embedder_name}` · _n_queries_: {runs[0].n_queries if runs else 0}")
+    # `embedder_name` is free-form `RetrievalRun.embedder_model`, loaded verbatim
+    # via `from_json` (no charset/newline restriction — the same external/hand-
+    # edited-result-file reachability #100/#130 cite for the `strategy_name` row
+    # cell). A `\r`/`\n` in it splits this header across two physical lines and
+    # breaks the surrounding inline-code span, corrupting the front-page
+    # docs/benchmarks.md. Collapse `[\r\n]+` -> a single space, the row-delimiter
+    # sibling of the #130 fix at the one free-form cell in this function that fix
+    # missed. Unlike the `strategy_name` GFM *table* cell, this cell renders
+    # INSIDE an inline-code span (`` `{embedder_name}` ``) where backslash-escapes
+    # are literal, so the pipe-escape half of `md_table_cell` is intentionally NOT
+    # applied here (a `\|` would render a visible backslash); only the newline
+    # collapse — the class that actually corrupts the header — is needed.
+    safe_embedder = re.sub(r"[\r\n]+", " ", embedder_name)
+    lines.append(f"_embedder_: `{safe_embedder}` · _n_queries_: {runs[0].n_queries if runs else 0}")
     lines.append("")
     if embedder_name == "HashEmbedder":
         lines.append(
