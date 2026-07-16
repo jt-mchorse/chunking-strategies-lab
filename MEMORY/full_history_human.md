@@ -877,3 +877,23 @@ Fixed by porting the rag#128 fix (`_cap_base_for_temp`, 200-byte char-boundary b
 Fix: collapse `[\r\n]+ → " "` after the pipe-escape (portfolio `md_table_cell` pattern, leh#134/ems#105). Verified firsthand: `from_json` with a newline strategy_name split the rendered row pre-fix; post-fix it's one line. Full suite 423 passed, ruff clean.
 
 Found by a second-order hunt applying the corrected GFM-newline lens right after shipping ems#105: grep every sibling GFM emitter for an existing `|`-escape (the tell that the cell takes untrusted input), then check whether it also collapses newlines. chunking's `run_matrix` had the pipe-escape (#100) but no newline collapse. Shipped as PR #131. (vsas `cost_table` `source_cell` and aop `comment.ts` `escape()` also have pipe-escapes — aop is being hunted by a running agent; check vsas cost_table next.)
+
+## 2026-07-15 — Issue #132: embedder_name header cell newline (sibling of #100/#130)
+
+The just-merged #130 fix hardened the `strategy_name` GFM table-row cell in
+`_render_summary` (pipe-escape + newline-collapse), but the same function has a
+second free-form interpolation one line up — `embedder_name` in the `_embedder_:`
+header — that got neither guard. `embedder_name` is `RetrievalRun.embedder_model`,
+loaded verbatim via `from_json` (the same external-input reachability #130 cites),
+so a newline splits the header across two physical lines and breaks the inline-code
+span, corrupting the committed benchmarks doc.
+
+Fixed by collapsing `[\r\n]+` → space before interpolation. Notably, the
+pipe-escape half of the portfolio `md_table_cell` pattern is deliberately omitted
+here: this cell renders inside an inline-code span (not a GFM table cell), where
+backslash-escapes are literal, so `\|` would render a visible backslash. Only the
+newline collapse — the class that actually corrupts a header line — is applied.
+Verified firsthand; full suite green.
+
+Why prioritized: sibling-incomplete-fix meta-lens on this run's Phase-A-merged #130,
+surfaced by a parallel hunt agent and verified firsthand.

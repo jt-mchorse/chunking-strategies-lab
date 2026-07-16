@@ -211,6 +211,36 @@ def test_render_summary_collapses_newline_in_strategy_name_so_row_stays_one_line
     assert "\r" not in data_row
 
 
+def test_render_summary_collapses_newline_in_embedder_name_header_so_it_stays_one_line() -> None:
+    # Sibling of #100/#130 in the SAME function, one cell over: `_render_summary`
+    # interpolates the free-form `embedder_name` (`RetrievalRun.embedder_model`,
+    # loaded verbatim via `from_json` on an external/hand-edited result file, or a
+    # BYO embedder's `model_name`) into the `_embedder_:` header line. A `\n`/`\r`
+    # there splits the header across two physical lines and breaks the surrounding
+    # inline-code span, corrupting the front-page benchmarks doc — the row-
+    # delimiter class the #130 fix closed for the `strategy_name` row cell but
+    # never applied to this header cell. (Pipe-escape is intentionally NOT applied
+    # here: the cell is inside an inline-code span where `\|` renders literally.)
+    run = RetrievalRun(
+        strategy_name="fixed",
+        embedder_model="ev\nil\r\nmodel",
+        dataset_version="v1",
+        n_queries=3,
+        n_chunks_total=10,
+        recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
+        snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
+        per_query=(),
+        wall_clock_ms=12.0,
+    )
+    md = _render_summary([run], run.embedder_model)
+    header_line = next(line for line in md.splitlines() if line.startswith("_embedder_:"))
+    # The whole embedder name stays on the one header line — no CR/LF leaked
+    # through to split it.
+    assert "ev il model" in header_line
+    assert "\n" not in header_line
+    assert "\r" not in header_line
+
+
 class _NamedStubEmbedder:
     """A deterministic, dep-free embedder whose reported `model_name` differs
     from its Python class name — exactly the shape of `MiniLMEmbedder`
