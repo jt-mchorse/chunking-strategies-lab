@@ -241,6 +241,35 @@ def test_render_summary_collapses_newline_in_embedder_name_header_so_it_stays_on
     assert "\r" not in header_line
 
 
+def test_render_summary_neutralizes_backtick_in_embedder_name_header_so_span_stays_one() -> None:
+    # Sibling of #133 in the SAME cell: `_render_summary` wraps the free-form
+    # `embedder_name` in an inline-code span (`` `{embedder_name}` ``). #133
+    # collapsed the newline, but a BACKTICK in the name (same external/from_json
+    # reachability) prematurely CLOSES the span — `` `a`b`c` `` splits into two
+    # code spans and leaks the middle out as prose, corrupting the front-page
+    # benchmarks doc. The backtick must be neutralized so the identifier renders
+    # as a single inline-code span.
+    run = RetrievalRun(
+        strategy_name="fixed",
+        embedder_model="team/model`v2`beta",
+        dataset_version="v1",
+        n_queries=3,
+        n_chunks_total=10,
+        recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
+        snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
+        per_query=(),
+        wall_clock_ms=12.0,
+    )
+    md = _render_summary([run], run.embedder_model)
+    header_line = next(line for line in md.splitlines() if line.startswith("_embedder_:"))
+    # Exactly one opening and one closing backtick delimit the code span — no
+    # stray backtick from the model name survives to split it.
+    assert header_line.count("`") == 2
+    # The identifier's parts all remain inside that single span (backticks
+    # neutralized to straight quotes), none leaked out as prose.
+    assert "team/model'v2'beta" in header_line
+
+
 class _NamedStubEmbedder:
     """A deterministic, dep-free embedder whose reported `model_name` differs
     from its Python class name — exactly the shape of `MiniLMEmbedder`

@@ -99,9 +99,13 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     # missed. Unlike the `strategy_name` GFM *table* cell, this cell renders
     # INSIDE an inline-code span (`` `{embedder_name}` ``) where backslash-escapes
     # are literal, so the pipe-escape half of `md_table_cell` is intentionally NOT
-    # applied here (a `\|` would render a visible backslash); only the newline
-    # collapse — the class that actually corrupts the header — is needed.
-    safe_embedder = re.sub(r"[\r\n]+", " ", embedder_name)
+    # applied here (a `\|` would render a visible backslash). But that same
+    # code-span context makes the BACKTICK the live threat: an embedder_model
+    # carrying a `` ` `` (same external/from_json reachability as the newline)
+    # prematurely closes the span, splitting `` `a`b`c` `` into two code spans and
+    # leaking the middle out as prose — #133 collapsed the newline but not this.
+    # Neutralize backticks to a straight quote so the identifier stays one span.
+    safe_embedder = re.sub(r"[\r\n]+", " ", embedder_name).replace("`", "'")
     lines.append(f"_embedder_: `{safe_embedder}` · _n_queries_: {runs[0].n_queries if runs else 0}")
     lines.append("")
     if embedder_name == "HashEmbedder":
