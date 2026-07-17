@@ -897,3 +897,9 @@ Verified firsthand; full suite green.
 
 Why prioritized: sibling-incomplete-fix meta-lens on this run's Phase-A-merged #130,
 surfaced by a parallel hunt agent and verified firsthand.
+
+## 2026-07-16 (night) — backtick splits embedder_name header code span (#134)
+
+`_render_summary` wraps the free-form `embedder_name` in an inline-code span (`` `{embedder_name}` ``). PR #133 collapsed newlines in this cell, but the code-span delimiter — the backtick — was never neutralized. A backtick in the model name (same external `from_json` reachability the #133 fix accepts) prematurely closes the span, splitting `` `a`b`c` `` into two code spans and leaking the middle out as prose into the tracked `docs/benchmarks.md`.
+
+Fixed by `.replace("`", "'")` after the newline collapse so the identifier stays one span. #133's decision to skip *pipe*-escaping here stays correct (the pipe is inert inside a code span) — the backtick is the delimiter that actually breaks it. Verified firsthand. Added a lock test asserting exactly two backticks survive. PR #135. Lens: a code-span cell needs backtick neutralization, not the pipe-escape/newline-collapse a table cell needs.
