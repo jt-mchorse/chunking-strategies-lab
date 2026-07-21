@@ -79,6 +79,21 @@ class SemanticBoundaryStrategy:
     """Hard ceiling — even within a single semantic block, split if exceeded."""
 
     def __post_init__(self) -> None:
+        # Type/bool guard before the range check — the sibling of the #29 integer
+        # guards below, which `distance_threshold` (the one float field) skipped.
+        # bool subclasses int, so `0.0 <= True <= 2.0` is True and a boolean
+        # threshold silently acts as 1.0, flattening operator intent; a
+        # present-but-non-numeric value (a string/None from a hand-authored
+        # config) raises a raw TypeError at `0.0 <= x` instead of the clean
+        # ValueError the sibling fields produce. (The range check alone already
+        # rejects NaN/inf — every comparison against them is False.) Mirrors the
+        # portfolio float-field pattern (prs Prompt.temperature, ems recall_at_k).
+        if isinstance(self.distance_threshold, bool) or not isinstance(
+            self.distance_threshold, (int, float)
+        ):
+            raise ValueError(
+                f"distance_threshold must be a number; got {self.distance_threshold!r}"
+            )
         if not 0.0 <= self.distance_threshold <= 2.0:
             raise ValueError(f"distance_threshold must be in [0, 2]; got {self.distance_threshold}")
         # Integer guards (#29) — see FixedSizeStrategy for harm rationale.

@@ -903,3 +903,15 @@ surfaced by a parallel hunt agent and verified firsthand.
 `_render_summary` wraps the free-form `embedder_name` in an inline-code span (`` `{embedder_name}` ``). PR #133 collapsed newlines in this cell, but the code-span delimiter — the backtick — was never neutralized. A backtick in the model name (same external `from_json` reachability the #133 fix accepts) prematurely closes the span, splitting `` `a`b`c` `` into two code spans and leaking the middle out as prose into the tracked `docs/benchmarks.md`.
 
 Fixed by `.replace("`", "'")` after the newline collapse so the identifier stays one span. #133's decision to skip *pipe*-escaping here stays correct (the pipe is inert inside a code span) — the backtick is the delimiter that actually breaks it. Verified firsthand. Added a lock test asserting exactly two backticks survive. PR #135. Lens: a code-span cell needs backtick neutralization, not the pipe-escape/newline-collapse a table cell needs.
+
+## 2026-07-20 (night) — issue #136: distance_threshold missing its type/bool guard
+
+`SemanticBoundaryStrategy.distance_threshold` (a public tunable float) was guarded
+only by a `0 <= x <= 2` range check, while its sibling int fields
+(`min/max_chunk_chars`, #29) reject bool and non-int. So a boolean threshold
+silently acted as `1.0`, and a non-numeric raised a raw `TypeError` instead of a
+clean `ValueError`. Added the `isinstance(bool)`/`isinstance((int,float))` guard
+before the range check, matching the siblings and the portfolio float-field
+pattern. Found by a second-order sibling hunt on the ems#108/#109 bool vein — the
+"a bool guard on one field/path doesn't cover the same dataclass's other numeric
+fields" lens. Four tests; NaN/inf rejection preserved. PR #137.

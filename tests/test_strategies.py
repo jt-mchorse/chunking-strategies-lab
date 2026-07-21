@@ -198,6 +198,30 @@ def test_semantic_respects_distance_threshold_validation():
         SemanticBoundaryStrategy(embedder=HashEmbedder(), distance_threshold=2.5)
 
 
+@pytest.mark.parametrize("bad", [True, False])
+def test_semantic_rejects_boolean_distance_threshold(bad):
+    # bool subclasses int, so `0.0 <= True <= 2.0` is True and a boolean
+    # threshold would silently act as 1.0 — the same intent-flattening the
+    # sibling min/max_chunk_chars int guards reject. Must fail loud.
+    with pytest.raises(ValueError, match=r"distance_threshold must be a number"):
+        SemanticBoundaryStrategy(embedder=HashEmbedder(), distance_threshold=bad)
+
+
+def test_semantic_rejects_non_numeric_distance_threshold():
+    # A present-but-non-numeric threshold (e.g. a string from a hand-authored
+    # config) must raise a clean ValueError, not a raw TypeError at `0.0 <= x`.
+    with pytest.raises(ValueError, match=r"distance_threshold must be a number"):
+        SemanticBoundaryStrategy(embedder=HashEmbedder(), distance_threshold="0.5")
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_semantic_still_rejects_non_finite_distance_threshold(bad):
+    # The range check already rejects NaN/inf (comparisons are False); the new
+    # type guard must not regress that.
+    with pytest.raises(ValueError, match="distance_threshold"):
+        SemanticBoundaryStrategy(embedder=HashEmbedder(), distance_threshold=bad)
+
+
 def test_semantic_handles_single_sentence():
     e = HashEmbedder()
     s = SemanticBoundaryStrategy(embedder=e, distance_threshold=0.4, min_chunk_chars=0)
