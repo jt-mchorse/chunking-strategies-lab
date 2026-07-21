@@ -542,6 +542,23 @@ def test_late_chunking_rejects_invalid_doc_weight():
         LateChunkingStrategy(embedder=HashEmbedder(), document_weight=1.5)
 
 
+@pytest.mark.parametrize("bad", [True, False])
+def test_late_chunking_rejects_boolean_doc_weight(bad):
+    # bool subclasses int, so `0.0 <= True <= 1.0` is True and a boolean weight
+    # would silently act as 1.0 (pure document embedding — every chunk identical).
+    # The float sibling of the min/max int guards; must fail loud like #137's
+    # distance_threshold fix in SemanticBoundaryStrategy.
+    with pytest.raises(ValueError, match=r"document_weight must be a number"):
+        LateChunkingStrategy(embedder=HashEmbedder(), document_weight=bad)
+
+
+def test_late_chunking_rejects_non_numeric_doc_weight():
+    # A present-but-non-numeric weight (e.g. a string from a hand-authored config)
+    # must raise a clean ValueError, not a raw TypeError at `0.0 <= x`.
+    with pytest.raises(ValueError, match=r"document_weight must be a number"):
+        LateChunkingStrategy(embedder=HashEmbedder(), document_weight="0.5")
+
+
 # ----------------------------------------------------------------------
 # StructureAwareStrategy
 # ----------------------------------------------------------------------
