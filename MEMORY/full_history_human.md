@@ -915,3 +915,16 @@ before the range check, matching the siblings and the portfolio float-field
 pattern. Found by a second-order sibling hunt on the ems#108/#109 bool vein — the
 "a bool guard on one field/path doesn't cover the same dataclass's other numeric
 fields" lens. Four tests; NaN/inf rejection preserved. PR #137.
+
+## 2026-07-21 — LateChunkingStrategy.document_weight bool/type guard (#138, PR #139)
+
+`document_weight` was the one float field of `LateChunkingStrategy` and was
+validated range-check-only, skipping the bool/type guard its sibling int fields
+(`chunk_chars`, `overlap_chars`, #29) already carry. This is the exact sibling of
+the `SemanticBoundaryStrategy.distance_threshold` gap fixed in #137, one strategy
+class over. Verified firsthand: `document_weight=True` was accepted and silently
+acted as 1.0 (pure-document embedding, every chunk identical), and a non-numeric
+string raised a raw `TypeError` at the `<=` comparison instead of a clean
+`ValueError`. Added the `isinstance(bool)`/`isinstance((int, float))` guard before
+the range check, mirroring #137; three tests. Found via the sibling-incomplete-fix
+lens on this run's just-merged #137.

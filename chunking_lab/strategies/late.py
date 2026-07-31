@@ -57,6 +57,17 @@ class LateChunkingStrategy:
             raise ValueError(
                 f"overlap_chars ({self.overlap_chars}) must be < chunk_chars ({self.chunk_chars})"
             )
+        # `document_weight` is the one float field here, so — like the sibling
+        # `distance_threshold` in SemanticBoundaryStrategy (#137) — it needs the
+        # bool/type guard the int fields above already carry, before the range
+        # check. bool subclasses int, so `0.0 <= True <= 1.0` is True and a
+        # boolean weight would silently act as 1.0 (pure document embedding, every
+        # chunk identical); a non-numeric value would raise a raw TypeError at the
+        # `<=` comparison instead of a clean ValueError.
+        if isinstance(self.document_weight, bool) or not isinstance(
+            self.document_weight, (int, float)
+        ):
+            raise ValueError(f"document_weight must be a number; got {self.document_weight!r}")
         if not 0.0 <= self.document_weight <= 1.0:
             raise ValueError(f"document_weight must be in [0, 1]; got {self.document_weight}")
 
