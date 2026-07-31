@@ -10,11 +10,11 @@
       "expected_snippet": "ef_construction",
       "query_id": "q01",
       "retrieved_doc_ids_in_rank_order": [
-        "02_rrf.md",
         "01_hnsw.md",
         "05_async_pipelines.md",
         "05_async_pipelines.md",
-        "05_async_pipelines.md"
+        "05_async_pipelines.md",
+        "02_rrf.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -164,9 +164,9 @@
       "retrieved_doc_ids_in_rank_order": [
         "01_hnsw.md",
         "05_async_pipelines.md",
-        "02_rrf.md",
         "01_hnsw.md",
-        "03_prompt_caching.md"
+        "03_prompt_caching.md",
+        "04_eval_harness.md"
       ],
       "snippet_hits_in_rank_order": [
         false,
@@ -235,9 +235,9 @@
     }
   ],
   "recall_at_k": {
-    "1": 0.16666666666666666,
+    "1": 0.25,
     "3": 0.5833333333333334,
-    "5": 0.6666666666666666
+    "5": 0.75
   },
   "snippet_hit_at_k": {
     "1": 0.0,
@@ -245,5 +245,5 @@
     "5": 0.0
   },
   "strategy_name": "semantic",
-  "wall_clock_ms": 76.51325012557209
+  "wall_clock_ms": 85.1255829911679
 }

@@ -503,6 +503,89 @@ def test_semantic_merge_still_happens_when_it_fits():
 
 
 # ----------------------------------------------------------------------
+# _SENTENCE_RE boundary detection (#140)
+# ----------------------------------------------------------------------
+# The bare `(?<=[.!?])\s+` predecessor missed non-ASCII terminators entirely and
+# let a closing quote/bracket hide a boundary — the cross-repo sibling of
+# rag-production-kit's `generator._SENTENCE_SPLIT` (rag#144/#161) and
+# `rewriter._THEN_SPLIT` (rag#146/#162).
+
+
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        # Non-ASCII terminators, spaced and unspaced.
+        ("cjk-unspaced", "会议在周一举行。收入大幅增长。然后首席财务官辞职。", 3),
+        ("cjk-spaced", "会议在周一举行。 收入大幅增长。 然后首席财务官辞职。", 3),
+        ("cjk-bang-question", "太好了！收入增长了？然后呢。", 3),
+        ("arabic", "اجتمع المجلس يوم الاثنين؟ ارتفعت الإيرادات؟ ثم استقال المدير؟", 3),
+        ("ellipsis", "The board met Monday… Revenue rose… Then the CFO resigned…", 3),
+        # A closing quote/bracket between terminator and whitespace.
+        ("closing-quote", 'The board met Monday. "Revenue rose sharply." Then he quit.', 3),
+        ("closing-paren", "We ran the sweep. (Logs are in appendix A.) Then we reran it.", 3),
+        ("cjk-closing-bracket", "他说「收入增长了。」然后他离开了。", 2),
+        # Regression locks: existing ASCII behavior is untouched.
+        ("ascii-plain", "The board met Monday. Revenue rose sharply. Then he quit.", 3),
+        ("decimals-not-split", "Version 1.5 shipped. Latency was 2.3 ms on average. Good.", 3),
+        ("newline-separated", "One.\n\nTwo.\nThree.", 3),
+        ("no-terminator", "a single clause with no terminator at all", 1),
+        ("empty", "", 0),
+    ],
+)
+def test_sentence_split_boundaries(label, text, expected):
+    from chunking_lab.strategies.semantic import _split_sentences_with_offsets
+
+    assert len(_split_sentences_with_offsets(text)) == expected, label
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "会议在周一举行。收入大幅增长。然后首席财务官辞职。",
+        "他说「收入增长了。」然后他离开了。",
+        'The board met Monday. "Revenue rose sharply." Then he quit.',
+        "We ran the sweep. (Logs are in appendix A.) Then we reran it.",
+        "The board met Monday… Revenue rose… Then the CFO resigned…",
+        'We shipped v2。Then latency fell. "Done." Next up: v3.',
+    ],
+)
+def test_sentence_split_offsets_exact_and_non_lossy(text):
+    # The offset contract `_split_sentences_with_offsets` documents: every
+    # returned offset must index back to the exact sentence text. The zero-width
+    # branch (b) is the risky one here — it consumes nothing, so an off-by-one
+    # would silently corrupt every downstream Chunk offset.
+    from chunking_lab.strategies.semantic import _split_sentences_with_offsets
+
+    sentences = _split_sentences_with_offsets(text)
+    for sentence, offset in sentences:
+        assert text[offset : offset + len(sentence)] == sentence
+    # Non-lossy: closing punctuation stays attached to the preceding sentence
+    # rather than being dropped or orphaned into a chunk of its own.
+    stripped = "".join(s for s, _ in sentences).replace(" ", "").replace("\n", "")
+    assert stripped == text.replace(" ", "").replace("\n", "")
+    assert all(s.strip() for s, _ in sentences)
+
+
+def test_semantic_cjk_document_reaches_boundary_detection():
+    # End-to-end lock on the real harm: with no recognized terminator the whole
+    # CJK document parsed as one sentence, so `chunk()` took its
+    # `len(sentences) == 1` branch straight to `_emit_block` and char-split at
+    # `max_chunk_chars` — the semantic-boundary strategy silently degrading to a
+    # naive fixed-size split with no diagnostic.
+    text = "会议在周一举行。收入大幅增长因为新产品发布了。然后首席财务官辞职了。市场随后大幅下跌。"
+    s = SemanticBoundaryStrategy(
+        embedder=HashEmbedder(),
+        distance_threshold=0.0,  # every adjacent pair is a boundary
+        min_chunk_chars=0,
+        max_chunk_chars=10_000,  # far above the text, so any split is semantic
+    )
+    chunks = s.chunk(text, source_doc_id="d")
+    assert len(chunks) > 1, "CJK document never reached the multi-sentence path"
+    for c in chunks:
+        assert text[c.start_offset : c.end_offset] == c.text
+
+
+# ----------------------------------------------------------------------
 # LateChunkingStrategy
 # ----------------------------------------------------------------------
 
