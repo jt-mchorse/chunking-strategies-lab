@@ -964,3 +964,39 @@ just formatter scope.
 Pinning a ruff range in `.[dev]` is the deeper fix, but that is a dependency
 policy call across six repos rather than a bug fix, so it is flagged for JT
 rather than made unilaterally.
+
+## 2026-07-31 — `_SENTENCE_RE` missed non-ASCII terminators and closing punct (#140, PR #141)
+
+`_SENTENCE_RE` — the splitter the entire `SemanticBoundaryStrategy` rests on —
+was the bare `(?<=[.!?])\s+`. That is the cross-repo sibling of
+rag-production-kit's two sentence-split sites, both of which had already been
+hardened twice (rag#144/#161 on the generator, rag#146/#162 on the rewriter).
+Ours had neither fix.
+
+The CJK harm is the serious one. With no recognized terminator a Chinese or
+Arabic document parses as a *single* sentence, and `chunk()` has an explicit
+`len(sentences) == 1` branch that routes straight to `_emit_block` and
+char-splits at `max_chunk_chars`. The semantic-boundary strategy silently
+degrades to a naive fixed-size split, with no diagnostic at all. Separately, a
+closing quote or bracket between the terminator and the whitespace
+(`'rose." Then'`) hid the boundary, so two sentences embedded as one unit and
+the distance peak that *was* the topic boundary never got computed.
+
+The lesson worth keeping: **porting rag's regex verbatim does not fix the CJK
+case.** rag's pattern still requires `\s+`, and CJK prose puts no whitespace
+between sentences — so the unspaced document stays one sentence even once `。`
+is a recognized terminator. I only caught that by running the ported regex
+against the harm I'd claimed, rather than by reading it. The fix needed a second
+branch: a zero-width boundary after a full-width terminator, which is safe
+precisely because `。！？` are unambiguous sentence enders, unlike ASCII `.` with
+its decimals and abbreviations. That branch then had a bug of its own — without
+a negative lookahead for closers, both its alternatives fire around `了。」然後`
+and orphan the bracket as a one-character sentence. Also caught in testing.
+
+`tests/test_canonical_fixture_freshness.py` correctly flagged the behavior
+change. Fixtures were regenerated through the documented
+`run_matrix.py --canonical-out` path: semantic recall@1 went 0.167 → 0.250 and
+recall@5 0.667 → 0.750 on the pinned corpus — real measured numbers off the
+deterministic `HashEmbedder`. The four non-semantic fixtures were reverted since
+their only delta was wall-clock noise, and `summary.md` was re-rendered from the
+committed JSONs, keeping the artifact diff to the one row that actually moved.

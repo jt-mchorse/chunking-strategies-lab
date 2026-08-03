@@ -18,7 +18,48 @@ from chunking_lab.embedder import Embedder
 
 from . import Chunk
 
-_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+# The bare `(?<=[.!?])\s+` this replaces carried both adjacency assumptions that
+# rag-production-kit's two sentence-split sites had already fixed out of them —
+# `generator._SENTENCE_SPLIT` (rag#144, rag#161) and `rewriter._THEN_SPLIT`
+# (rag#146, rag#162). This is their cross-repo sibling and had neither (#140).
+#
+# 1. Non-ASCII terminators (`…。！？؟`, common from a CJK/Arabic IME) were not
+#    boundaries at all, so a CJK or Arabic document parsed as ONE sentence.
+#    `chunk()`'s `len(sentences) == 1` branch then routes straight to
+#    `_emit_block`, char-splitting at `max_chunk_chars` — the semantic-boundary
+#    strategy silently degrading to a naive fixed-size split, no diagnostic.
+# 2. A closing quote/bracket may sit between the terminator and the whitespace
+#    (`'rose." Then'`, `'(appendix A.) Then'`). That intervening punctuation hid
+#    the boundary, so two sentences embedded as one unit and the distance peak
+#    that *was* the topic boundary never got computed.
+#
+# Python's `re` forbids a variable-width lookbehind, so the fixed-width
+# alternatives are alternated. The closing punct stays attached to the preceding
+# sentence, keeping the split non-lossy and `_split_sentences_with_offsets`'
+# offset contract exact.
+#
+# Porting rag's regex verbatim is *not* sufficient for (1): rag's pattern still
+# requires `\s+`, and CJK prose does not put whitespace between sentences, so an
+# unspaced `会议在周一举行。收入大幅增长。` stays one sentence even once `。` is a
+# recognized terminator. Branch (b) below closes that with a zero-width boundary
+# after a full-width terminator — safe because full-width `。！？` are unambiguous
+# sentence enders in CJK, unlike ASCII `.` (decimals, abbreviations, ellipses).
+_TERMINATORS = r".!?…。！？؟"
+_FULLWIDTH_TERMINATORS = r"。！？"
+_CLOSERS = r"\"”’')\]」』"
+_SENTENCE_RE = re.compile(
+    # (a) terminator, optionally followed by one closing quote/bracket, then
+    #     whitespace — the spaced case (ASCII prose, spaced CJK, Arabic).
+    f"(?:(?<=[{_TERMINATORS}])|(?<=[{_TERMINATORS}][{_CLOSERS}]))\\s+"
+    # (b) full-width terminator with *no* following whitespace — the unspaced
+    #     CJK case. Zero-width, so nothing is consumed and offsets stay exact.
+    #     The bare-terminator alternative must refuse to fire when a closer
+    #     follows (`了。」然後`), or both alternatives match — once before the
+    #     closer and once after — orphaning it as a one-character sentence.
+    #     Branch (a) needs no such guard: its `\s+` cannot match a closer.
+    f"|(?:(?<=[{_FULLWIDTH_TERMINATORS}])(?![{_CLOSERS}])"
+    f"|(?<=[{_FULLWIDTH_TERMINATORS}][{_CLOSERS}]))(?=\\S)"
+)
 
 
 def _split_sentences_with_offsets(text: str) -> list[tuple[str, int]]:
