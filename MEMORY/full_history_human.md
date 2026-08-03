@@ -1000,3 +1000,42 @@ recall@5 0.667 → 0.750 on the pinned corpus — real measured numbers off the
 deterministic `HashEmbedder`. The four non-semantic fixtures were reverted since
 their only delta was wall-clock noise, and `summary.md` was re-rendered from the
 committed JSONs, keeping the artifact diff to the one row that actually moved.
+
+## 2026-08-03 — Issue #145: a guard that covered one member of a two-member extra
+
+`test_chart_cells_handle_non_default_ks` is the only test in
+`tests/test_notebook.py` that needs matplotlib as well as nbformat, and it
+imported matplotlib bare. The module-level guard is
+`pytest.importorskip("nbformat")`, so in an environment with nbformat but not
+matplotlib the guard passes and that one test raises `ModuleNotFoundError`
+instead of skipping.
+
+That matters because D-009's own rationale is what makes `[notebook]` safe as
+an opt-in extra: "test uses importorskip so base ci passes". That is a promise
+about every absent member of the extra, not just the one the module guard
+happens to name. And a partial install is ordinary rather than exotic —
+nbformat arrives on its own with plenty of Jupyter-adjacent tooling, so a
+contributor who happens to have it gets a hard error from a suite documented to
+skip.
+
+Worth being clear that this *upholds* D-009 rather than revisiting it. The
+separate question — whether CI should run these tests at all — is a genuine
+D-009 revisit and went to JT as #144. This fix is independent of how that
+lands.
+
+Verified all three install states in fresh 3.11 venvs: neither module present
+(the whole module skips), nbformat only (was a hard error, now 10 pass and 1
+skips), both present (all pass). Full suite 458 passed, ruff clean on 0.15.13
+and 0.16.1.
+
+The lock generalises past matplotlib: it reads the `[notebook]` distribution
+list out of `pyproject.toml` and scans this file's source for imports of those
+distributions with no matching `importorskip`, so an unguarded `import jupyter`
+would fail the same way. It scans source rather than importing anything, so it
+holds in exactly the minimal environment it protects, and I confirmed it fails
+with the right diagnostic by restoring the bare import.
+
+The generalisable lens: when a module-level `importorskip` guards one member of
+a *multi-package* extra, any test needing a different member needs its own
+guard. `[plot]` in ems and vsas are single-package and immune; `[sbert]` here
+(sentence-transformers + numpy) is worth a look. Shipped as PR #146.
