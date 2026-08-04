@@ -203,7 +203,15 @@ def test_chart_cells_handle_non_default_ks():
     on a `--ks 2,4` payload. `run_matrix.py:104` already derives ks dynamically;
     this locks the notebook builder to the same behavior.
     """
-    import matplotlib  # noqa: PLC0415
+    # This is the only test in the file that needs matplotlib as well as
+    # nbformat, so it needs its own guard: the module-level
+    # `importorskip("nbformat")` passes in an environment that has nbformat
+    # but not matplotlib, and a bare import then *errors* rather than
+    # skipping. D-009 keeps `[notebook]` opt-in on the strength of
+    # "test uses importorskip so base ci passes", and that guarantee has to
+    # hold for a partial install too — nbformat arrives on its own with
+    # plenty of Jupyter-adjacent tooling (#145).
+    matplotlib = pytest.importorskip("matplotlib")
 
     matplotlib.use("Agg")  # headless: plt.show() is a no-op
     import _build_notebook  # noqa: PLC0415
@@ -237,3 +245,46 @@ def test_load_cell_reports_max_available_k_not_hardcoded_five():
         assert kmax == 4
         float(r["recall_at_k"][str(kmax)])  # must not raise
         float(r["snippet_hit_at_k"][str(kmax)])
+
+
+def test_every_notebook_only_import_is_guarded():
+    """Lock: no test in this file imports a `[notebook]`-only module unguarded.
+
+    `test_chart_cells_handle_non_default_ks` used a bare `import matplotlib`
+    while the module guard only covers nbformat, so an environment with
+    nbformat but not matplotlib got a `ModuleNotFoundError` from a suite
+    that is documented to skip (#145).
+
+    D-009 keeps `[notebook]` opt-in on the strength of "test uses
+    importorskip so base ci passes". That is a promise about *every* absent
+    member of the extra, not just the one the module guard happens to name,
+    and a partial install is ordinary — nbformat ships with plenty of
+    Jupyter-adjacent tooling.
+
+    Scans this file's own source rather than importing anything, so the lock
+    holds in exactly the minimal environment it is protecting.
+    """
+    import re  # noqa: PLC0415
+    import tomllib  # noqa: PLC0415
+
+    pyproject = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    notebook_dists = {
+        re.split(r"[\[<>=!~ ;]", spec, maxsplit=1)[0].strip().lower()
+        for spec in pyproject["project"]["optional-dependencies"]["notebook"]
+    }
+    source = Path(__file__).read_text(encoding="utf-8")
+    guarded = set(re.findall(r"""importorskip\(\s*["']([A-Za-z0-9_.]+)["']""", source))
+    guarded = {name.split(".")[0] for name in guarded}
+
+    imported = {
+        name.split(".")[0]
+        for name in re.findall(r"^\s*(?:import|from)\s+([A-Za-z0-9_.]+)", source, re.M)
+    }
+    unguarded = (imported & notebook_dists) - guarded
+    assert not unguarded, (
+        f"{sorted(unguarded)} come from the [notebook] extra but are imported "
+        "here without an `importorskip` guard. On an install that has some of "
+        "[notebook] but not all of it, those imports raise instead of skipping "
+        "— breaking the degradation D-009 relies on. Guard them like the "
+        "nbformat/matplotlib imports above."
+    )
