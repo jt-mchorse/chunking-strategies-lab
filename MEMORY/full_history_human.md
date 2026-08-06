@@ -1120,3 +1120,103 @@ sibling — the same reasoning #126 used to scope itself.
 
 Full suite 504 passed; ruff clean under both the pinned-local 0.15.13 and the
 0.16.1 CI installs.
+
+## Session 2026-08-06 — the flagship script never got the exit-code contract (#149)
+
+`docs/architecture.md` states it plainly:
+
+> exit codes 0 / 1 / 2 are uniform with `eval-harness validate`,
+> `prompt-snap validate`, and `emb-shootout corpus validate` in the
+> sister repos so consumers can chain validators.
+
+Issues #124–#127 delivered that on `chunking_lab/validate.py`.
+`scripts/run_matrix.py` — the script the README leads with, the one that
+writes five JSONs and a summary — never received it. Every operator
+mistake left as a raw traceback at exit 1:
+
+```
+--ks ''                    ValueError: ks must be non-empty                        exit=1
+--ks abc                   ValueError: invalid literal for int() ... 'abc'         exit=1
+--ks 1,-3                  ValueError: every k in ks must be positive; got [-3]    exit=1
+--embedder minilm          ImportError: MiniLMEmbedder requires the 'sbert' extra  exit=1
+--results-dir afile/sub    NotADirectoryError: [Errno 20] Not a directory          exit=1
+```
+
+### Its one clean-failure arm was unreachable
+
+```python
+try:
+    from chunking_lab.embedder import MiniLMEmbedder
+except ImportError as e:  # pragma: no cover - lazy import path
+    raise SystemExit("::error::--embedder minilm requires the `[sbert]` extra: ...") from e
+return MiniLMEmbedder(model_name=CANONICAL_EMBEDDING_MODEL)
+```
+
+`MiniLMEmbedder` imports fine without `sbert` — it lazy-imports
+`sentence_transformers` inside its own `__init__`, deliberately, so
+"the package still imports cleanly without the extra." So the import
+here can never raise. The real `ImportError` arrives one line later,
+from the *constructor*, outside the `try`. The friendly message the
+author wrote never reached a single operator.
+
+The `# pragma: no cover` was the tell. Nothing exercised that arm
+because nothing could.
+
+There was a second defect stacked on the first: `raise SystemExit(<str>)`
+prints the string and exits **1**, not 2 — so even a firing guard would
+have returned the wrong code, while carrying the `::error::` marker this
+repo pairs with exit 2 everywhere else.
+
+### Deriving the `--ks` rules instead of restating them
+
+Three of the four bad `--ks` values already had a correct, well-worded
+guard in `metrics.evaluate_strategy`. The library was doing its job; the
+CLI seam simply never translated it.
+
+The tempting fix is to write the checks again in the CLI. That would
+create a second copy of the rule to keep in sync — the exact shape this
+PR is fixing elsewhere. So `validate_ks` came out of
+`evaluate_strategy`'s body into a module-level function that both call.
+A test asserts `run_matrix.validate_ks is metrics.validate_ks` *and*
+that the rule's text doesn't appear in `main`'s source at all.
+
+`--ks` is pure string parsing, so it's now pre-flighted before the
+embedder build and the corpus load — the operator isn't made to wait to
+be told the flag is wrong. A test monkeypatches `load_corpus` to explode
+and asserts it's never reached.
+
+### One existing test changed
+
+`test_run_matrix_routes_through_atomic_helper` asserted the write-seam
+`OSError` *propagates*. Its subject — the write routes through
+`atomic_write_text`, evidenced by no partial artifacts — is unchanged
+and still asserted; it now expects `rc == 2`. That's the same transition
+`validate.py --out` made in #126, and its docstring now carries the same
+wording the llm-cost-optimizer sibling uses for it.
+
+### Test discipline
+
+Every new test pins the **message**, not just the code. Exit 2 has
+several causes in this script, so a code-only assertion would pass for
+the wrong reason — the trap embedding-model-shootout#112 hit. There's
+also a sweep test asserting that no bad-flag combination returns exit 1,
+which is reserved (it collides with the "findings" code in the sibling
+validators), so a future flag can't reopen the gap.
+
+517 green, ruff clean, canonical fixtures untouched. Anti-vacuous check:
+reverting only the three behavioural arms, leaving `_fail` and
+`validate_ks` defined so collection still works, fails 11 of the 13 new
+tests. The two that stay green are the happy path and the
+`MiniLMEmbedder`-is-importable lock, which are true either way by design.
+
+### Two things worth carrying forward
+
+When a repo hardens an exit-code contract, ask **which entry points got
+it**. The #124–#127 wave touched `validate.py` only; the flagship script
+was never swept. Grep for every `argparse` `main` and probe each one,
+not just the one the original issue named.
+
+And: capture an exit code *before* piping. An earlier probe of mine ran
+`python ... | tail -2` then read `$?`, got `tail`'s status, and briefly
+looked like it had found a second bug in `validate.py --out`. It hadn't —
+that path exits 2 correctly.
