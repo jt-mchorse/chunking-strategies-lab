@@ -104,6 +104,57 @@ def _validate_metric_map(name: str, mapping: dict[int, float]) -> None:
             raise ValueError(f"{name}[{k}] must be in [0, 1]; got {v!r}")
 
 
+def _validate_wall_clock(value: Any) -> None:
+    """Reject a corrupt measured latency on the read path.
+
+    ``wall_clock_ms`` is a *measured* elapsed time (D-009), so it is a
+    benchmark number in exactly the sense the portfolio's
+    no-fabricated-benchmarks rule cares about — and unlike
+    ``recall_at_k`` / ``snippet_hit_at_k`` it had no read-path guard at
+    all, even though it renders into the wall-clock column of the
+    tracked ``results/summary.md``.
+
+    ``json.loads`` accepts the bare ``NaN`` / ``Infinity`` literals by
+    default, so a non-finite value is reachable from a plain hand-edited
+    or externally-generated result file with no Python in the loop. Each
+    unguarded shape corrupts the published table a different way:
+    ``NaN`` renders ``nan``, ``Infinity`` renders ``inf``, ``True``
+    renders a *fabricated* ``1`` ms (bool subclasses int, so an
+    ``isinstance(v, (int, float))`` check alone lets it through), a
+    negative value renders impossible elapsed time, and a string reaches
+    ``f"{value:.0f}"`` in ``_render_summary`` and raises a raw
+    formatting ``ValueError`` at that unrelated call site instead of the
+    field-named one this loader documents.
+
+    Same field-named ``ValueError`` shape as :func:`_validate_metric_map`;
+    the value axis this completes is the sibling of the container axis
+    #114 / #118 closed on this same read path.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"wall_clock_ms must be a number; got {value!r}")
+    if not math.isfinite(value):
+        raise ValueError(f"wall_clock_ms must be finite; got {value!r}")
+    if value < 0:
+        raise ValueError(f"wall_clock_ms must be >= 0; got {value!r}")
+
+
+def _validate_count(name: str, value: Any) -> None:
+    """Reject a corrupt whole-number count on the read path.
+
+    ``n_queries`` and ``n_chunks_total`` are cardinalities that
+    ``to_json`` always writes as ints. Loaded unguarded, a string sails
+    into ``_render_summary``'s ``{r.n_chunks_total}`` cell verbatim (the
+    published table grows an ``n_chunks`` of ``many``) and a bool renders
+    the header as ``_n_queries_: True`` — neither raises anywhere, so the
+    corruption is silent. Bool is excluded explicitly because it
+    subclasses int and would otherwise pass the type check.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an int; got {value!r}")
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0; got {value!r}")
+
+
 @dataclass(frozen=True)
 class RetrievalRun:
     """Aggregate output of `evaluate_strategy`.
@@ -164,9 +215,16 @@ class RetrievalRun:
         (pre-D-009) continue to load cleanly.
 
         Raises ``KeyError`` with the missing field name when a
-        required key is absent, and ``ValueError`` when a metric value
-        is non-numeric, non-finite, or outside ``[0, 1]`` — the failure
-        mode is loud, not silent, on both the key and the value axis.
+        required key is absent, and ``ValueError`` when a numeric value
+        is corrupt — the failure mode is loud, not silent, on both the
+        key and the value axis. Concretely, on the value axis:
+
+        - ``recall_at_k`` / ``snippet_hit_at_k`` entries must be
+          non-bool numbers, finite, and within ``[0, 1]``.
+        - ``wall_clock_ms`` must be a non-bool, finite, non-negative
+          number.
+        - ``n_queries`` / ``n_chunks_total`` must be non-bool,
+          non-negative ints.
         """
         # A non-object top-level payload (a bare JSON array/scalar/null from a
         # hand-edit or a truncated write) makes the `payload[...]` lookups below
@@ -210,6 +268,14 @@ class RetrievalRun:
         notes_raw = payload.get("notes", [])
         if not isinstance(notes_raw, list):
             raise ValueError(f"notes must be a JSON array, got {type(notes_raw).__name__}")
+        # The value axis for the three numeric fields the metric-map guards above
+        # never covered. `wall_clock_ms` uses `.get` with the D-009 backward-compat
+        # default, so an *absent* key still yields a clean 0.0 and is validated as
+        # such; only a present-but-corrupt value raises (#147).
+        wall_clock_ms = payload.get("wall_clock_ms", 0.0)
+        _validate_wall_clock(wall_clock_ms)
+        _validate_count("n_queries", payload["n_queries"])
+        _validate_count("n_chunks_total", payload["n_chunks_total"])
         return cls(
             strategy_name=payload["strategy_name"],
             embedder_model=payload["embedder_model"],
@@ -219,7 +285,7 @@ class RetrievalRun:
             recall_at_k=recall,
             snippet_hit_at_k=snippet,
             per_query=tuple(QueryResult.from_json(q) for q in per_query_raw),
-            wall_clock_ms=payload.get("wall_clock_ms", 0.0),
+            wall_clock_ms=wall_clock_ms,
             notes=list(notes_raw),
         )
 

@@ -1039,3 +1039,84 @@ The generalisable lens: when a module-level `importorskip` guards one member of
 a *multi-package* extra, any test needing a different member needs its own
 guard. `[plot]` in ems and vsas are single-package and immune; `[sbert]` here
 (sentence-transformers + numpy) is worth a look. Shipped as PR #146.
+
+## 2026-08-05 — `from_json` validated the metric maps and nothing else numeric (#147)
+
+`RetrievalRun.from_json` is the documented read path for a result file that
+didn't come from this process — an external generator, a hand-edit, a file
+copied between machines. Its docstring made a promise:
+
+> Raises `KeyError` with the missing field name when a required key is absent,
+> and `ValueError` when a metric value is non-numeric, non-finite, or outside
+> `[0, 1]` — the failure mode is loud, not silent, on both the key and the
+> value axis.
+
+`_validate_metric_map` kept that promise for `recall_at_k` and
+`snippet_hit_at_k`. The three other numeric fields on the same read path —
+`wall_clock_ms`, `n_queries`, `n_chunks_total` — went straight into the frozen
+dataclass with nothing checked.
+
+That would be inert if those fields were inert. They aren't: every one of them
+renders into `results/summary.md`, the tracked canonical aggregate the README
+links. So the loader that loudly refuses `recall@1 = 1.5` was quietly
+publishing `wall-clock (ms) = nan`. For a lab whose whole output is
+measurements, that is the worse of the two failures.
+
+The reachability is not exotic. `json.loads` accepts the bare `NaN` and
+`Infinity` literals by default, so a non-finite latency needs no Python in the
+loop at all — a text editor and a result file are enough. Patching exactly one
+field of the committed `results/canonical__fixed-size.json` and re-rendering
+through `scripts/run_matrix.py::_render_summary` reproduced all six shapes
+before any code was written:
+
+| patch | result |
+| --- | --- |
+| `"wall_clock_ms": NaN` | published `nan` |
+| `"wall_clock_ms": Infinity` | published `inf` |
+| `"wall_clock_ms": true` | published a **fabricated** `1` ms |
+| `"wall_clock_ms": -5.0` | published negative elapsed time |
+| `"wall_clock_ms": "19.9"` | raw `ValueError: Unknown format code 'f'` from the renderer |
+| `"n_chunks_total": "many"` | published `many` in the `n_chunks` column |
+| `"n_queries": true` | published `_n_queries_: True` in the header |
+
+The `true` case is the recurring portfolio trap in a new spot: `bool`
+subclasses `int`, so an `isinstance(v, (int, float))` check alone admits it,
+and it renders as a plausible one-millisecond measurement rather than as an
+obvious error.
+
+The fix adds `_validate_wall_clock` (non-bool number, finite, `>= 0`) and
+`_validate_count` (non-bool int, `>= 0`), both reusing the field-named
+`ValueError` shape `_validate_metric_map` already established, and updates the
+docstring to enumerate the contract per field instead of gesturing at "a metric
+value". D-009 is preserved rather than revisited: `wall_clock_ms` still reads
+through `.get(..., 0.0)`, so a pre-D-009 file with no such key loads clean and
+only a *present-but-corrupt* value raises. All five committed canonical
+fixtures still round-trip byte-identically, which has its own test.
+
+The tests are deliberately anchored to the corruption rather than to the
+exception type. Four of them construct the dataclass directly, bypassing the
+loader entirely, and assert what `_render_summary` actually emits — `nan`,
+`inf`, `1`, `many`, `_n_queries_: True`. If someone later widens a catch or
+drops a check, those assertions still say precisely what comes back, so the
+guard tests can't decay into assertions about nothing.
+
+Two lenses worth carrying forward. First: a validator *named after a subset*
+makes its own gap read as intentional scope. `_validate_metric_map` names the
+two fields it covers, so nothing about the call site looks unfinished — when a
+docstring promises that "a numeric value" is validated but the helper is named
+for one family of numeric values, enumerate the read path's other numeric
+fields one by one. Second: the container axis and the value axis are separate
+sweeps. #114, #118 and the `notes` guard closed the container axis across this
+entire function — top level, both metric maps, `per_query`, the rank-order
+lists, `notes` — and each one looked like it finished the job while three
+scalars sat unchecked on the other axis.
+
+Declined as churn: type guards on the three free-form string fields, since the
+renderer already neutralizes pipes, newlines and backticks in those cells
+(#100/#130/#133/#135). Noted but not filed: `run_matrix.py --ks abc` leaks a
+raw traceback, but `run_matrix` has no documented exit-code contract the way
+`validate.py` does, so guarding it would establish a contract rather than fix a
+sibling — the same reasoning #126 used to scope itself.
+
+Full suite 504 passed; ruff clean under both the pinned-local 0.15.13 and the
+0.16.1 CI installs.
