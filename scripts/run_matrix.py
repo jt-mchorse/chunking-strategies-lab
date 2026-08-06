@@ -45,6 +45,7 @@ from chunking_lab.metrics import (  # noqa: E402
     RetrievalRun,
     _embedder_model_name,
     evaluate_strategy,
+    validate_ks,
 )
 from chunking_lab.queries import load_queries  # noqa: E402
 from chunking_lab.strategies import (  # noqa: E402
@@ -56,18 +57,45 @@ from chunking_lab.strategies import (  # noqa: E402
 )
 
 
+def _fail(message: str) -> int:
+    """Print a clean ``::error::`` line to stderr and return exit code 2.
+
+    `docs/architecture.md` states the repo's "0 / 1 / 2" contract, and #124–#127
+    delivered it on `chunking_lab.validate`. This script — the one the README
+    leads with, and the one that actually writes five JSONs and a summary — never
+    got it, so every operator-input mistake escaped as a raw traceback at exit 1
+    (#149).
+    """
+    sys.stderr.write(f"::error::{message}\n")
+    return 2
+
+
 def _build_embedder(name: str) -> Embedder:
+    """Build the requested embedder.
+
+    Raises ``ImportError`` when ``minilm`` is asked for without the ``sbert``
+    extra; ``main`` translates that to the exit-2 contract.
+
+    The import stays lazy, but the ``except ImportError`` that used to wrap it
+    was **dead code**: ``MiniLMEmbedder`` is unconditionally importable — it
+    lazy-imports ``sentence_transformers`` inside its own ``__init__`` precisely
+    so "the package still imports cleanly without the extra" — so the import
+    here cannot raise. The real ``ImportError`` comes one line later, from the
+    *constructor*, outside the old ``try``, which is why the friendly message
+    the author wrote never reached anyone (its ``# pragma: no cover`` was the
+    tell: nothing exercised it because nothing could). And ``SystemExit(<str>)``
+    exits **1**, not 2, so even a firing guard returned the wrong code while
+    carrying the ``::error::`` marker this repo pairs with exit 2. Handled in
+    ``main`` now, where both the import-time and construction-time cases land in
+    the same arm (#149).
+    """
     if name == "hash":
         return HashEmbedder()
     if name == "minilm":
         # Imported lazily so the script works on a fresh CI clone that
         # doesn't have `sbert` installed; the operator opts in.
-        try:
-            from chunking_lab.embedder import MiniLMEmbedder  # type: ignore[attr-defined]
-        except ImportError as e:  # pragma: no cover - lazy import path
-            raise SystemExit(
-                "::error::--embedder minilm requires the `[sbert]` extra: pip install -e '.[sbert]'"
-            ) from e
+        from chunking_lab.embedder import MiniLMEmbedder  # type: ignore[attr-defined]
+
         return MiniLMEmbedder(model_name=CANONICAL_EMBEDDING_MODEL)
     raise ValueError(f"unknown embedder: {name}")  # pragma: no cover - argparse rejects
 
@@ -208,16 +236,44 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
-    embedder = _build_embedder(args.embedder)
+    # `--ks` first: it is pure string parsing, so the operator learns the flag is
+    # wrong before waiting on an embedder build, a corpus load, and five
+    # evaluations. `int()` raises on a non-numeric element, and the empty /
+    # non-positive rules come from `metrics.validate_ks` — the *same* function
+    # `evaluate_strategy` calls, not a second copy of the rule in the CLI.
+    try:
+        ks = tuple(int(k) for k in args.ks.split(",") if k.strip())
+    except ValueError as e:
+        return _fail(f"--ks must be a comma-separated list of integers; got {args.ks!r} ({e})")
+    try:
+        validate_ks(ks)
+    except ValueError as e:
+        return _fail(f"--ks {args.ks!r}: {e}")
+
+    try:
+        embedder = _build_embedder(args.embedder)
+    except ImportError as e:
+        # Covers both the lazy import and `MiniLMEmbedder.__init__`'s own guard;
+        # the latter is where this actually raises. See `_build_embedder` (#149).
+        return _fail(
+            f"--embedder minilm requires the `[sbert]` extra: pip install -e '.[sbert]'  ({e})"
+        )
     strategies = _build_strategies(embedder)
     if args.strategy is not None:
         strategies = [s for s in strategies if s.name == args.strategy]
     corpus = load_corpus()
     queries = load_queries()
-    ks = tuple(int(k) for k in args.ks.split(",") if k.strip())
 
+    # The output directory is operator input too: a read-only filesystem, a
+    # permission-denied path, or a path component that is a file makes `mkdir`
+    # raise `NotADirectoryError`/`PermissionError`, which escaped as a raw
+    # traceback at exit 1. Write-seam sibling of the #126 guard on
+    # `validate.py --out`, on the script that writes five JSONs and a summary.
     results_dir = Path(args.results_dir)
-    results_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        results_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return _fail(f"failed to create results dir {results_dir}: {e}")
     stamp = time.strftime("%Y%m%dT%H%M%S")
 
     runs: list[RetrievalRun] = []
@@ -232,7 +288,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         prefix = "canonical" if args.canonical_out else stamp
         path = results_dir / f"{prefix}__{run.strategy_name}.json"
-        atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
+        try:
+            atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
+        except OSError as e:
+            return _fail(f"failed to write {path}: {e}")
         # Report the largest computed k (most informative). Hardcoding 5 showed
         # 0.000 when `--ks` omitted 5; `max(ks)` is 5 for the default --ks 1,3,5
         # so this line is unchanged on the canonical path (#76).
@@ -274,7 +333,10 @@ def main(argv: list[str] | None = None) -> int:
     # JSONs, permanently failing `test_summary_snapshot`'s re-render (which
     # reads `runs[0].embedder_model`). Using `_embedder_model_name(embedder)`
     # keeps the summary self-consistent with the fixtures and is empty-runs-safe.
-    atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
+    try:
+        atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
+    except OSError as e:
+        return _fail(f"failed to write {summary_path}: {e}")
     print(f"\nsummary wrote {summary_path}")
     return 0
 

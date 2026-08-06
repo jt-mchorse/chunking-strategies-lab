@@ -148,6 +148,13 @@ def test_run_matrix_routes_through_atomic_helper(
     write through atomic_write_text. Restrict to a single strategy
     so the script finishes in well under a second under the hash
     embedder.
+
+    The write-seam OSError is now translated to a clean exit 2
+    (operator-input contract, #149) rather than propagated — same
+    transition `validate.py --out` made in #126, and the same wording its
+    llm-cost-optimizer sibling carries. The subject of this test is
+    unchanged and is asserted below: the atomic helper still leaves no
+    partial artifacts behind.
     """
     run_matrix = _load_script("run_matrix.py")
 
@@ -157,17 +164,17 @@ def test_run_matrix_routes_through_atomic_helper(
     monkeypatch.setattr(io_utils_mod.os, "replace", boom)
 
     results_dir = tmp_path / "results"
-    with pytest.raises(OSError, match="simulated rename failure"):
-        run_matrix.main(
-            [
-                "--embedder",
-                "hash",
-                "--results-dir",
-                str(results_dir),
-                "--strategy",
-                "fixed-size",
-            ]
-        )
+    rc = run_matrix.main(
+        [
+            "--embedder",
+            "hash",
+            "--results-dir",
+            str(results_dir),
+            "--strategy",
+            "fixed-size",
+        ]
+    )
+    assert rc == 2
 
     # No JSON should be written under results_dir on the failed rename.
     if results_dir.exists():
