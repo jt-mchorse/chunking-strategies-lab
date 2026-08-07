@@ -317,6 +317,30 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return sim
 
 
+def validate_ks(ks: Sequence[int]) -> None:
+    """Reject an empty or non-positive ``ks``. Raises ``ValueError``.
+
+    Non-positive ``k`` flows through ``retrieved_docs[:k]`` slicing without
+    raising — ``k=0`` silently produces ``recall@0=0.0`` always; ``k<0``
+    silently miscounts ("all but the last N"). An empty ``ks`` silently
+    produces an empty ``recall_at_k`` dict. Every offender is surfaced in one
+    pass so operators don't chase them one-at-a-time. Mirrors the ``run_sweep``
+    ``k_values`` guard in embedding-model-shootout (#28).
+
+    Extracted from ``evaluate_strategy``'s body so ``scripts/run_matrix.py``
+    can pre-flight ``--ks`` against the *same* rule instead of restating it
+    (#149) — the CLI used to let all of these escape as raw tracebacks at exit
+    1, and a second copy of the rule in the CLI would just be a second thing to
+    keep in sync. ``evaluate_strategy`` still calls this first, so the library
+    contract is unchanged for direct callers.
+    """
+    if not ks:
+        raise ValueError("ks must be non-empty")
+    bad_k = sorted({k for k in ks if k <= 0})
+    if bad_k:
+        raise ValueError(f"every k in ks must be positive; got {bad_k}")
+
+
 def evaluate_strategy(
     strategy: Strategy,
     corpus: list[Document],
@@ -352,11 +376,7 @@ def evaluate_strategy(
     # empty `recall_at_k` dict. Surface every offender in one pass so
     # operators don't chase them one-at-a-time. Mirrors the run_sweep
     # k_values guard in embedding-model-shootout (#28).
-    if not ks:
-        raise ValueError("ks must be non-empty")
-    bad_k = sorted({k for k in ks if k <= 0})
-    if bad_k:
-        raise ValueError(f"every k in ks must be positive; got {bad_k}")
+    validate_ks(ks)
     # Deduplicate (order-preserving) so the counter dicts, `max(ks)`, and the
     # per-query counting loop all operate on the same unique-key set. The hit
     # dicts below already collapse duplicate keys, but the raw counting loop
