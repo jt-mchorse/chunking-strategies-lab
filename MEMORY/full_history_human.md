@@ -1220,3 +1220,38 @@ And: capture an exit code *before* piping. An earlier probe of mine ran
 `python ... | tail -2` then read `$?`, got `tail`'s status, and briefly
 looked like it had found a second bug in `validate.py --out`. It hadn't —
 that path exits 2 correctly.
+
+## 2026-08-12 — a code comment served to retrieval as a section title (#152)
+
+`StructureAwareStrategy` splits markdown on `_HEADING_RE`, a line-anchored
+`re.MULTILINE` pattern. It has no idea code fences exist, so a `#` comment
+inside a ` ```python ` block was an ATX heading as far as it was concerned.
+
+The wrong split is the least interesting part. The module docstring says the
+heading text goes into metadata "so retrieval can use it as a title field" —
+which means `# Set the pool size to match your worker count` was handed to
+retrieval as a document section title, at `heading_level=1`, indistinguishable
+from a real one. And `###` is a perfectly ordinary Python comment, so the bug
+also fabricated level-3 sections; it was never about single-`#` lines. The
+fence itself came out torn in half, opener in one chunk and closer in another.
+
+The general shape: **a line-anchored `re.MULTILINE` pattern over markdown is
+blind to block context.** Same family as the `_SENTENCE_RE` lookbehind (#140)
+and the backtick-in-code-span vein. The question that finds them is "what
+block structure does this regex not know about?"
+
+This one is latent on the pinned corpus — two of the five documents have
+fenced blocks, but none has a heading-shaped line inside one. That made
+fixture identity the actual test of the fix rather than an afterthought. I
+regenerated all five canonical results into a tmpdir and diffed every field
+except `wall_clock_ms`: zero non-timing differences, `n_chunks` still 28,
+every recall and snippet-hit figure unchanged across all five strategies. A
+diff there would have meant the fix reached somewhere it shouldn't.
+
+Two process notes. Running `run_matrix.py --canonical-out` in place dirties all
+six committed artifacts with wall-clock noise alone — use `--results-dir` on a
+tmpdir. And the anti-vacuous check had to be narrowed: reverting `structure.py`
+wholesale broke test *collection*, because the test module imports
+`_fenced_spans`. That's a green-looking outcome where no assertion ran at all.
+Reverting only the behavioural line, with the helper left in place, puts 7
+tests in the red — which is the thing worth knowing.
