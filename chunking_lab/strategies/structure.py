@@ -18,6 +18,57 @@ from . import Chunk
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
+# A fenced code block opener: an optional indent, then a run of 3+ backticks or
+# tildes, then an optional info string (` ```python `). CommonMark allows both
+# fence characters, and a fence is closed only by a run of the SAME character at
+# least as long as the opener — so a ```` block is not closed by an inner ```.
+_FENCE_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$", re.MULTILINE)
+
+
+def _fenced_spans(text: str) -> list[tuple[int, int]]:
+    """Return the `[start, end)` character spans covered by fenced code blocks.
+
+    `_HEADING_RE` is line-anchored and has no notion of code fences, so a `#`
+    (or `###`) comment at the start of a line inside a ```` ``` ```` block used
+    to be treated as an ATX heading (#152). That tore the fence in half across
+    two chunks and — worse — promoted the comment text into the chunk's
+    ``title`` metadata, the field the module docstring designates as a
+    retrieval signal. This computes the fenced regions once so `chunk` can drop
+    any heading match that starts inside one.
+
+    An unclosed fence extends to end-of-text. That is the conservative
+    direction: the strategy under-splits rather than inventing headings out of
+    code, which is the failure this fixes.
+
+    Indented (four-space) code blocks are deliberately not handled. Telling
+    them apart from list continuation needs a real block parser, and this
+    package is dep-free by design (D-002) — so that is a much larger change
+    than this bug justifies, not an oversight.
+    """
+    spans: list[tuple[int, int]] = []
+    open_at: int | None = None
+    open_char = ""
+    open_len = 0
+    for m in _FENCE_RE.finditer(text):
+        fence = m.group("fence")
+        if open_at is None:
+            open_at = m.start()
+            open_char = fence[0]
+            open_len = len(fence)
+            continue
+        # A closing fence must use the same character, be at least as long as
+        # the opener, and carry no info string.
+        if fence[0] == open_char and len(fence) >= open_len and not m.group("info").strip():
+            spans.append((open_at, m.end()))
+            open_at = None
+    if open_at is not None:
+        spans.append((open_at, len(text)))
+    return spans
+
+
+def _in_spans(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= pos < end for start, end in spans)
+
 
 @dataclass
 class StructureAwareStrategy:
@@ -52,10 +103,13 @@ class StructureAwareStrategy:
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
         if not text:
             return []
+        # Drop matches inside fenced code blocks: a `# comment` line in a
+        # ```python block is not a heading (#152).
+        fences = _fenced_spans(text)
         headings = [
             (m.start(), m.end(), len(m.group(1)), m.group(2))
             for m in _HEADING_RE.finditer(text)
-            if len(m.group(1)) <= self.max_heading_level
+            if len(m.group(1)) <= self.max_heading_level and not _in_spans(m.start(), fences)
         ]
         if not headings:
             # No headings — fallback: title = first non-empty line. Still honor
