@@ -16,7 +16,36 @@ from dataclasses import dataclass
 
 from . import Chunk
 
-_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
+# `[ \t]`, not `\s`, between the hashes and the title — and an *optional*
+# content group. `\s` matches newlines, so the pre-#154 pattern
+# (`^(#{1,6})\s+(.+?)\s*$`) did not fail on an empty ATX heading (a `#` line
+# with nothing after it, which CommonMark defines as a valid heading). It
+# reached forward across the blank line and took a later paragraph as the
+# match's title — including, when the next block was a fenced code block, the
+# fence opener itself (` ```python `). That is the same corruption #152 fixed,
+# in this same regex, by a route the fence guard cannot see: the match *starts*
+# at the bare `#`, outside any fence, so `_in_spans(m.start(), fences)` is False
+# and only the stolen text comes from inside.
+#
+# With the group optional, a bare `#` still opens a section — CommonMark agrees
+# it is a heading, and the boundary was never the wrong part — it just no longer
+# reaches into the following text for a title. `#hashtag` still doesn't match
+# (no space), and 7+ hashes still don't (`#{1,6}` leaves a `#` that satisfies
+# neither branch).
+# The content group is `(\S.*?)`, not `(.+?)`: `.` matches a space, so with a
+# plain `.+?` a hashes-then-only-spaces line (`###   `) still took the optional
+# branch and captured a single space as the title — a whitespace-only retrieval
+# signal, which is the same useless-title outcome in a quieter form. Requiring
+# the first captured character to be non-blank sends that line down the
+# no-content branch instead. Lazy `.*?` against the `[ \t]*$` tail still trims
+# trailing spaces off a real title.
+_HEADING_RE = re.compile(r"^(#{1,6})(?:[ \t]+(\S.*?))?[ \t]*$", re.MULTILINE)
+
+# Title for an empty ATX heading. A sentinel rather than `""` for the same
+# reason `<preamble>` is one below: `title` is documented as a retrieval
+# signal, and an empty string is a silently useless one that reads as "this
+# document had no title" instead of "this section's heading was empty".
+EMPTY_HEADING_TITLE = "<untitled>"
 
 # A fenced code block opener: an optional indent, then a run of 3+ backticks or
 # tildes, then an optional info string (` ```python `). CommonMark allows both
@@ -106,8 +135,12 @@ class StructureAwareStrategy:
         # Drop matches inside fenced code blocks: a `# comment` line in a
         # ```python block is not a heading (#152).
         fences = _fenced_spans(text)
+        # `m.group(2) or EMPTY_HEADING_TITLE`: the content group is optional
+        # (#154), so an empty ATX heading yields None here. `or` also catches a
+        # whitespace-only capture, which the `[ \t]*$` tail makes unreachable
+        # today but which costs nothing to be safe about.
         headings = [
-            (m.start(), m.end(), len(m.group(1)), m.group(2))
+            (m.start(), m.end(), len(m.group(1)), m.group(2) or EMPTY_HEADING_TITLE)
             for m in _HEADING_RE.finditer(text)
             if len(m.group(1)) <= self.max_heading_level and not _in_spans(m.start(), fences)
         ]
