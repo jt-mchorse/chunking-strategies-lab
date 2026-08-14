@@ -1255,3 +1255,17 @@ wholesale broke test *collection*, because the test module imports
 `_fenced_spans`. That's a green-looking outcome where no assertion ran at all.
 Reverting only the behavioural line, with the helper left in place, puts 7
 tests in the red — which is the thing worth knowing.
+
+## 2026-08-13 — The same regex #152 fixed had a second defect (#154)
+
+**Duration:** ~40 min · **Issue:** #154 · **PR:** #155
+
+#152 taught the heading matcher about fenced code blocks. It never narrowed the whitespace class that lets a match span lines in the first place, and that turned out to be a second, independent way to corrupt the same field.
+
+The pattern separated the hashes from the title with `\s+`, and `\s` matches newlines. So a `#` line with nothing after it — an empty heading, which CommonMark treats as valid — didn't fail to match. It reached forward across the blank line and captured a following paragraph as the chunk's `title`, the field the module docstring designates as a retrieval signal.
+
+The fence guard from #152 structurally cannot catch this. It keys on where the match *starts*, and the match starts at the bare `#`, which is outside every fence. Only the stolen text comes from inside one — which produces the sharpest version of the bug, where an empty heading sitting before a code block takes the fence opener itself as the chunk's title. The general lesson is worth keeping: a guard keyed on where a match begins is blind to where its capture groups end.
+
+My own first fix had a quieter version of the same problem. Making the content group optional wasn't enough, because `.` matches a space, so a line of hashes followed by only spaces still captured a lone space and produced a whitespace-only title. Requiring the first captured character to be non-blank fixed it. That one surfaced from running a table of variants, not from reading the regex.
+
+Blast radius was checked before touching anything: the shipped corpus contains no empty headings, so no committed result file or the snapshot-locked notebook drifts. A test pins that. One deliberate behaviour change — a trailing bare `#` at end of document previously created no section boundary and now does, which is the CommonMark-correct reading.
