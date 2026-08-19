@@ -1269,3 +1269,66 @@ The fence guard from #152 structurally cannot catch this. It keys on where the m
 My own first fix had a quieter version of the same problem. Making the content group optional wasn't enough, because `.` matches a space, so a line of hashes followed by only spaces still captured a lone space and produced a whitespace-only title. Requiring the first captured character to be non-blank fixed it. That one surfaced from running a table of variants, not from reading the regex.
 
 Blast radius was checked before touching anything: the shipped corpus contains no empty headings, so no committed result file or the snapshot-locked notebook drifts. A test pins that. One deliberate behaviour change — a trailing bare `#` at end of document previously created no section boundary and now does, which is the CommonMark-correct reading.
+
+## 2026-08-14 — two regexes, six lines apart, disagreeing about indentation (#156)
+
+`_HEADING_RE` and `_FENCE_RE` both decide what a line prefix means, they sit
+six lines apart in `structure.py`, and they disagreed about leading
+indentation — each in the opposite direction from CommonMark. The heading
+pattern anchored the hashes hard to column 0 (spec: 0–3 spaces allowed), so a
+real heading was missed. The fence pattern accepted `^[ \t]*` (spec: same 0–3),
+so a phantom fence opened. Both failures produce the same user-visible symptom:
+section boundaries silently disappear and separate sections merge into one
+chunk, at exit 0 with no diagnostic. That is exactly what this strategy exists
+to prevent.
+
+A heading indented by **one space** merged two sections — 2 chunks became 1,
+with the second section swallowed into the first and carrying the first's
+title. The 4-space case was correct before, but only by accident, since the
+regex allowed no indent at all rather than the spec's 0–3.
+
+The fence side is the severer one. A fence opener indented 4+ spaces is an
+indented *code block*, not a fence — but the unbounded indent class opened a
+span anyway, and nothing closes a fence that was never really opened, so the
+phantom span ran to end-of-document. A three-section document containing a
+single indented backtick line collapsed to **one** chunk, destroying two real
+headings. One occurrence anywhere kills the whole remainder of a document.
+
+Two smaller defects in the same heading regex polluted `title`, which this
+module designates a retrieval signal twice. The lazy content group swallowed
+ATX closing sequences (`## Title ##` → `Title ##`, where CommonMark §4.2 says
+the trailing hashes aren't content), and under CRLF the end anchor matches
+before the newline while `\r` isn't in `[ \t]`, so every heading titled with a
+trailing carriage return.
+
+How it was found: #152 and #154 were both fixes to this same heading regex, so
+this was a second-order sibling hunt on recently-merged work. Rather than read
+the pattern and reason about it, I ran an 18-row variant table through `chunk()`
+— setext, closed ATX, seven hashes, no space, 1/2/3/4-space indents, tabs,
+backtick and tilde fences, unclosed fence, empty ATX, HTML comment, CRLF — and
+printed the titles and chunk counts. Four defects fell out of the matrix; none
+were derivable by reading. The general lens: when two patterns in one file both
+match a line prefix, diff their prefix classes first.
+
+The fix discipline is worth keeping. The heading side uses `^ {0,3}` —
+spaces-only and count-bounded — deliberately *not* `[ \t]*`, because an
+unbounded indent class is precisely the bug the fence side had; copying it
+across would have traded one defect for another. Tabs are excluded on purpose,
+with a code comment saying so, because CommonMark's tab-expansion rules are a
+separate problem and half-implementing them would be worse than not claiming
+them. The regression that mattered most was making sure the new
+closing-sequence branch doesn't cannibalize #154's hashes-only empty-heading
+contract; that has an explicit assertion, as does `# C# and F#` (the closing
+branch requires preceding whitespace).
+
+No committed artifact moved, and that was verified by grep rather than by hope:
+the pinned corpus contains no heading indented 1–3 spaces and no fence indented
+4+, so the summary snapshot and canonical fixtures are byte-identical. Worth
+stating in the PR — it's the difference between a latent fix and a benchmark
+movement.
+
+Two process notes. Appending with `cat >>` to a test file that doesn't exist
+yet creates it *without an import header*, and it looked green only because
+nothing meaningful was collected — check `git status` for `??` before trusting
+a green append. And zsh expanded backticks inside a double-quoted `git commit
+-m`; any message containing markdown needs `-F` with a heredoc file.

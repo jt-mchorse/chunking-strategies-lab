@@ -39,7 +39,25 @@ from . import Chunk
 # the first captured character to be non-blank sends that line down the
 # no-content branch instead. Lazy `.*?` against the `[ \t]*$` tail still trims
 # trailing spaces off a real title.
-_HEADING_RE = re.compile(r"^(#{1,6})(?:[ \t]+(\S.*?))?[ \t]*$", re.MULTILINE)
+# The leading `^ {0,3}` is CommonMark's ATX indent allowance (#156). Pre-fix the
+# pattern anchored the hashes hard to column 0, so a heading indented by even
+# ONE space was not a heading at all — and since this regex is the only thing
+# that opens a section, the boundary vanished and the following section merged
+# into its predecessor, carrying the wrong title. Measured: `# Alpha` + `# Beta`
+# is 2 chunks, and ` # Beta` (one space) is 1.
+#
+# Spaces-only and count-bounded, deliberately NOT `[ \t]*`: 4+ spaces is an
+# indented code block, where a `#` is content rather than a heading, and an
+# unbounded indent class is exactly the bug `_FENCE_RE` had below. Tabs are left
+# out on purpose — CommonMark's tab-expansion rules are a separate problem, and
+# half-implementing them here would be worse than not claiming them.
+#
+# The closing `(?:[ \t]+#+)?` drops an ATX *closing sequence* from the captured
+# title. CommonMark §4.2: the optional trailing run of `#`s "is not considered
+# part of the heading's content", but the lazy `(\S.*?)` was swallowing it, so
+# `## Title ##` titled as `Title ##` — a polluted retrieval signal, the same
+# class as the whitespace-only title #154's `(\S.*?)` was introduced to prevent.
+_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(\S.*?))?(?:[ \t]+#+)?[ \t]*\r?$", re.MULTILINE)
 
 # Title for an empty ATX heading. A sentinel rather than `""` for the same
 # reason `<preamble>` is one below: `title` is documented as a retrieval
@@ -51,7 +69,14 @@ EMPTY_HEADING_TITLE = "<untitled>"
 # tildes, then an optional info string (` ```python `). CommonMark allows both
 # fence characters, and a fence is closed only by a run of the SAME character at
 # least as long as the opener — so a ```` block is not closed by an inner ```.
-_FENCE_RE = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$", re.MULTILINE)
+# `^ {0,3}`, not `^[ \t]*` (#156). The unbounded indent class accepted a fence
+# opener indented 4+ spaces — which CommonMark defines as an indented CODE
+# BLOCK, not a fence. Because nothing later in the document closes a fence that
+# was never really opened, the phantom span ran to end-of-document and
+# suppressed every heading inside it. Measured: a 3-section document containing
+# one `    ``` ` line collapsed to a SINGLE chunk, destroying two real headings.
+# Same 0-3 rule as `_HEADING_RE` above, so the two agree.
+_FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$", re.MULTILINE)
 
 
 def _fenced_spans(text: str) -> list[tuple[int, int]]:
