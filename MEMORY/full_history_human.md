@@ -1332,3 +1332,66 @@ yet creates it *without an import header*, and it looked green only because
 nothing meaningful was collected — check `git status` for `??` before trusting
 a green append. And zsh expanded backticks inside a double-quoted `git commit
 -m`; any message containing markdown needs `-F` with a heredoc file.
+
+## 2026-08-19 — the read path was stricter than the write path (#158)
+
+Reading `chunking_lab/metrics.py` top to bottom put three validators side by
+side. `_validate_metric_map` and `_validate_count` both do
+`isinstance(v, bool) or not isinstance(v, int)`, and `_validate_count` carries
+a comment explaining exactly why: "bool is excluded explicitly because it
+subclasses int and would otherwise pass the type check." Two hundred lines
+further down, `validate_ks` — which *generates* the keys those two validators
+later check — does `if not ks` and `if k <= 0` and nothing else. Its
+`Sequence[int]` annotation asserted the rest and enforced none of it.
+
+That framing is the transferable part: when a module has a `from_json`
+validator and a producer, ask whether the producer can emit something the
+validator refuses. Here the answer was yes, which is the strongest form the
+finding takes — a writer that produces a file its own reader rejects.
+
+Measured end to end:
+
+```
+ks=(True,)   run COMPLETED, json={"True": 0.0}
+             from_json(that payload) -> ValueError: invalid literal for int() with base 10: 'True'
+ks=(1,True)  run COMPLETED, json={"1": 0.0}   <- the True entry silently vanished
+ks=(3.0,)    TypeError: slice indices must be integers   (from scored[:max_k])
+ks=('3',)    TypeError from the <= comparison itself, not a ValueError
+```
+
+`ks=(True,)` is a mislabelled `recall@1` — `scored[:True]` takes one element —
+written under the key `"True"`, and `_render_summary` derives its headers from
+`sorted(runs[0].recall_at_k)`, so `results/summary.md` would have grown a
+`recall@True` column. `ks=(1, True)` loses an element because
+`dict.fromkeys` collapses `True` into `1` (`hash(True) == hash(1)`), which the
+dedup's own "no effect for already-unique ks" comment does not cover. And `3.0`
+is the reachable float: `json.loads("3.0")` is `3.0`, so a `ks` list from a
+config file or notebook cell carries floats without anyone typing a decimal
+point.
+
+The type check has to run *before* the sign check, not for tidiness but
+because `k <= 0` raises `TypeError` on a `str`/`None` element — the sign check
+cannot run until the non-numerics are gone. There's a named test for that
+ordering.
+
+One design call is worth recording because it went the *opposite* way from the
+same-day fix in llm-eval-harness#204: there I accepted an integral float
+(`3.0`) since it is the JSON round-trip shape of an int; here I reject it. The
+difference is that this module has a sibling read-path validator,
+`_validate_count`, which rejects `3.0` for `n_queries` — and the write path
+that generates the matching keys must not hold a different opinion from the
+read path that checks them. When a sibling has already decided, follow it.
+
+The CLI is unaffected: `scripts/run_matrix.py` parses `--ks` with `int(k)`.
+That's pinned with a test so nobody later "fixes" the CLI by loosening this
+guard instead.
+
+One hunt came back empty first and is recorded so it isn't repeated. A 16-row
+markdown variant table through `StructureAwareStrategy` — CRLF, CR-only, tilde
+fences, fence indents 0–4, info strings, nested backtick runs, tabs after
+hashes, ATX closing sequences, setext headings, heading indents 3 and 4 — is
+entirely correct after #157. The only two divergences are CR-only line endings
+(`re.MULTILINE` only knows `\n`, so the whole document is one line and the
+title becomes the entire body) and unrecognised setext headings. Both were
+judged too marginal to file: CR-only endings are vanishingly rare, and the
+module docstring commits to ATX.
