@@ -1456,3 +1456,33 @@ on `main`.
 **Next session:** the untiebroken-sort lens is closed in this repo —
 `metrics.py` already sorts on `(-score, source_doc_id, start_offset,
 end_offset)`, a full content tiebreak from `#69`/`#68`.
+
+## 2026-08-20 — second pass on #160: the stdout line had it too
+
+The same post-fix sweep that caught `embedding-model-shootout`'s renderer also
+returned `run_matrix.py:345-346` — the per-run line printed to stdout, which
+used `.get(top_k, 0)` on both metric maps. My table fix never touched it. Two
+repos in one run had a sibling site I'd shipped around, which makes "grep the
+whole portfolio for the pattern you just fixed" worth doing every time.
+
+This one is genuinely unreachable: `evaluate_strategy` is called with `ks=ks`
+three lines earlier and builds both maps from it, so `max(ks)` is always a key.
+I changed it anyway, because stdout is a publication surface like the summary
+table and a dead default is a latent fabrication — a `KeyError` naming the key
+is the better failure if that invariant ever changes.
+
+What keeps that from being churn is pinning the invariant. A test asserting
+that `evaluate_strategy` keys both maps by exactly `ks` is what makes the
+direct index provably safe rather than assumed safe, and it turns "I didn't
+change that one" into a recorded decision that fails if someone breaks it.
+
+The AST lock lesson transferred correctly this time — I wrote this one as a
+parse from the start, because the `embedding-model-shootout` version had
+already failed on prose that quoted the old expression.
+
+**Why this work, this session:** same issue, caught by sweeping for the pattern
+after shipping rather than before.
+
+**Open questions / blockers:** none.
+
+**Next session:** unchanged.
