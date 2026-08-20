@@ -333,9 +333,53 @@ def validate_ks(ks: Sequence[int]) -> None:
     1, and a second copy of the rule in the CLI would just be a second thing to
     keep in sync. ``evaluate_strategy`` still calls this first, so the library
     contract is unchanged for direct callers.
+
+    **Type, not just sign (#158).** The signature says ``Sequence[int]`` and
+    this function checked only ``k <= 0``, so the int-ness was asserted by the
+    annotation and enforced nowhere — while the *read* path in this same module
+    enforces it fully for the very fields these ``k`` become. ``_validate_count``
+    uses ``isinstance(value, bool) or not isinstance(value, int)`` and says why:
+    "bool is excluded explicitly because it subclasses int and would otherwise
+    pass the type check." That is now the posture here too.
+
+    Measured on the unguarded version:
+
+    - ``ks=(True,)`` **completed the run** and wrote ``{"True": 0.0}``, which
+      ``RetrievalRun.from_json`` then rejects with ``invalid literal for int()
+      with base 10: 'True'`` — the writer produced a file its own reader
+      refuses. It is also a mislabelled ``recall@1`` (``scored[:True]`` takes
+      one element), and ``_render_summary`` derives its headers from
+      ``sorted(runs[0].recall_at_k)``, so the published table would grow a
+      ``recall@True`` column.
+    - ``ks=(1, True)`` silently became ``(1,)``: ``dict.fromkeys`` collapses
+      ``True`` into ``1`` because ``hash(True) == hash(1)``. The dedup comment
+      below says "No effect for already-unique ``ks``" — these two *are*
+      distinct elements of the input, and one vanished with no diagnostic.
+    - ``2.5`` / ``3.0`` / ``nan`` / ``inf`` all passed here and then raised a
+      raw ``TypeError: slice indices must be integers`` from ``scored[:max_k]``,
+      an expression that names neither ``ks`` nor the offending value. ``3.0``
+      is the reachable one: it is what a JSON round-trip of an integer looks
+      like, so a ``ks`` list from a config or notebook cell carries floats
+      without anyone typing a decimal point.
+
+    An integral float is rejected rather than coerced, deliberately:
+    ``_validate_count`` rejects ``3.0`` for ``n_queries``, and the write path
+    that generates the matching keys should not hold a different opinion from
+    the read path that checks them. The message names the coercion.
     """
     if not ks:
         raise ValueError("ks must be non-empty")
+    # Type first, in its own collecting pass: `k <= 0` raises `TypeError` on a
+    # `str`/`None` element, so the sign check below cannot even run until the
+    # non-numeric ones are gone. Collected rather than fail-fast for the same
+    # reason the sign check is: an operator with a bad `ks` list should see the
+    # whole list's worth of problems, not one per invocation.
+    bad_type = [k for k in ks if isinstance(k, bool) or not isinstance(k, int)]
+    if bad_type:
+        raise ValueError(
+            f"every k in ks must be an int (bool excluded); got {bad_type!r} — "
+            "coerce with int(k) if these came from JSON"
+        )
     bad_k = sorted({k for k in ks if k <= 0})
     if bad_k:
         raise ValueError(f"every k in ks must be positive; got {bad_k}")
