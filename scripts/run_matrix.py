@@ -113,6 +113,19 @@ def _build_strategies(embedder: Embedder):
     ]
 
 
+#: Rendered in a metric cell the run has no measurement for (#160). An em dash
+#: rather than a blank so the column stays visible in the GFM table, and rather
+#: than `0.000` so it can never be read as a measured value.
+_ABSENT_CELL = "—"
+
+
+def _metric_cell(metrics: dict[int, float], k: int) -> str:
+    """Format one metric cell, distinguishing "measured zero" from "not measured"."""
+    if k not in metrics:
+        return _ABSENT_CELL
+    return f"{metrics[k]:.3f}"
+
+
 def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     lines: list[str] = []
     lines.append("# Chunking strategies — retrieval metrics matrix")
@@ -151,7 +164,27 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     # showed 0.000 for cells whose JSONs held real values (#76). The canonical
     # `--ks 1,3,5` renders byte-identically (same headers + separators), so the
     # summary snapshot is unchanged.
-    ks = sorted(runs[0].recall_at_k) if runs else [1, 3, 5]
+    # Union over EVERY run and BOTH maps, not `sorted(runs[0].recall_at_k)`
+    # (#160). `#76` fixed the hardcoded-1/3/5 version of this — its comment
+    # above says the renderer "showed 0.000 for cells whose JSONs held real
+    # values" — and narrowed the derivation to runs[0] rather than closing it.
+    # Two operands, one derivation: `ks` came from `recall_at_k` and was then
+    # applied to `snippet_hit_at_k` too.
+    #
+    # Measured on the pre-fix renderer, two runs evaluated at different k:
+    #
+    #   | fixed     | 100 | 0.500 | 0.600 | 0.400 | 0.450 | 12 |
+    #   | recursive | 100 | 0.000 | 0.000 | 0.000 | 0.000 | 12 |
+    #
+    # `recursive` really measured recall@5 0.90 and snippet-hit@5 0.88. The
+    # table said it scored zero on everything, and a reader concludes the
+    # strategy failed rather than that it was evaluated at a different k.
+    #
+    # `from_json` now rejects a single run whose two maps disagree, so that
+    # case cannot reach here. Separate runs at different k are LEGITIMATE
+    # input, though — each is internally coherent — so the renderer has to
+    # represent them honestly rather than reject them.
+    ks = sorted({k for r in runs for k in (*r.recall_at_k, *r.snippet_hit_at_k)}) or [1, 3, 5]
     recall_headers = " | ".join(f"recall@{k}" for k in ks)
     snippet_headers = " | ".join(f"snippet-hit@{k}" for k in ks)
     recall_seps = " | ".join("-------:" for _ in ks)
@@ -161,8 +194,19 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     )
     lines.append(f"| -------- | -------: | {recall_seps} | {snippet_seps} | --------------: |")
     for r in runs:
-        recall_cells = " | ".join(f"{r.recall_at_k.get(k, 0):.3f}" for k in ks)
-        snippet_cells = " | ".join(f"{r.snippet_hit_at_k.get(k, 0):.3f}" for k in ks)
+        # `.get(k, 0)` PUBLISHED A NUMBER FOR A MEASUREMENT THAT WAS NEVER
+        # TAKEN (#160). A run evaluated at k=5 only has nothing to say about
+        # recall@1, and "0.000" is not that — it reads as a measured floor.
+        # Absent renders as an em dash instead. This is the half that matters:
+        # widening `ks` above stops real values being dropped, and this stops
+        # fabricated ones being invented. Handoff §10, "do not invent benchmark
+        # numbers", and the D-009 summary is a committed artifact.
+        #
+        # The canonical `--ks 1,3,5` path never takes this branch —
+        # `evaluate_strategy` builds both maps from the same `ks` — so the
+        # committed summary snapshot renders byte-identically.
+        recall_cells = " | ".join(_metric_cell(r.recall_at_k, k) for k in ks)
+        snippet_cells = " | ".join(_metric_cell(r.snippet_hit_at_k, k) for k in ks)
         # `strategy_name` is the one free-form cell (every other is a formatted
         # number). It reaches here pipe-free from the five shipped strategies,
         # but a BYO `Strategy` whose `name` carries a `|`, or a `RetrievalRun`
