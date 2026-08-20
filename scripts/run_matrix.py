@@ -340,10 +340,19 @@ def main(argv: list[str] | None = None) -> int:
         # 0.000 when `--ks` omitted 5; `max(ks)` is 5 for the default --ks 1,3,5
         # so this line is unchanged on the canonical path (#76).
         top_k = max(ks)
+        # Direct index, not `.get(top_k, 0)` (#160). This default is currently
+        # UNREACHABLE — `evaluate_strategy` was called with `ks=ks` three lines
+        # above and builds both maps from it, so `max(ks)` is always a key — and
+        # that is exactly why it should not be written as a default. stdout is a
+        # publication surface like the summary table, and a silent `0.000` here
+        # would be the same fabricated measurement. A KeyError naming the key is
+        # the better failure if that invariant ever changes.
+        # `test_stdout_summary_indexes_a_key_that_always_exists` pins the
+        # invariant, so the direct index is provably safe rather than assumed so.
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
-            f"recall@{top_k}={run.recall_at_k.get(top_k, 0):.3f} "
-            f"snippet-hit@{top_k}={run.snippet_hit_at_k.get(top_k, 0):.3f} "
+            f"recall@{top_k}={run.recall_at_k[top_k]:.3f} "
+            f"snippet-hit@{top_k}={run.snippet_hit_at_k[top_k]:.3f} "
             f"wall_clock={run.wall_clock_ms:.0f}ms  →  {path}"
         )
         runs.append(run)

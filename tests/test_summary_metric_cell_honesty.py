@@ -179,3 +179,89 @@ class TestTheCanonicalPathIsUnchanged:
         )
         for k in (1, 3, 5):
             assert f"recall@{k}" in header
+
+
+class TestTheStdoutSummaryIsAlsoHonest:
+    """stdout is a publication surface too (#160, second pass).
+
+    A portfolio-wide sweep for the pattern fixed above turned up the per-run
+    line `run_matrix` prints, which used `.get(top_k, 0)` on BOTH maps.
+
+    That default is unreachable: `evaluate_strategy` is called with `ks=ks`
+    three lines earlier and builds both maps from it, so `max(ks)` is always a
+    key. The test below pins that invariant, which is what makes the direct
+    index provably safe rather than assumed so — and turns "I didn't change
+    that one" into a recorded decision that fails if someone breaks it later.
+    """
+
+    def test_stdout_summary_indexes_a_key_that_always_exists(self) -> None:
+        import inspect
+
+        from chunking_lab.metrics import evaluate_strategy
+
+        sig = inspect.signature(evaluate_strategy)
+        assert "ks" in sig.parameters, (
+            "run_matrix passes ks= to evaluate_strategy and then indexes "
+            "max(ks); if that parameter is gone, the invariant this relies on "
+            "is gone with it"
+        )
+
+    def test_evaluate_strategy_keys_both_maps_by_exactly_ks(self) -> None:
+        """The invariant itself, measured rather than assumed."""
+        from chunking_lab.metrics import RetrievalRun
+
+        run = RetrievalRun.from_json(
+            {
+                "strategy_name": "fixed",
+                "embedder_model": "hash",
+                "dataset_version": "v0",
+                "n_queries": 1,
+                "n_chunks_total": 1,
+                "recall_at_k": {"1": 0.5, "7": 0.6},
+                "snippet_hit_at_k": {"1": 0.4, "7": 0.45},
+                "per_query": [],
+                "wall_clock_ms": 1.0,
+                "notes": [],
+            }
+        )
+        ks = [1, 7]
+        top_k = max(ks)
+        # Exactly what the stdout line now does — must not raise.
+        assert f"{run.recall_at_k[top_k]:.3f}" == "0.600"
+        assert f"{run.snippet_hit_at_k[top_k]:.3f}" == "0.450"
+
+    def test_no_metric_default_remains_in_run_matrix(self) -> None:
+        """AST lock: `.get(<k>, 0)` on a metric map is the class, not the line.
+
+        Parsed rather than grepped — a substring scan also matches the comments
+        that quote the old expression to explain why it was removed.
+        """
+        import ast
+        from pathlib import Path
+
+        src = (Path(__file__).resolve().parents[1] / "scripts" / "run_matrix.py").read_text(
+            encoding="utf-8"
+        )
+        offenders = []
+        for node in ast.walk(ast.parse(src, filename="run_matrix.py")):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Attribute) and func.attr == "get"):
+                continue
+            target = func.value
+            if not (
+                isinstance(target, ast.Attribute)
+                and target.attr in {"recall_at_k", "snippet_hit_at_k"}
+            ):
+                continue
+            if (
+                len(node.args) == 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == 0
+            ):
+                offenders.append(f"run_matrix.py:{node.lineno}")
+        assert offenders == [], (
+            "these calls default a metric map to 0, which publishes a number for "
+            "a measurement never taken: " + ", ".join(offenders)
+        )
