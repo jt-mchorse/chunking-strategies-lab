@@ -1395,3 +1395,94 @@ entirely correct after #157. The only two divergences are CR-only line endings
 title becomes the entire body) and unrecognised setext headings. Both were
 judged too marginal to file: CR-only endings are vanishingly rare, and the
 module docstring commits to ATX.
+
+## 2026-08-20 — an unmeasured cell was published as 0.000 (#160)
+
+`_render_summary` derived its column set from one of the two metric maps —
+`sorted(runs[0].recall_at_k)` — and then rendered *both* with `.get(k, 0)`.
+Two operands, one derivation.
+
+What actually found it was reading the fix comments already in the file and
+asking whether each still describes the current code. `#76`'s comment says
+hardcoding 1/3/5 made the renderer ignore a non-default `--ks` and "the table
+showed 0.000 for cells whose JSONs held real values". That sentence was still
+true — `runs[0].recall_at_k` had simply taken the hardcoded list's place. `#76`
+narrowed the derivation; it did not close it.
+
+The observable is a fabricated benchmark number. Two runs evaluated at
+different `k`:
+
+    | fixed     | 100 | 0.500 | 0.600 | 0.400 | 0.450 | 12 |
+    | recursive | 100 | 0.000 | 0.000 | 0.000 | 0.000 | 12 |
+
+`recursive` really measured `recall@5 = 0.90` and `snippet-hit@5 = 0.88`. The
+table says it scored zero on everything, so a reader concludes the strategy
+failed rather than that it was evaluated at a different `k`. That lands in the
+D-009 summary artifact, and handoff §10 forbids invented benchmark numbers.
+
+Reachability didn't need arguing — the repo had already accepted it three
+times. `_render_summary` carries a pipe escape, a newline collapse and a
+backtick note, each justified in its own comment by "a `RetrievalRun` loaded
+from external JSON via `from_json`".
+
+There were two distinct failures and keeping them apart mattered. A *single*
+run whose two maps disagree is incoherent — one strategy, one query set, one
+`ks` — so `from_json` rejects it at the seam. But *separate* runs at different
+`k` are legitimate, each internally coherent, so the renderer has to represent
+them honestly rather than reject them. A single fix would have been wrong for
+one of the two cases.
+
+Of the two renderer changes, the placeholder matters more than the union.
+Widening `ks` stops real values being dropped; the em dash stops fabricated
+ones being invented. `.get(k, 0)` publishes a number for a measurement never
+taken, and `0.000` reads as a measured floor. Anywhere a default fills a
+reporting cell, the question is whether that default is distinguishable from a
+real measurement. It needs a liveness companion too: a strategy that genuinely
+scored 0.0 must still show `0.000`, or the fix has traded a false number for a
+false absence.
+
+One process note: my first verification checked whether the em dash appeared
+anywhere in the rendered string and reported `True` for the canonical table.
+The em dash is in the prose note above the table, not in a cell. The shipped
+tests use a `_data_rows` helper that excludes the header, separator and prose.
+
+**Why this work, this session:** the static `priority:high` queue was globally
+empty; this came from reading the existing fix comments in `run_matrix.py`.
+
+**Open questions / blockers:** none. Noted and left alone: `mypy` reports two
+pre-existing `no-redef` errors in `strategies/recursive.py`, confirmed present
+on `main`.
+
+**Next session:** the untiebroken-sort lens is closed in this repo —
+`metrics.py` already sorts on `(-score, source_doc_id, start_offset,
+end_offset)`, a full content tiebreak from `#69`/`#68`.
+
+## 2026-08-20 — second pass on #160: the stdout line had it too
+
+The same post-fix sweep that caught `embedding-model-shootout`'s renderer also
+returned `run_matrix.py:345-346` — the per-run line printed to stdout, which
+used `.get(top_k, 0)` on both metric maps. My table fix never touched it. Two
+repos in one run had a sibling site I'd shipped around, which makes "grep the
+whole portfolio for the pattern you just fixed" worth doing every time.
+
+This one is genuinely unreachable: `evaluate_strategy` is called with `ks=ks`
+three lines earlier and builds both maps from it, so `max(ks)` is always a key.
+I changed it anyway, because stdout is a publication surface like the summary
+table and a dead default is a latent fabrication — a `KeyError` naming the key
+is the better failure if that invariant ever changes.
+
+What keeps that from being churn is pinning the invariant. A test asserting
+that `evaluate_strategy` keys both maps by exactly `ks` is what makes the
+direct index provably safe rather than assumed safe, and it turns "I didn't
+change that one" into a recorded decision that fails if someone breaks it.
+
+The AST lock lesson transferred correctly this time — I wrote this one as a
+parse from the start, because the `embedding-model-shootout` version had
+already failed on prose that quoted the old expression.
+
+**Why this work, this session:** same issue, caught by sweeping for the pattern
+after shipping rather than before.
+
+**Open questions / blockers:** none.
+
+**Next session:** unchanged.

@@ -221,6 +221,8 @@ class RetrievalRun:
 
         - ``recall_at_k`` / ``snippet_hit_at_k`` entries must be
           non-bool numbers, finite, and within ``[0, 1]``.
+        - the two maps must cover the *same* k values as each other
+          (#160) — they were previously validated only independently.
         - ``wall_clock_ms`` must be a non-bool, finite, non-negative
           number.
         - ``n_queries`` / ``n_chunks_total`` must be non-bool,
@@ -250,6 +252,21 @@ class RetrievalRun:
         snippet = {int(k): v for k, v in payload["snippet_hit_at_k"].items()}
         _validate_metric_map("recall_at_k", recall)
         _validate_metric_map("snippet_hit_at_k", snippet)
+        # Both maps validated, but only ever *independently* (#160). A run is
+        # one strategy over one query set at one `ks` — `evaluate_strategy`
+        # builds both dicts from the same `ks` in a single comprehension pair —
+        # so two different key sets describe a run that cannot exist. It loaded
+        # cleanly anyway, and `_render_summary` then derived its columns from
+        # `recall_at_k` alone and rendered the snippet cells with `.get(k, 0)`,
+        # publishing a fabricated `0.000` for measurements that were simply
+        # keyed elsewhere. Reject at the seam it enters through; the renderer
+        # handles the legitimate case (separate runs at different `k`).
+        if recall.keys() != snippet.keys():
+            raise ValueError(
+                "recall_at_k and snippet_hit_at_k must cover the same k values — "
+                f"got recall_at_k={sorted(recall)} and snippet_hit_at_k={sorted(snippet)}; "
+                "a run is one strategy over one query set at one ks"
+            )
         # A present-but-non-array `per_query` (a JSON scalar/null from a hand-edit
         # or truncated write) makes the `for q in ...` below raise a raw
         # `TypeError`, escaping the documented `KeyError`/`ValueError` loud
