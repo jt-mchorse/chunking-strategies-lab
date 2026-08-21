@@ -63,6 +63,7 @@ from pathlib import Path
 from typing import Any
 
 from chunking_lab.io_utils import atomic_write_text
+from chunking_lab.queries import MATCHED_FIELDS, format_char_reason
 
 REQUIRED_FIELDS: tuple[str, ...] = ("id", "question", "expected_doc", "expected_snippet")
 
@@ -298,6 +299,24 @@ def _validate_row(obj: dict[str, Any], line_no: int) -> list[ValidationFinding]:
                     code=f"empty_{field}",
                 )
             )
+            continue
+        # `value.strip()` above catches every codepoint Python calls
+        # whitespace, and misses the Unicode *format* (Cf) characters that
+        # `str.isspace()` deliberately excludes -- U+200B, U+FEFF, U+2060,
+        # U+00AD. They are invisible in an editor and silently turn a
+        # published recall@k or snippet-hit@k into 0.000 (#162). Reported here
+        # as well as raised by `Query.__post_init__` so the linter stays in
+        # lockstep with the loader, the same parity `empty_<field>` keeps.
+        if field in MATCHED_FIELDS:
+            reason = format_char_reason(f"field {field!r}", value)
+            if reason is not None:
+                findings.append(
+                    ValidationFinding(
+                        line_no=line_no,
+                        reason=reason,
+                        code=f"invisible_char_{field}",
+                    )
+                )
     return findings
 
 
