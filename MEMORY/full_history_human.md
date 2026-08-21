@@ -1486,3 +1486,71 @@ after shipping rather than before.
 **Open questions / blockers:** none.
 
 **Next session:** unchanged.
+
+---
+
+## 2026-08-21 — a character you can't see, reported as a measurement (#162)
+
+The queries file validator was careful about empty fields. Its comment even
+explained the subtlety: it checks `not value.strip()` rather than `not value`,
+because a field of pure spaces is as corrupting as an empty one — an
+`expected_snippet` of `"   "` matches any chunk with three spaces in a row and
+makes snippet-hit read a meaningless 1.000.
+
+That reasoning is correct. It's also incomplete, and the gap is a whole class of
+character rather than one stray case. `str.strip()` removes every codepoint
+Python considers whitespace, which is more than you'd guess — non-breaking
+space, ideographic space, narrow no-break space all go. What it doesn't remove
+are the Unicode *format* characters, the ones `isspace()` deliberately excludes:
+zero-width space, the byte-order mark, word joiner, soft hyphen. They are
+invisible when rendered and they survive stripping.
+
+I found it by printing `isspace()` and `strip()` for eleven invisible candidates
+side by side rather than testing one character and reasoning. The split fell out
+immediately — six removed, five survive — and the five survivors turned out to
+be exactly Unicode category `Cf`. That's what turned the fix from a blocklist of
+characters I happened to think of into a principled rule.
+
+What it does to the numbers is the part worth remembering. One golden query, a
+two-document corpus, changing nothing but the golden data: a trailing zero-width
+space on `expected_doc` takes recall@3 from 1.000 to 0.000, and the CI validator
+calls the file clean. Only *one* axis moves — snippet-hit stays at 1.000 —
+which is precisely what makes the row look like a real measurement instead of a
+broken one. And because the corruption lives in the golden data rather than in
+any strategy, recall reads 0.000 for every strategy in the matrix at once, so
+the comparison stays internally consistent across the very comparison this lab
+exists to make. A defect that moves all the rows equally is much harder to spot
+than one that moves a single row.
+
+This is a direct sibling of #160, shipped here yesterday, which stopped an
+*unmeasured* metric cell being published as 0.000. Same confusion, reached
+through the golden data instead of through a missing key. When a fix closes one
+route to a false zero, the question to ask next is what other route produces the
+same number.
+
+I didn't have to guess whether this data really carries such characters. This
+repo already fixed a BOM at the *start* of this exact file (#93), and
+`load_corpus` documents that it tolerates a leading BOM too — both because
+Notepad and spreadsheet exports emit them. A BOM inside a field value comes from
+the same paste. The file-level case was handled; the field-level case wasn't.
+
+Two things are deliberately left out, each with its own test so a later reader
+doesn't "tidy" them in. `question` is excluded, because it's only ever embedded
+and never compared, and left-to-right and right-to-left marks are legitimate in
+Arabic or Hebrew question text. Category `Cc` is excluded, because a newline is
+`Cc` and a snippet spanning a line break is perfectly normal — a rule about
+invisible characters must not quietly swallow newlines. And it rejects rather
+than normalizes: silently repairing golden data is the wrong default for a
+measurement lab, and the author should see which codepoint they pasted.
+
+The error message got more attention than usual for the same reason the bug
+exists: the character is invisible in the author's editor, so a message that
+echoes the field back looks identical to a correct one. It names the codepoint,
+its Unicode name, and its index.
+
+Also examined and found clean: the five chunking strategies. Twelve hand-built
+inputs plus eight hundred fuzzed documents — four thousand invocations — checked
+against four invariants: that `source[start:end] == chunk.text`, that no
+codepoint of the source is left uncovered, that chunks come back in ascending
+order, and that nothing raises. Zero failures. That module is solid and isn't
+worth re-sweeping.
