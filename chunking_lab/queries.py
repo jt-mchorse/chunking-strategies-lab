@@ -18,12 +18,79 @@ relevant passage fail this query.
 from __future__ import annotations
 
 import json
+import unicodedata
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_QUERIES_PATH = _REPO_ROOT / "data" / "queries.jsonl"
+
+#: Fields whose value is used to *match* or *key* a record, and so must contain
+#: no invisible characters. `question` is deliberately absent: it is only ever
+#: embedded, never compared, and directional marks (U+200E / U+200F) are
+#: legitimate inside RTL question text.
+MATCHED_FIELDS: tuple[str, ...] = ("id", "expected_doc", "expected_snippet")
+
+
+def find_format_char(value: str) -> tuple[int, str] | None:
+    """Return ``(index, codepoint_label)`` of the first Cf character, else None.
+
+    Unicode general category ``Cf`` (format) is the set of characters that are
+    invisible when rendered *and* survive ``str.strip()`` -- U+200B ZERO WIDTH
+    SPACE, U+FEFF, U+2060 WORD JOINER, U+00AD SOFT HYPHEN, U+180E. The
+    emptiness guards in this module use ``not value.strip()`` precisely because
+    "a whitespace-only field is as corrupting as an empty one", and that is
+    true for every codepoint Python calls whitespace -- U+00A0, U+3000, U+202F
+    are all removed. The Cf characters are the ones ``str.isspace()``
+    deliberately excludes, so they slipped through (#162).
+
+    Measured, one golden query against a two-document corpus at k=3, changing
+    nothing but the golden data::
+
+        clean (control)                recall@3 1.000   snippet@3 1.000
+        expected_doc trailing ZWSP     recall@3 0.000   snippet@3 1.000
+        expected_doc leading BOM       recall@3 0.000   snippet@3 1.000
+        snippet trailing ZWSP          recall@3 1.000   snippet@3 0.000
+        snippet = soft hyphen only     recall@3 1.000   snippet@3 0.000
+
+    Every one of those was accepted by ``Query()`` and reported CLEAN by
+    ``validate_queries``. A ``0.000`` produced this way is indistinguishable
+    from an honest "this strategy retrieved nothing relevant" -- the same
+    confusion #160 closed for the *unmeasured* case, reached here through the
+    golden data instead of through a missing key.
+
+    The provenance is established rather than hypothetical: #93 fixed a BOM at
+    the *start* of this very file, and ``load_corpus`` documents that it
+    tolerates one too, both because spreadsheet and Notepad exports emit them.
+    A BOM *inside* a field value comes from the same paste.
+
+    ``Cc`` (control) is deliberately not included: ``\n`` is ``Cc`` and is
+    legitimate inside an ``expected_snippet`` that spans a line break.
+    """
+    for i, ch in enumerate(value):
+        if unicodedata.category(ch) == "Cf":
+            name = unicodedata.name(ch, "unnamed")
+            return i, f"U+{ord(ch):04X} {name}"
+    return None
+
+
+def format_char_reason(field_name: str, value: str) -> str | None:
+    """Human-facing reason string for a Cf character, or None if clean.
+
+    Names the codepoint and its index rather than echoing the value, because
+    the offending character is invisible in the author's editor -- a message
+    that just prints the field back looks identical to a correct one.
+    """
+    hit = find_format_char(value)
+    if hit is None:
+        return None
+    index, label = hit
+    return (
+        f"{field_name} contains the invisible character {label} at index {index}; "
+        "it survives str.strip() and silently breaks the exact/substring match "
+        "this field is used for, reporting the metric as 0.000"
+    )
 
 
 @dataclass(frozen=True)
@@ -64,6 +131,16 @@ class Query:
             # falsy for both, so the literal-empty case is still rejected.
             if not value.strip():
                 raise ValueError(f"{name} must be non-empty and not whitespace-only")
+            # The emptiness rule above covers every codepoint `str.isspace()`
+            # calls whitespace. It does not cover the Unicode *format* (Cf)
+            # characters, which are equally invisible and equally corrupting --
+            # see `find_format_char` for the measured table (#162). Scoped to
+            # the matched/keyed fields so a legitimate directional mark in an
+            # RTL `question` is still accepted.
+            if name in MATCHED_FIELDS:
+                reason = format_char_reason(name, value)
+                if reason is not None:
+                    raise ValueError(reason)
 
 
 def _require_str(value: object, name: str) -> str:
