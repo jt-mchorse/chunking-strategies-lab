@@ -161,3 +161,66 @@ Strategic decisions for this repo, with reasoning. Append-only — superseded de
 **Reversibility:** Cheap.
 
 **Related issues:** #33
+
+---
+
+## D-013 — A non-strict `mypy` gate over `chunking_lab`, in CI and as a test
+
+**Date:** 2026-08-24
+
+**Decision.** Adopt the non-strict `mypy` baseline gate: `python_version =
+"3.11"`, `files = ["chunking_lab"]`, `warn_unused_ignores`,
+`warn_redundant_casts`, no blanket `ignore_missing_imports`. It runs in the CI
+lint job and again as `tests/test_mypy_clean.py`, both invoking a bare `mypy` so
+they read exactly the `[tool.mypy]` block in `pyproject.toml`.
+
+**Why.** The rationale here is deliberately *not* the one the two sibling repos
+give. `llm-eval-harness` (D-016) and `llm-cost-optimizer` (D-014) both justify
+their gate by shipping a `py.typed` marker — their annotations are visible to
+downstream type-checkers, so drift is a broken contract with a consumer.
+`chunking_lab` ships no such marker, so that argument doesn't apply.
+
+What applies instead is **latent green** rot: the annotations were already
+written, nothing machine-checked them, and the code was correct today with
+nothing to say when it stopped being. #164 is the proof rather than the
+hypothesis — two `no-redef` errors sat in
+`chunking_lab/strategies/recursive.py` unnoticed, on a repo whose CI was green
+the entire time, because no gate ran. They were found by someone running `mypy`
+by hand while working on an unrelated issue. That is not a discovery mechanism.
+
+Wiring it in *both* places is the substance rather than belt-and-braces. A CI
+step alone means a developer never sees the failure until after pushing. A test
+alone means a future change to the pytest scope silently bypasses it. And
+invoking a bare `mypy` in both — rather than passing a file list — is what keeps
+the test, the CI step, and a developer's terminal checking the same thing; a
+test that passed its own file list would be testing a scope nothing else uses.
+
+Two smaller calls fell out of it. The per-module override for
+`sentence_transformers` (D-003's `[sbert]` extra) replaced an inline
+`# type: ignore[import-not-found]` in `embedder.py`, because with
+`warn_unused_ignores` on that inline ignore would itself become an error the
+moment someone installs the extra — an override is stable across both states,
+an inline ignore is a time bomb. And the absence of a blanket
+`ignore_missing_imports` is deliberate: it would silence a *typo'd* import just
+as effectively as an optional one.
+
+**Scope limitation, stated rather than papered over.** `scripts/` and `tests/`
+are outside the gate. `mypy chunking_lab scripts tests` fails before checking
+anything with `Source file found twice under different module names:
+"run_matrix" and "scripts.run_matrix"`, which needs an `__init__.py` or
+`--explicit-package-bases` decision of its own. Tracked as a separate issue.
+
+**Alternatives considered.**
+- *Full strict mode now* (`disallow_untyped_defs` et al.) — rejected; both
+  siblings took the baseline-first posture and tightening is a follow-up with
+  its own churn.
+- *Blanket `ignore_missing_imports`* — rejected; silences real mistakes.
+- *Keep the inline `# type: ignore` instead of a per-module override* — rejected;
+  goes stale the moment the extra is installed.
+- *Just fix the two `no-redef` errors and move on* — rejected; that closes the
+  instance and leaves the class open, which is exactly what happened last time.
+- *CI step only, or test only* — rejected for the reasons above.
+
+**Reversibility:** Cheap. A config block, a CI line, and a test file.
+
+**Related issues:** #164

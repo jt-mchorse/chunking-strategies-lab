@@ -1554,3 +1554,75 @@ against four invariants: that `source[start:end] == chunk.text`, that no
 codepoint of the source is left uncovered, that chunks come back in ascending
 order, and that nothing raises. Zero failures. That module is solid and isn't
 worth re-sweeping.
+
+---
+
+## 2026-08-24 — Issue #164: the `no-redef`, and the gate that should have caught it
+
+**What got done.** The issue had two halves, and the second turned out to be the
+substantive one.
+
+**Half one: was it masking anything?** The honest way to answer that is to
+measure, not to read the branches and conclude. Before touching anything, ran a
+32-row invariant table over `RecursiveStrategy` — 8 texts (paragraph-separated,
+one 250-character unbroken word, no-separator, sentence-heavy, mixed,
+leading/trailing separator, non-ASCII) × 4 `chunk_chars` values (5, 17, 40, 800)
+— checking that every chunk's offsets address its own text, that the chunks
+concatenate back to the input exactly, that none exceeds the budget, and that
+none is empty:
+
+```
+0 of 32 rows violate an invariant
+```
+
+It masked nothing. That table now ships as a test, because a report that
+something is fine is only worth anything if it is backed by something that keeps
+being true, and the offset round-trip is the property this strategy actually has
+to hold — a chunk whose offsets don't address its own text is a citation
+pointing at the wrong span.
+
+**The fix is a dedupe, not a rename.** The `no-redef` was three
+`out: list[tuple[str, int]] = []` annotations in one function, and *two of the
+three branches were byte-identical* (`if not separators:` and `if sep == "":`
+both brute-force split at `chunk_chars`). Renaming a variable would have
+silenced mypy and left the duplicated rule in place — the shape that bites by
+diverging later on the half that matters. Extracted `_brute_force_split`, and
+pinned "the two entry paths agree" as a test rather than trusting the refactor.
+
+**Half two: the gate (D-013).** The issue asked whether mypy should join this
+repo's CI, "given `llm-eval-harness` runs one under D-016". It should, but the
+rationale doesn't transfer wholesale, and that distinction is the interesting
+part. `llm-eval-harness` (D-016) and `llm-cost-optimizer` (D-014) both justify
+their gate by shipping a `py.typed` marker — their annotations are a downstream
+contract, so drift breaks a consumer. `chunking_lab` ships no marker. What
+applies here is **latent green** rot instead: the annotations were already
+written, nothing machine-checked them, and #164 is the proof rather than the
+hypothesis — the two errors sat there while CI was green the whole time, and
+were found by someone running `mypy` by hand while working an unrelated issue.
+That is not a discovery mechanism.
+
+Wired into *both* the CI lint job and `tests/test_mypy_clean.py`, both invoking
+a bare `mypy` so all three of the test, the CI step, and a developer's terminal
+read the same `[tool.mypy]` config. A CI step alone means the failure arrives
+after pushing; a test alone can be bypassed by a pytest scope change; and a test
+that passed its own file list would be checking a scope nothing else uses.
+
+**One subtlety worth carrying.** `warn_unused_ignores` makes an inline
+`# type: ignore` a time bomb. `embedder.py` carried
+`# type: ignore[import-not-found]` on the optional `sentence_transformers`
+import — which becomes an *error* the moment someone installs the `[sbert]`
+extra. A per-module override is stable across both states, so the inline ignore
+was removed and its absence pinned as a test.
+
+**Anti-vacuous check worth repeating.** Reverting `chunking_lab/` makes the new
+gate fail — so it demonstrably catches the exact bug it was filed for. The
+offset invariant tests pass both ways, which is correct and honest: their job is
+to document that nothing was masked, not to fail.
+
+**Stated, not papered over.** `scripts/` and `tests/` are outside the gate.
+`mypy chunking_lab scripts tests` fails before checking anything with
+`Source file found twice under different module names: "run_matrix" and
+"scripts.run_matrix"`, which wants an `__init__.py` or `--explicit-package-bases`
+decision of its own. Filed separately.
+
+**Tests.** 169 new; suite 643 → 812 green, ruff clean, mypy clean.
