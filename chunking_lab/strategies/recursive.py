@@ -50,6 +50,22 @@ class RecursiveStrategy:
             )
         return chunks
 
+    def _brute_force_split(self, text: str, base_offset: int) -> list[tuple[str, int]]:
+        """Split at fixed ``chunk_chars`` boundaries, tracking absolute offsets.
+
+        Two branches of ``_split_recursive`` need exactly this: "no separators
+        left" and "the separator at this level is the empty string". They were
+        two byte-identical inline loops (#164), which is how a duplicated rule
+        starts — the two copies agree today and there is nothing to keep them
+        agreeing tomorrow. Extracted rather than merely deduplicated by
+        condition, because the two callers reach it for different reasons and
+        both read better naming the operation.
+        """
+        return [
+            (text[i : i + self.chunk_chars], base_offset + i)
+            for i in range(0, len(text), self.chunk_chars)
+        ]
+
     def _split_recursive(
         self, text: str, base_offset: int, separators: list[str]
     ) -> list[tuple[str, int]]:
@@ -59,18 +75,13 @@ class RecursiveStrategy:
 
         if not separators:
             # No separators left — brute-force split at chunk_chars boundaries.
-            out: list[tuple[str, int]] = []
-            for i in range(0, len(text), self.chunk_chars):
-                out.append((text[i : i + self.chunk_chars], base_offset + i))
-            return out
+            return self._brute_force_split(text, base_offset)
 
         sep, rest = separators[0], separators[1:]
         if sep == "":
-            # Empty-separator level: brute-force split at chunk_chars.
-            out: list[tuple[str, int]] = []
-            for i in range(0, len(text), self.chunk_chars):
-                out.append((text[i : i + self.chunk_chars], base_offset + i))
-            return out
+            # Empty-separator level: every position is a boundary, so descending
+            # further buys nothing — `rest` is deliberately unused here.
+            return self._brute_force_split(text, base_offset)
 
         # Split, but track each piece's offset back into the original.
         pieces: list[tuple[str, int]] = []

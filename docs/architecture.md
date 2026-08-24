@@ -232,6 +232,29 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   `embedding-model-shootout`, `prompt-regression-suite`, and
   `python-async-llm-pipelines`. Centralizes the `os.replace` surface
   to one monkey-patch target for the atomic-write test suite.
+- **D-013.** A non-strict `mypy` gate runs over `chunking_lab` in the
+  CI lint job and again as `tests/test_mypy_clean.py`, both invoking a
+  bare `mypy` so they read exactly the `[tool.mypy]` block in
+  `pyproject.toml` — the test, the CI step and a developer's local run
+  therefore cannot drift to different scopes. The rationale differs
+  from the two sibling repos that already have one: `llm-eval-harness`
+  (D-016) and `llm-cost-optimizer` (D-014) justify theirs by shipping a
+  `py.typed` marker, so their annotations are a downstream contract.
+  `chunking_lab` ships no marker; the case here is **latent green** rot
+  — the annotations existed, nothing machine-checked them, and #164 is
+  the proof: two `no-redef` errors sat in
+  `chunking_lab/strategies/recursive.py` unnoticed while CI was green
+  the whole time, because no gate ran. No blanket
+  `ignore_missing_imports` (a typo'd import must still surface); the
+  optional `sentence_transformers` import from D-003's `[sbert]` extra
+  is handled by a per-module override rather than an inline ignore,
+  which with `warn_unused_ignores` on would itself become an error the
+  moment someone installs the extra. `scripts/` and `tests/` are out of
+  scope for now — `mypy chunking_lab scripts tests` fails before
+  checking anything with `Source file found twice under different
+  module names: "run_matrix" and "scripts.run_matrix"`, which needs an
+  `__init__.py` or `--explicit-package-bases` decision of its own and
+  is tracked separately.
 
 ---
 
