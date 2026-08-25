@@ -81,7 +81,7 @@ class MiniLMEmbedder:
 
     def __init__(self, model_name: str = CANONICAL_EMBEDDING_MODEL) -> None:
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+            from sentence_transformers import SentenceTransformer
         except ImportError as e:  # pragma: no cover - exercised by users without the extra
             raise ImportError(
                 "MiniLMEmbedder requires the 'sbert' extra. "

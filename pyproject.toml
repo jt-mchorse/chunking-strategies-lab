@@ -32,6 +32,8 @@ dev = [
   # Powers tests/test_workflows_yaml_parseable.py (#39), the inverse
   # safety net for the 21-day silent CI outage closed in portfolio-ops#27.
   "pyyaml>=6.0",
+  # Powers tests/test_mypy_clean.py and the CI lint step (#164, D-013).
+  "mypy>=1.10",
 ]
 sbert = [
   "sentence-transformers>=3.0",
@@ -56,6 +58,33 @@ packages = ["chunking_lab"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-ra -q"
+
+[tool.mypy]
+# Non-strict baseline gate (#164, D-013; mirrors llm-eval-harness D-016 and
+# llm-cost-optimizer D-014). This repo's annotations were already there and
+# nothing machine-checked them, which is the "latent green" class — correct
+# today, with nothing to tell us when it stopped being. #164 surfaced two
+# `no-redef` errors that had gone unnoticed precisely because no gate ran.
+#
+# Scoped to the package. `mypy chunking_lab scripts tests` fails before
+# checking anything with `Source file found twice under different module
+# names: "run_matrix" and "scripts.run_matrix"`, which wants an `__init__.py`
+# or `--explicit-package-bases` decision of its own; tracked separately rather
+# than silently papered over here.
+#
+# No blanket `ignore_missing_imports`, so a typo'd import still surfaces. The
+# only external import in the package is the optional `sentence_transformers`
+# (D-003's `[sbert]` extra), handled by the override below rather than by an
+# inline `# type: ignore` — with `warn_unused_ignores` on, an inline ignore
+# would itself become an error the moment someone installs the extra.
+python_version = "3.11"
+files = ["chunking_lab"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "sentence_transformers.*"
+ignore_missing_imports = true
 
 [tool.ruff]
 # ruff 0.16.1 extended `ruff format` to Python code blocks inside Markdown.
