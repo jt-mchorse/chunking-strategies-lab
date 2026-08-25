@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from . import Chunk
+from . import Chunk, check_chunk_input
 
 # `[ \t]`, not `\s`, between the hashes and the title — and an *optional*
 # content group. `\s` matches newlines, so the pre-#154 pattern
@@ -155,6 +155,7 @@ class StructureAwareStrategy:
             raise ValueError(f"max_chunk_chars must be positive; got {self.max_chunk_chars}")
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
+        check_chunk_input(text, source_doc_id)
         if not text:
             return []
         # Drop matches inside fenced code blocks: a `# comment` line in a

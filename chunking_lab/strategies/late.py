@@ -26,7 +26,7 @@ from dataclasses import dataclass
 
 from chunking_lab.embedder import Embedder
 
-from . import Chunk, LateChunk
+from . import Chunk, LateChunk, check_chunk_input
 
 
 @dataclass
@@ -73,6 +73,7 @@ class LateChunkingStrategy:
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
         """Return Chunk objects (no vectors). Use `chunk_with_vectors` for late chunks."""
+        check_chunk_input(text, source_doc_id)
         return [lc.chunk for lc in self.chunk_with_vectors(text, source_doc_id=source_doc_id)]
 
     def chunk_with_vectors(self, text: str, *, source_doc_id: str = "doc") -> list[LateChunk]:

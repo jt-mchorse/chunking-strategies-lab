@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import Chunk
+from . import Chunk, check_chunk_input
 
 
 @dataclass
@@ -39,6 +39,7 @@ class FixedSizeStrategy:
             )
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
+        check_chunk_input(text, source_doc_id)
         if not text:
             return []
         chunks: list[Chunk] = []

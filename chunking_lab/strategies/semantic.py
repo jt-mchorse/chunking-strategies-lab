@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from chunking_lab.embedder import Embedder
 
-from . import Chunk
+from . import Chunk, check_chunk_input
 
 # The bare `(?<=[.!?])\s+` this replaces carried both adjacency assumptions that
 # rag-production-kit's two sentence-split sites had already fixed out of them —
@@ -148,6 +148,7 @@ class SemanticBoundaryStrategy:
             raise ValueError(f"max_chunk_chars must be positive; got {self.max_chunk_chars}")
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
+        check_chunk_input(text, source_doc_id)
         sentences = _split_sentences_with_offsets(text)
         if not sentences:
             return []
