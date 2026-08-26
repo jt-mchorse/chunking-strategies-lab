@@ -94,6 +94,12 @@ def _validate_metric_map(name: str, mapping: dict[int, float]) -> None:
     out-of-range ``recall@k`` can crown the wrong strategy in the
     comparison. Fail loud here, matching the loud-key contract of
     ``from_json`` and the loader-finiteness guards in sibling repos.
+
+    **Values only.** This walks ``mapping.items()`` and inspects ``v``;
+    ``k`` appears only in the error message. That is correct now, but it was
+    the whole story until #169 — the "loud-key contract" cited above was
+    ``int(k)`` and nothing else. Keys are validated by
+    :func:`_coerce_metric_keys`, before this function ever sees them.
     """
     for k, v in mapping.items():
         if isinstance(v, bool) or not isinstance(v, (int, float)):
@@ -102,6 +108,86 @@ def _validate_metric_map(name: str, mapping: dict[int, float]) -> None:
             raise ValueError(f"{name}[{k}] must be finite; got {v!r}")
         if not 0.0 <= v <= 1.0:
             raise ValueError(f"{name}[{k}] must be in [0, 1]; got {v!r}")
+
+
+def _coerce_metric_keys(name: str, raw: dict[str, Any]) -> dict[int, Any]:
+    """Coerce a metric map's JSON string keys back to ``int``, loudly (#169).
+
+    ``to_json`` writes ``{str(k): v}`` for ``k: int``. Reading that back with a
+    bare ``{int(k): v for ...}`` was not the inverse, because ``int()`` accepts
+    a far larger language than ``str(int)`` can produce. Measured on the
+    unguarded version, over an otherwise-canonical payload::
+
+        {"5": 0.9, "05": 0.1}   -> {5: 0.1}     0.9 gone
+        {"5": 0.9, " 5": 0.1}   -> {5: 0.1}     0.9 gone
+        {"5": 0.9, "+5": 0.1}   -> {5: 0.1}     0.9 gone
+        {"5": 0.9, "\u0665": 0.1} -> {5: 0.1}     0.9 gone (Arabic-Indic five)
+        {"5_0": 0.9}            -> {50: 0.9}    a typo becomes a different k
+        {"-3": 0.9}             -> {-3: 0.9}
+        {"0": 0.9}              -> {0: 0.9}
+
+    Two harms. The collisions are **silent** -- a real measurement is
+    overwritten and nothing says so -- and they defeat ``#160``'s cross-map
+    check, which compares key sets *after* the coercion::
+
+        recall_at_k      = {"5": 0.9, "05": 0.1}  -> {5: 0.1}
+        snippet_hit_at_k = {"5": 0.9}             -> {5: 0.9}
+        key sets now match, so the guard written to catch exactly this
+        mismatch passes and the run loads clean
+
+    Requiring the *canonical* spelling fixes both at once: two distinct
+    canonical spellings cannot coerce to the same int, so a collision is
+    impossible by construction and no separate collision check is needed.
+
+    The range check is delegated to :func:`validate_ks`, not restated. The write
+    path already refuses to *produce* a non-positive or non-int ``k`` -- and the
+    comment above that call names the harm ("``k=0`` silently produces
+    ``recall@0=0.0`` always; ``k<0`` silently miscounts") -- while this reader
+    accepted both from a file, and ``_render_summary`` derives its columns from
+    the loaded keys, so a `recall@-3` column could reach the tracked
+    ``results/summary.md``. ``#149`` extracted ``validate_ks`` precisely so a
+    second caller could share the rule instead of keeping a copy in sync; this
+    is the third such caller.
+
+    This is the "loud … on both the key and the value axis" that ``from_json``
+    documents and ``_validate_metric_map`` says it matches. Before this, the key
+    axis was ``int()``.
+    """
+    out: dict[int, Any] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            # Unreachable from `json.loads` (JSON names are strings) but not
+            # from a hand-built dict passed straight to `from_json`.
+            raise ValueError(f"{name} key must be a string; got {key!r}")
+        try:
+            k = int(key)
+        except ValueError:
+            raise ValueError(
+                f"{name} key {key!r} is not an integer; `to_json` writes these "
+                f"keys as `str(k)` for the integer k of recall@k"
+            ) from None
+        if str(k) != key:
+            raise ValueError(
+                f"{name} key {key!r} is not the canonical spelling of {k} "
+                f"(expected {str(k)!r}); `int()` accepts leading zeros, "
+                f"surrounding whitespace, a leading '+', '_' digit separators "
+                f"and non-ASCII decimal digits, none of which `to_json` can "
+                f"write -- and two such spellings collide silently, dropping a "
+                f"measurement"
+            )
+        out[k] = value
+    # Same rule the write path applies before producing these keys, shared
+    # rather than restated (#149, #158). Re-raised with the field name
+    # prefixed, because `validate_ks`'s own message says "ks" -- correct for
+    # its two existing callers (`evaluate_strategy`, the `--ks` CLI pre-flight)
+    # and wrong here, where `from_json` documents a field-named ValueError.
+    # The rule itself is not restated; only the message is located.
+    if out:
+        try:
+            validate_ks(sorted(out))
+        except ValueError as e:
+            raise ValueError(f"{name} keys: {e}") from None
+    return out
 
 
 def _validate_wall_clock(value: Any) -> None:
@@ -215,9 +301,25 @@ class RetrievalRun:
         (pre-D-009) continue to load cleanly.
 
         Raises ``KeyError`` with the missing field name when a
-        required key is absent, and ``ValueError`` when a numeric value
-        is corrupt — the failure mode is loud, not silent, on both the
-        key and the value axis. Concretely, on the value axis:
+        required field is absent, and ``ValueError`` when a value or a
+        metric-map key is corrupt — the failure mode is loud, not
+        silent, on both the key and the value axis. Concretely, on the
+        key axis (#169):
+
+        - a metric-map key must be the *canonical* ``str(k)`` spelling
+          of its integer. ``int()`` also accepts leading zeros,
+          surrounding whitespace, a leading ``+``, ``_`` digit
+          separators and non-ASCII decimal digits, so ``"05"`` /
+          ``" 5"`` / ``"+5"`` / an Arabic-Indic five each collided with
+          ``"5"`` and dropped a measurement with no diagnostic — and hid
+          the very key-set mismatch the cross-map check below exists to
+          catch.
+        - the resulting k goes through :func:`validate_ks`, the *same*
+          rule the write path applies before producing these keys, so
+          ``k <= 0`` can no longer be read back from a file
+          ``evaluate_strategy`` would have refused to write.
+
+        And on the value axis:
 
         - ``recall_at_k`` / ``snippet_hit_at_k`` entries must be
           non-bool numbers, finite, and within ``[0, 1]``.
@@ -248,8 +350,13 @@ class RetrievalRun:
                 raise ValueError(
                     f"{_name} must be a JSON object, got {type(payload[_name]).__name__}"
                 )
-        recall = {int(k): v for k, v in payload["recall_at_k"].items()}
-        snippet = {int(k): v for k, v in payload["snippet_hit_at_k"].items()}
+        # Key axis, loudly (#169). `int()` is not the inverse of `str()`: it
+        # accepts leading zeros, whitespace, '+', '_' separators and non-ASCII
+        # decimal digits, so four spellings collided with "5" and silently
+        # dropped a measurement -- and the collision hid the very key-set
+        # mismatch #160's check below exists to catch.
+        recall = _coerce_metric_keys("recall_at_k", payload["recall_at_k"])
+        snippet = _coerce_metric_keys("snippet_hit_at_k", payload["snippet_hit_at_k"])
         _validate_metric_map("recall_at_k", recall)
         _validate_metric_map("snippet_hit_at_k", snippet)
         # Both maps validated, but only ever *independently* (#160). A run is
@@ -354,7 +461,11 @@ def validate_ks(ks: Sequence[int]) -> None:
     **Type, not just sign (#158).** The signature says ``Sequence[int]`` and
     this function checked only ``k <= 0``, so the int-ness was asserted by the
     annotation and enforced nowhere — while the *read* path in this same module
-    enforces it fully for the very fields these ``k`` become. ``_validate_count``
+    enforces it fully for the very fields these ``k`` become. (That was true of
+    ``n_queries`` / ``n_chunks_total`` and false of the metric-map *keys*, which
+    were read with a bare ``int(k)`` until #169. It is true now:
+    ``_coerce_metric_keys`` calls *this* function, so the two paths share one
+    rule instead of describing each other.) ``_validate_count``
     uses ``isinstance(value, bool) or not isinstance(value, int)`` and says why:
     "bool is excluded explicitly because it subclasses int and would otherwise
     pass the type check." That is now the posture here too.
