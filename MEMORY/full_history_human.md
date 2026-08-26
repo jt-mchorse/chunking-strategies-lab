@@ -1626,3 +1626,45 @@ to document that nothing was masked, not to fail.
 decision of its own. Filed separately.
 
 **Tests.** 169 new; suite 643 → 812 green, ruff clean, mypy clean.
+
+## 2026-08-25 — two strategies accepted `bytes` and produced byte offsets (#167)
+
+**What got done.** `Chunk`'s docstring states this module's central invariant:
+offsets are Unicode *codepoint* offsets, "NOT byte offsets … on multibyte text
+these differ from byte offsets". `FixedSizeStrategy` and `RecursiveStrategy`
+accepted `bytes`, and when they did they produced byte offsets — for
+`'Café résumé — 日本語'.encode()`, a chunk whose `text` field held a `bytes`
+object and whose offsets were `[0, 28)` against a string of 17 codepoints. Across
+the five strategies there were three different exception types for the same bad
+input, and `source_doc_id` was unvalidated on all five. One shared
+`check_chunk_input` now sits beside `Chunk` and the `Strategy` protocol.
+
+**The lens came straight from the previous issue.** `vector-search-at-scale#131`,
+shipped twenty minutes earlier, was five backends implementing one Protocol with
+divergent `ingest` guards. This is five strategies implementing one Protocol with
+divergent `chunk` guards. N implementations of one interface is a standing
+invitation — and a clean constructor tells you nothing about the method.
+
+**It paid in a repo I had already hunted twice, empty, this same run** — loader
+versus validator parity (20 of 20 agreeing) and offset invariants (0 violations
+over 5 strategies × 18 texts). Two empty hunts mean those two axes are exhausted,
+not the repo.
+
+**And the sharpest part is that my own earlier empty hunt tested the very
+invariant this breaks.** I ran offsets over five strategies and eighteen texts and
+got zero violations — because every text I passed was a `str`. `#80`'s shipped
+`test_offsets_are_codepoint_not_byte_offsets` has exactly the same blind spot. An
+invariant test is only as wide as its input types.
+
+**A plan correction, posted publicly.** The plan deferred `text=None`, but an
+`isinstance` check rejects it naturally, and preserving the old zero-chunk
+behaviour would have meant writing a carve-out that *codifies* "None is an empty
+document". A carve-out preserving a questionable behaviour is worse than either
+choice. `text=""` still yields zero chunks on all five, unchanged and pinned.
+
+**Open questions.** None. `Chunk.__post_init__` type validation as defence in
+depth for direct construction is a separate, smaller question.
+
+**Tests.** 66 new. Neutering both `isinstance` lines turns 50 of 66 red while
+every control and empty-string row stays green. Suite 812 → 878 green, ruff and
+mypy clean; no committed artifact or published number moves.

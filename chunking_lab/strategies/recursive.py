@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import Chunk
+from . import Chunk, check_chunk_input
 
 # Default separator hierarchy: try larger boundaries first to preserve
 # semantic units. The empty separator at the end is the brute-force fallback.
@@ -34,6 +34,7 @@ class RecursiveStrategy:
             raise ValueError("separators must be non-empty")
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
+        check_chunk_input(text, source_doc_id)
         if not text:
             return []
         chunks: list[Chunk] = []

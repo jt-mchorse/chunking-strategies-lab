@@ -32,6 +32,55 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
+def check_chunk_input(text: object, source_doc_id: object) -> None:
+    """Raise unless `chunk()`'s two inputs are the `str`s its signature declares.
+
+    One definition, called at the top of all five `chunk()` methods, so the
+    strategies agree and a sixth gets it by construction (#167).
+
+    Before this, they did not agree. Measured over nine inputs:
+
+        case             fixed        recursive    semantic     late           structure
+        CONTROL str/str  ok, 1 chunk  ok, 1 chunk  ok, 1 chunk  ok, 1 chunk    ok, 1 chunk
+        text=123         TypeError    TypeError    TypeError    AttributeError TypeError
+        text=b'bytes'    ok, 1 chunk  ok, 1 chunk  TypeError    AttributeError TypeError
+        text=['a']       ok, 1 chunk  ok, 1 chunk  TypeError    AttributeError TypeError
+        doc_id=None/123  ok           ok           ok           ok             ok
+
+    `fixed` and `recursive` accepting `bytes` is the sharp one, because of what
+    they then produce. `Chunk`'s docstring states this module's central
+    invariant -- offsets are Unicode CODEPOINT offsets, "NOT byte offsets ... on
+    multibyte text these differ from byte offsets" -- and a `bytes` input makes
+    them byte offsets:
+
+        input: 'Cafe resume - <CJK>'.encode()   len(bytes) = 28, len(str) = 17
+        fixed      chunk.text is `bytes`,  offsets = [0, 28)
+        recursive  chunk.text is `bytes`,  offsets = [0, 28)
+
+    So `source_text[start_offset:end_offset] == chunk.text` fails by
+    construction, and `#80`'s `test_offsets_are_codepoint_not_byte_offsets`
+    cannot see it because that test only ever passes `str`.
+
+    `source_doc_id` was unvalidated on all five -- uniform rather than a
+    divergence, but a chunk with `source_doc_id=None` cannot be attributed to a
+    document, and the recall metrics key on exactly that field.
+
+    Deliberately unchanged: `text=""` still yields zero chunks everywhere. Only
+    the *type* is checked here, not the content.
+    """
+    if not isinstance(text, str):
+        raise ValueError(
+            f"text must be a str; got {type(text).__name__}. Offsets are Unicode "
+            "codepoint offsets into that str, so a bytes/list input silently "
+            "produces offsets of a different kind (#167)."
+        )
+    if not isinstance(source_doc_id, str):
+        raise ValueError(
+            f"source_doc_id must be a str; got {type(source_doc_id).__name__}. "
+            "It is the key the metrics matrix attributes retrieved chunks by."
+        )
+
+
 @dataclass(frozen=True)
 class Chunk:
     """One chunk produced by a strategy."""
