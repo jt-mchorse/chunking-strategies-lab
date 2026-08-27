@@ -1731,3 +1731,45 @@ itself: every non-canonical row asserts both that `int()` accepts it and that
 `str(int(k)) != k`, so a row drifting into the already-rejected `invalid literal`
 class fails loudly instead of passing and proving nothing. Suite 878 → 918 green,
 ruff and mypy clean; no committed artifact or published number moves.
+
+
+## 2026-08-27 - #171: a true reason for an over-broad exclusion
+
+`#162` rejected invisible Unicode format characters from the matched golden-query
+fields, because one of them silently turns a published `recall@k` into `0.000`
+that reads exactly like an honest miss. It excluded the control category on a
+single stated reason: a newline is a control character, and a snippet spanning a
+line break is normal.
+
+The reason is true. That is what makes it hard to catch. Re-reading it confirms
+it, and confirming it feels like checking. The question that breaks it open is
+arithmetic: the reason names a Unicode *category*, categories are enumerable, so
+how many of its members does the reason actually reach? Sixty-five members, ten
+reached. The other fifty-five - NUL, BEL, ESC, DELETE, the whole C1 block - are
+invisible, survive `.strip()`, and have no business inside an id, a filename or a
+snippet. On the same harness `#162` itself used, each of them produced a
+confident `0.000` on both axes while the validator reported the file CLEAN.
+
+The fix is a partition rather than a list: reject a control character that
+`str.isspace()` does not recognise. Hand-listing NUL, ESC and friends would have
+reintroduced the exact defect being fixed - a rule as wide as whoever wrote the
+examples instead of as wide as the property. And the proof that this is a scope
+correction rather than a reversed decision is that the test which pinned the
+original exclusion passes unchanged: nothing the newline argument covered was
+taken away.
+
+The name was part of the bug. `find_format_char` made "format characters" read
+like the whole rule to every later reader, including whoever wrote `#162`. The
+finding code it has always emitted is `invisible_char_{field}` - the code was the
+accurate half all along. When a function and its own output disagree about what
+it does, the output is usually right, because the output is what somebody reads.
+
+Two process notes, both the same lesson from opposite directions. Writing about
+invisible characters is how you ship one: earlier today a surrogate escape in a
+non-raw docstring became a real surrogate and broke an import, and here a literal
+control character in a shell command got the whole command rejected - twice,
+including the step that was supposed to write the file, so the next step then
+failed on a missing file. Build them from `chr()` and assert the text is ASCII
+before sending it. And `git stash` without `-u` leaves a new untracked test file
+in place, so the baseline run fails to collect and reports "1 error" - which is
+not a test count.
