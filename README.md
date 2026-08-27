@@ -59,6 +59,22 @@ chunking_lab/
     └── structure.py     ← StructureAwareStrategy (markdown-heading split)
 ```
 
+**Golden data is linted for invisible characters**, because a corrupted golden
+row does not fail — it publishes. The matched fields (`id`, `expected_doc`,
+`expected_snippet`) are compared by exact or substring match, so one character
+that is invisible in an editor and survives `str.strip()` flips a published
+`recall@k` or `snippet-hit@k` from `1.000` to `0.000` while the validator reports
+the file CLEAN — indistinguishable from an honest "this strategy retrieved
+nothing relevant". The rule covers the Unicode **format** category (`Cf`:
+zero-width space, BOM, word joiner, soft hyphen — #162) and the **control**
+category minus the characters `str.isspace()` recognises (`Cc`: NUL, BEL, ESC,
+DELETE, the C1 block — #171). A snippet spanning a newline is still legal: that
+was the reason `Cc` was excluded wholesale, and it is exactly as wide as
+*newline*, so the ten whitespace controls stay accepted and the other 55 do not.
+`question` is deliberately outside the rule — it is only ever embedded, never
+compared, and a directional mark is legitimate inside RTL question text.
+
+
 See **[`docs/architecture.md`](docs/architecture.md)** for the integrated comparison flow, per-layer detail across all four shipped layers (substrate #1, strategies #2, metrics matrix #3, comparison notebook #4), and the design decisions behind each one (D-002…D-013).
 
 ## Strategies (#2)
