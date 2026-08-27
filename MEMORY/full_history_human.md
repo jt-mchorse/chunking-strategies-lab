@@ -1668,3 +1668,66 @@ depth for direct construction is a separate, smaller question.
 **Tests.** 66 new. Neutering both `isinstance` lines turns 50 of 66 red while
 every control and empty-string row stays green. Suite 812 → 878 green, ruff and
 mypy clean; no committed artifact or published number moves.
+
+## 2026-08-26 — the key axis was `int(k)` and three docstrings said otherwise (#169)
+
+**What got done.** `to_json` writes metric-map keys as `str(k)`; `from_json` read
+them back with a bare `{int(k): v for k, v in ...}`, and `_validate_metric_map`
+walks `.items()` inspecting only `v`. `_coerce_metric_keys` now requires the
+canonical spelling and delegates the range check to `validate_ks`.
+
+**The method was the portfolio sweep for a pattern I had just shipped.**
+`rag-production-kit#188`, closed twenty minutes earlier, was a dict comprehension
+that transforms only `v`. Grepping all twelve repos for that shape landed on two
+with the identical `{str(k)}` / `{int(k)}` pair. Fifth run in a row this has been
+the highest-yield method.
+
+**The sharper question than the grep: is the read transform the inverse of the
+write transform?** `str(k)` and `int(k)` look like a pair. `int()` accepts leading
+zeros, surrounding whitespace, a leading `+`, `_` digit separators, and — the one
+I did not expect — **non-ASCII decimal digits**. `int("٥")` is 5. So a JSON key no
+ASCII keyboard produced collides with `"5"`, silently overwriting a real
+measurement.
+
+**A coercion can hide the guard that runs after it.** `#160` compares
+`recall.keys() != snippet.keys()` *after* the `int()` coercion. With
+`recall_at_k = {"5": .9, "05": .1}` collapsing to one key, the two maps agreed,
+so the guard written to catch exactly that mismatch passed and the run loaded
+clean with a measurement gone. Worth asking of any guard: what runs before it,
+and can that thing manufacture the guard's passing condition?
+
+**The best structural move was making collisions impossible rather than
+detected.** Requiring `str(int(key)) == key` means two distinct canonical
+spellings cannot coerce to the same int, so no separate collision check exists to
+get out of sync. When a coercion can collide, constrain the input to the
+coercion's own image.
+
+**Three docstrings pointed at each other and none at the code.** `from_json`
+claims "loud … on both the key and the value axis"; `_validate_metric_map` says
+it is "matching the loud-key contract of `from_json`"; and `validate_ks` (#158)
+justifies its own existence by saying "the *read* path in this same module
+enforces it fully for the very fields these `k` become". A circle of citations is
+not a guarantee — follow it to a line of code.
+
+**And the write-side guard supplied the severity argument.**
+`evaluate_strategy`'s comment already says `k=0` "silently produces
+`recall@0=0.0` always" and `k<0` "silently miscounts". `from_json` accepted both
+from a file, and `_render_summary` builds its columns from the loaded keys, so a
+`recall@-3` column could reach the tracked `results/summary.md`.
+
+**A test technique worth reusing.** `test_the_range_rule_is_shared_not_restated`
+monkeypatches `validate_ks` to a no-op, asserts the bad k gets through the
+*reader*, then restores it and asserts refusal. That asserts the call graph, not
+just the behaviour — so a future copy-paste of the rule fails the test rather
+than passing it.
+
+**Sibling, filed separately.** `embedding-model-shootout`'s `sweep.py` has the
+identical pair at lines 169 and 252. It gets its own issue and its own
+measurement rather than a cross-repo reach here.
+
+**Tests.** 40 new. Neutering the canonical-spelling check turns 23 red, the
+`validate_ks` delegation 4, with no control affected in either. The table guards
+itself: every non-canonical row asserts both that `int()` accepts it and that
+`str(int(k)) != k`, so a row drifting into the already-rejected `invalid literal`
+class fails loudly instead of passing and proving nothing. Suite 878 → 918 green,
+ruff and mypy clean; no committed artifact or published number moves.
