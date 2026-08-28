@@ -1773,3 +1773,47 @@ failed on a missing file. Build them from `chr()` and assert the text is ASCII
 before sending it. And `git stash` without `-u` leaves a new untracked test file
 in place, so the baseline run fails to collect and reports "1 error" - which is
 not a test count.
+
+## 2026-08-28 - issue #165: the collision blocking the type gate was a real bug
+
+The gate was scoped to the package because the wider invocation did not merely
+report errors in `scripts/` - it stopped before checking anything, saying the same
+source file was found twice under two module names. The issue framed that as a
+layout question with two possible answers, and asked for a decision between them.
+
+Measuring first changed the answer. Neither option addresses the actual problem,
+because mypy was reporting something true. The test suite really did import
+`scripts/run_matrix.py` under both names - four places did a `sys.path` insert and
+imported it bare, everything else imported it through the `scripts` package. Python
+treats those as unrelated modules, so the file's body runs twice and a monkeypatch
+on one copy cannot reach the other. Nothing was failing, but only because each
+group of tests happened to patch and call the same copy. That is a property of
+which tests currently exist, not something anyone had enforced.
+
+So the fix is two halves. The configuration keys make the mapping unambiguous, and
+normalizing the four bare imports removes the duplicate. Either alone leaves the
+other problem standing, which is worth stating because the issue offered them as
+alternatives. Adding an `__init__.py`, the other suggestion, would have changed how
+the script resolves when run directly and would not have removed the duplicate.
+
+Once the gate could run it found exactly one real error in `scripts/`: a type-ignore
+comment that had been dead all along, on a name that is defined unconditionally. It
+was removed rather than silenced - and the mypy config's own comment already argued
+against inline ignores for exactly that reason. The script was simply out of scope,
+so nothing had ever checked it.
+
+Two smaller lessons. My first version of the guard that forbids re-adding `scripts/`
+to `sys.path` searched for a substring, found that substring in its own source, and
+reported itself as the offender; rewriting it as an AST walk for a real call fixed
+it and correctly ignores the equivalent code I hand to a subprocess as a string. And
+the architecture doc's path lock caught me writing about `scripts/__init__.py` in
+backticks - a path I had deliberately declined to create. I reworded rather than
+adding it to the exemption list, which is meant for future artifacts, not rejected
+ones.
+
+I left `tests/` out of the gate, but the issue's complaint was that nobody knew what
+exclusion was hiding, so I measured it: twelve errors, enumerated by class in a
+follow-up. One of them needs a new dev dependency, which is why it is not riding
+along here. And running the same probe across the portfolio found the identical
+collision in `llm-cost-optimizer`, filed there rather than fixed in a second pull
+request against a repo that already has one open tonight.
