@@ -249,12 +249,30 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   optional `sentence_transformers` import from D-003's `[sbert]` extra
   is handled by a per-module override rather than an inline ignore,
   which with `warn_unused_ignores` on would itself become an error the
-  moment someone installs the extra. `scripts/` and `tests/` are out of
-  scope for now — `mypy chunking_lab scripts tests` fails before
-  checking anything with `Source file found twice under different
-  module names: "run_matrix" and "scripts.run_matrix"`, which needs an
-  `__init__.py` or `--explicit-package-bases` decision of its own and
-  is tracked separately.
+  moment someone installs the extra. The original scope excluded
+  `scripts/` and `tests/`; `scripts/` joined it in D-014 below.
+- **D-014 (#165).** The gate covers `scripts/` as well as the package.
+  It could not before: `mypy chunking_lab scripts` stopped with
+  `Source file found twice under different module names: "run_matrix"
+  and "scripts.run_matrix"` and checked *nothing*, so nobody knew
+  whether `scripts/` was clean — and `scripts/run_matrix.py` writes the
+  `results/*.json` the README table and the notebook are derived from.
+  That error was a true finding rather than a layout quirk: the suite
+  really did import the file both ways, and Python makes each name a
+  separate module object, so the body ran twice and a
+  `monkeypatch.setattr` on one copy could not reach the other. The fix
+  is therefore in two halves, and neither alone would do. `mypy_path`
+  plus `explicit_package_bases` make the *mapping* unambiguous (one
+  file, one module name, rooted at the repo); normalizing the four bare
+  `from run_matrix import …` sites in `tests/test_metrics.py` to
+  `scripts.run_matrix` removes the *cause*. Adding an `__init__.py` under
+  `scripts/`, the other option #165 listed, was declined — it changes how
+  `python scripts/run_matrix.py` resolves and would not have removed the
+  duplicate either. The gate then reported one real error, a dead
+  `# type: ignore[attr-defined]`, which was removed rather than
+  silenced. `tests/` stays out of scope, but is now *measured* rather
+  than unknown — 12 errors, one of which needs `types-PyYAML` added to
+  the dev extra — and tracked separately.
 
 ---
 
