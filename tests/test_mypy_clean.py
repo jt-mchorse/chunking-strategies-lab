@@ -50,17 +50,37 @@ def test_mypy_reports_no_issues() -> None:
     )
 
 
-def test_mypy_config_is_scoped_to_the_package() -> None:
-    """`files` must name the package, so a bare `mypy` checks something.
+def test_mypy_config_covers_the_package_and_scripts() -> None:
+    """`files` must name both roots, so a bare `mypy` checks both.
 
     Without a `files` key, a bare `mypy` exits 2 with "no files or directories
     to check" — which `test_mypy_reports_no_issues` would report as a failure,
     but a future edit setting `files = []` would make it *pass vacuously*.
+
+    `scripts` joined the scope in #165 (D-014). It had been excluded because
+    `mypy chunking_lab scripts` could not start at all, so nobody knew whether
+    it was clean; it wasn't, by one dead `type: ignore`.
     """
     config = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     mypy_cfg = config["tool"]["mypy"]
-    assert mypy_cfg["files"] == ["chunking_lab"]
-    assert (_REPO_ROOT / "chunking_lab").is_dir()
+    assert mypy_cfg["files"] == ["chunking_lab", "scripts"]
+    for root in mypy_cfg["files"]:
+        assert (_REPO_ROOT / root).is_dir(), f"{root} in mypy files= does not exist"
+
+
+def test_the_package_base_config_that_lets_scripts_be_checked_is_present() -> None:
+    """The two keys that make `scripts/run_matrix.py` map to one module name.
+
+    Without them mypy resolves that file as both `run_matrix` and
+    `scripts.run_matrix` and stops with "Source file found twice", checking
+    *nothing* — including `chunking_lab`. Dropping either key silently reverts
+    the whole gate to that state, which exits non-zero rather than passing, but
+    the failure would read as an unrelated config error rather than as this.
+    """
+    config = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    mypy_cfg = config["tool"]["mypy"]
+    assert mypy_cfg["explicit_package_bases"] is True
+    assert mypy_cfg["mypy_path"] == "."
 
 
 def test_the_gate_actually_checks_source_files() -> None:

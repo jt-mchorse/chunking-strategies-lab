@@ -66,11 +66,21 @@ addopts   = "-ra -q"
 # today, with nothing to tell us when it stopped being. #164 surfaced two
 # `no-redef` errors that had gone unnoticed precisely because no gate ran.
 #
-# Scoped to the package. `mypy chunking_lab scripts tests` fails before
-# checking anything with `Source file found twice under different module
-# names: "run_matrix" and "scripts.run_matrix"`, which wants an `__init__.py`
-# or `--explicit-package-bases` decision of its own; tracked separately rather
-# than silently papered over here.
+# Covers the package and `scripts/` (#165, D-014 amending D-013's scope).
+# `scripts/run_matrix.py` writes `results/*.json`, which the README table and
+# the notebook are derived from, so it is not a throwaway.
+#
+# It used to be package-only because `mypy chunking_lab scripts` failed before
+# checking anything: "Source file found twice under different module names:
+# `run_matrix` and `scripts.run_matrix`". That was a true report, not a layout
+# quirk -- `tests/` really did import the file both ways, producing two module
+# objects from one file in one interpreter, so a `monkeypatch.setattr` on one
+# could not reach the other. `explicit_package_bases` + `mypy_path` fix the
+# *mapping* (one file, one module name, rooted at the repo), and #165 fixed the
+# *cause* by normalizing the imports; neither alone would have been enough.
+#
+# `tests/` is still out of scope, but now measured rather than unknown -- see
+# the follow-up issue for the 12 errors it reports.
 #
 # No blanket `ignore_missing_imports`, so a typo'd import still surfaces. The
 # only external import in the package is the optional `sentence_transformers`
@@ -78,7 +88,12 @@ addopts   = "-ra -q"
 # inline `# type: ignore` — with `warn_unused_ignores` on, an inline ignore
 # would itself become an error the moment someone installs the extra.
 python_version = "3.11"
-files = ["chunking_lab"]
+files = ["chunking_lab", "scripts"]
+# Root the package base at the repo so `scripts/run_matrix.py` maps to
+# `scripts.run_matrix` -- the name the test suite imports it by -- rather than
+# ambiguously to both that and bare `run_matrix`.
+mypy_path = "."
+explicit_package_bases = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
