@@ -63,7 +63,7 @@ from pathlib import Path
 from typing import Any
 
 from chunking_lab.io_utils import atomic_write_text
-from chunking_lab.queries import MATCHED_FIELDS, format_char_reason
+from chunking_lab.queries import MATCHED_FIELDS, invisible_char_reason
 
 REQUIRED_FIELDS: tuple[str, ...] = ("id", "question", "expected_doc", "expected_snippet")
 
@@ -308,7 +308,7 @@ def _validate_row(obj: dict[str, Any], line_no: int) -> list[ValidationFinding]:
         # as well as raised by `Query.__post_init__` so the linter stays in
         # lockstep with the loader, the same parity `empty_<field>` keeps.
         if field in MATCHED_FIELDS:
-            reason = format_char_reason(f"field {field!r}", value)
+            reason = invisible_char_reason(f"field {field!r}", value)
             if reason is not None:
                 findings.append(
                     ValidationFinding(

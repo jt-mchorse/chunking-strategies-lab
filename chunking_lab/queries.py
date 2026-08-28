@@ -33,56 +33,84 @@ DEFAULT_QUERIES_PATH = _REPO_ROOT / "data" / "queries.jsonl"
 MATCHED_FIELDS: tuple[str, ...] = ("id", "expected_doc", "expected_snippet")
 
 
-def find_format_char(value: str) -> tuple[int, str] | None:
-    """Return ``(index, codepoint_label)`` of the first Cf character, else None.
+def _is_invisible(ch: str) -> bool:
+    """True if *ch* is invisible when rendered AND survives ``str.strip()``.
 
-    Unicode general category ``Cf`` (format) is the set of characters that are
-    invisible when rendered *and* survive ``str.strip()`` -- U+200B ZERO WIDTH
-    SPACE, U+FEFF, U+2060 WORD JOINER, U+00AD SOFT HYPHEN, U+180E. The
-    emptiness guards in this module use ``not value.strip()`` precisely because
-    "a whitespace-only field is as corrupting as an empty one", and that is
-    true for every codepoint Python calls whitespace -- U+00A0, U+3000, U+202F
-    are all removed. The Cf characters are the ones ``str.isspace()``
-    deliberately excludes, so they slipped through (#162).
+    Two Unicode categories qualify, and the second one is the whole of #171.
 
-    Measured, one golden query against a two-document corpus at k=3, changing
-    nothing but the golden data::
+    ``Cf`` (format) -- U+200B ZERO WIDTH SPACE, U+FEFF, U+2060 WORD JOINER,
+    U+00AD SOFT HYPHEN, U+180E. These are what ``str.isspace()`` deliberately
+    excludes, so they slipped past the emptiness guard (#162).
 
-        clean (control)                recall@3 1.000   snippet@3 1.000
-        expected_doc trailing ZWSP     recall@3 0.000   snippet@3 1.000
-        expected_doc leading BOM       recall@3 0.000   snippet@3 1.000
-        snippet trailing ZWSP          recall@3 1.000   snippet@3 0.000
-        snippet = soft hyphen only     recall@3 1.000   snippet@3 0.000
+    ``Cc`` (control), **minus the ones Python calls whitespace**. The #162 rule
+    excluded ``Cc`` wholesale on one stated reason: "a newline is ``Cc`` and is
+    legitimate inside an ``expected_snippet`` that spans a line break". That is
+    true, and it justifies excluding *newline* -- ``Cc`` has 65 members and the
+    reason reaches at most the ten ``str.isspace()`` already recognises (tab,
+    newline, vertical tab, form feed, carriage return, U+001C-U+001F, U+0085).
+    The other 55 -- NUL, BEL, BACKSPACE, ESC, DELETE, and the C1 block
+    U+0080-U+009F -- are invisible, survive ``.strip()``, and are not legitimate
+    inside an id, a filename or a snippet. Measured on the same harness #162
+    used (one golden query, a two-document corpus, ``FixedSizeStrategy``, k=3),
+    changing nothing but one appended character::
 
-    Every one of those was accepted by ``Query()`` and reported CLEAN by
-    ``validate_queries``. A ``0.000`` produced this way is indistinguishable
-    from an honest "this strategy retrieved nothing relevant" -- the same
-    confusion #160 closed for the *unmeasured* case, reached here through the
-    golden data instead of through a missing key.
+        control (clean)     recall@3 1.000   snippet@3 1.000   validator CLEAN
+        U+0000 NUL          recall@3 0.000   snippet@3 0.000   validator CLEAN
+        U+0007 BEL          recall@3 0.000   snippet@3 0.000   validator CLEAN
+        U+0008 BACKSPACE    recall@3 0.000   snippet@3 0.000   validator CLEAN
+        U+001B ESC          recall@3 0.000   snippet@3 0.000   validator CLEAN
+        U+007F DELETE       recall@3 0.000   snippet@3 0.000   validator CLEAN
+        U+009B CSI          recall@3 0.000   snippet@3 0.000   validator CLEAN
 
-    The provenance is established rather than hypothetical: #93 fixed a BOM at
-    the *start* of this very file, and ``load_corpus`` documents that it
-    tolerates one too, both because spreadsheet and Notepad exports emit them.
-    A BOM *inside* a field value comes from the same paste.
+    Byte-for-byte the failure #162 exists to prevent, reached through the
+    sibling category. Partitioning ``Cc`` on ``str.isspace()`` rather than
+    listing codepoints keeps the rule exactly as wide as its own justification:
+    every character the newline argument covers stays legal, and nothing else
+    does.
 
-    ``Cc`` (control) is deliberately not included: ``\n`` is ``Cc`` and is
-    legitimate inside an ``expected_snippet`` that spans a line break.
+    Provenance, as with #162, is established rather than hypothetical. A NUL run
+    inside a field is what a UTF-16 export read as UTF-8 leaves behind, and the
+    C1 block is what a CP-1252 round trip produces -- the same spreadsheet-and-
+    paste road that put a BOM at the start of this very file in #93.
+    """
+    category = unicodedata.category(ch)
+    if category == "Cf":
+        return True
+    return category == "Cc" and not ch.isspace()
+
+
+def find_invisible_char(value: str) -> tuple[int, str] | None:
+    """Return ``(index, codepoint_label)`` of the first invisible character, else None.
+
+    Named for what it finds rather than for one of the two categories it covers.
+    It was ``find_format_char`` while the rule was ``Cf``-only, and that name is
+    part of why the rule stayed ``Cf``-only through #162 -- the finding code it
+    has always produced is ``invisible_char_{field}``, so the *code* was the
+    accurate half all along (#171). See :func:`_is_invisible` for the rule and
+    the measured table.
+
+    Both readers route through here: ``Query.__post_init__`` (strict) and
+    ``validate.validate_queries`` (collecting), so the loader and the linter
+    cannot disagree about a file -- the parity #162 established.
     """
     for i, ch in enumerate(value):
-        if unicodedata.category(ch) == "Cf":
+        if _is_invisible(ch):
             name = unicodedata.name(ch, "unnamed")
             return i, f"U+{ord(ch):04X} {name}"
     return None
 
 
-def format_char_reason(field_name: str, value: str) -> str | None:
-    """Human-facing reason string for a Cf character, or None if clean.
+def invisible_char_reason(field_name: str, value: str) -> str | None:
+    """Human-facing reason string for an invisible character, or None if clean.
 
     Names the codepoint and its index rather than echoing the value, because
     the offending character is invisible in the author's editor -- a message
-    that just prints the field back looks identical to a correct one.
+    that just prints the field back looks identical to a correct one. The
+    control characters #171 adds make that sharper, not weaker: several of them
+    (BACKSPACE, ESC, CSI) actively *rewrite* a terminal's rendering of whatever
+    is echoed after them.
     """
-    hit = find_format_char(value)
+    hit = find_invisible_char(value)
     if hit is None:
         return None
     index, label = hit
@@ -133,12 +161,15 @@ class Query:
                 raise ValueError(f"{name} must be non-empty and not whitespace-only")
             # The emptiness rule above covers every codepoint `str.isspace()`
             # calls whitespace. It does not cover the Unicode *format* (Cf)
-            # characters, which are equally invisible and equally corrupting --
-            # see `find_format_char` for the measured table (#162). Scoped to
-            # the matched/keyed fields so a legitimate directional mark in an
-            # RTL `question` is still accepted.
+            # characters (#162), nor the *control* (Cc) characters that
+            # `str.isspace()` does not recognise (#171) -- both are equally
+            # invisible and equally corrupting. See `_is_invisible` for the rule
+            # and the measured table. Scoped to the matched/keyed fields so a
+            # legitimate directional mark in an RTL `question` is still accepted;
+            # `metrics.py` embeds `question` and never compares it, which is why
+            # that exclusion still holds.
             if name in MATCHED_FIELDS:
-                reason = format_char_reason(name, value)
+                reason = invisible_char_reason(name, value)
                 if reason is not None:
                     raise ValueError(reason)
 

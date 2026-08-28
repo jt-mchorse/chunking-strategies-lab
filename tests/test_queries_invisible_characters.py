@@ -26,7 +26,7 @@ import pytest
 from chunking_lab.corpus import Document
 from chunking_lab.embedder import HashEmbedder
 from chunking_lab.metrics import evaluate_strategy
-from chunking_lab.queries import Query, find_format_char, load_queries
+from chunking_lab.queries import Query, find_invisible_char, load_queries
 from chunking_lab.strategies import FixedSizeStrategy
 from chunking_lab.validate import validate_queries
 
@@ -128,9 +128,9 @@ def test_message_names_the_codepoint_and_index_not_just_the_value():
     assert "index 5" in msg
 
 
-def test_find_format_char_returns_the_first_occurrence():
-    assert find_format_char("clean") is None
-    index, label = find_format_char("ab" + BOM + "cd" + ZWSP)
+def test_find_invisible_char_returns_the_first_occurrence():
+    assert find_invisible_char("clean") is None
+    index, label = find_invisible_char("ab" + BOM + "cd" + ZWSP)
     assert index == 2
     assert label.startswith("U+FEFF")
 
@@ -149,7 +149,12 @@ def test_question_still_accepts_directional_marks(mark):
 
 def test_snippet_still_accepts_an_embedded_newline():
     """A newline is category Cc, and a snippet spanning a line break is normal.
-    This is why the rule is Cf-only rather than "all invisible categories"."""
+
+    This is the reason the #162 rule was Cf-only -- and it is exactly as wide as
+    *newline*. #171 kept it and narrowed nothing: the rule now also covers the Cc
+    characters `str.isspace()` does NOT recognise, which is the 55 the newline
+    argument never reached. This test is the pin that the argument still holds.
+    """
     Query(**_row(expected_snippet="refund window\nis thirty days"))
 
 
