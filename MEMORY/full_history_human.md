@@ -1817,3 +1817,18 @@ follow-up. One of them needs a new dev dependency, which is why it is not riding
 along here. And running the same probe across the portfolio found the identical
 collision in `llm-cost-optimizer`, filed there rather than fixed in a second pull
 request against a repo that already has one open tonight.
+
+## 2026-08-31 — Issue #174: `tests/` joins the mypy gate
+**Duration:** ~1 session block · **Branch:** `session/2026-08-31-0750-issue-174`
+
+- D-014 deferred `tests/` for two stated reasons — a dependency change, and two findings that needed reading as possible test bugs. Both are settled. Measured fresh, the count was **11**, not the 12 the issue's table quoted: one of its four "unused ignore" rows was the `scripts/`-side one D-014's own PR had already fixed.
+- `types-PyYAML` goes in the `dev` extra rather than a `yaml.*` override, because the override is silencing and there is nothing to annotate at the call sites — the untyped thing is the library. Unpinned, like every other dev dependency here.
+- **The finding worth keeping:** `notebooks/_build_notebook.py` was imported bare from two test files after a `sys.path` insert — the identical one-file-two-names shape D-014 had just fixed for `run_matrix`, in a second script directory D-014's guard could not see, because that guard hardcoded `scripts.run_matrix` and matched the literal string `"scripts"`. It is renamed to `test_script_module_identity.py` and now discovers the directories and their modules from `git ls-files`.
+- Two suppressions were kept, because the input really is deliberately ill-typed. In one of those cases the enclosing test function was *annotated* rather than the ignore deleted: mypy skips the body of an unannotated function, which is the only reason that ignore read as unused — deleting it would have "fixed" the error by leaving the line permanently unchecked.
+- mypy: 11 errors in 9 files → clean over 48. Suite 1300 → 1303 green. Recorded as D-015.
+
+**Why this work, this session:** it was the repo's only non-decision-gated open issue, and it was the half D-014 explicitly split out for a separate review.
+
+**Open questions / blockers:** none. `--check-untyped-defs` stays off — that is a strictness change to D-013's baseline, not a scope change, and it would land an unknown number of new errors.
+
+**Next session:** #144 remains, and is a decision-revisit gated on JT.
