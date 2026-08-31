@@ -125,7 +125,12 @@ def test_non_int_numeric_k_is_rejected_at_the_guard_not_at_the_slice(bad: float)
     # frames below the guard whose entire job is to reject an unusable k, from
     # an expression that names neither `ks` nor the value.
     with pytest.raises(ValueError, match=r"must be an int \(bool excluded\)"):
-        validate_ks([bad])
+        # `validate_ks` declares `Sequence[int]`; passing a float is the point.
+        # The guard exists for callers that are *not* type-checked — a `--ks`
+        # value off the command line, a k read out of a JSON file — so the test
+        # has to reach it with input the annotation forbids (#174). Narrow
+        # suppression, same idiom as `test_corpus.py`'s `arg-type`.
+        validate_ks([bad])  # type: ignore[list-item]
     with pytest.raises(ValueError, match=r"must be an int \(bool excluded\)"):
         _run((bad,))
 

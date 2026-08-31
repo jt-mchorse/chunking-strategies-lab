@@ -35,7 +35,6 @@ When this snapshot fails, regenerate with::
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -45,12 +44,13 @@ nbformat = pytest.importorskip("nbformat")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = REPO_ROOT / "notebooks" / "comparison.ipynb"
 
-# Build script lives next to the notebook; import it directly.
-NOTEBOOKS_DIR = REPO_ROOT / "notebooks"
-if str(NOTEBOOKS_DIR) not in sys.path:
-    sys.path.insert(0, str(NOTEBOOKS_DIR))
-
-from _build_notebook import build_notebook  # type: ignore[import-not-found]  # noqa: E402
+# Build script lives next to the notebook. Imported as
+# `notebooks._build_notebook`, not bare after a `sys.path` insert (#174): that
+# is the one-file-one-module-name rule D-014 established for
+# `scripts.run_matrix`, applied to the second script directory. The
+# `# type: ignore[import-not-found]` the bare form needed is gone with it —
+# under `warn_unused_ignores` a dead suppression is itself an error.
+from notebooks._build_notebook import build_notebook  # noqa: E402
 
 REGEN_HINT = (
     "Regenerate the notebook:\n"

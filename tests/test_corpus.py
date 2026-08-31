@@ -250,7 +250,13 @@ def test_query_rejects_empty_field_on_direct_construction(field):
 
 
 @pytest.mark.parametrize("field", ["id", "question", "expected_doc", "expected_snippet"])
-def test_query_rejects_non_string_field_on_direct_construction(field):
+def test_query_rejects_non_string_field_on_direct_construction(field: str) -> None:
+    # Annotated rather than deleting the ignore below (#174). mypy skips the
+    # body of an unannotated function, which is the only reason the ignore read
+    # as unused once `tests/` entered the gate — dropping it would have "fixed"
+    # the error by leaving the line unchecked. With the signature typed, the
+    # body is checked and the suppression is load-bearing again: passing an
+    # `int` where the dataclass declares `str` is the whole point of the test.
     kwargs: dict[str, object] = dict(_valid_query_kwargs())
     kwargs[field] = 123
     with pytest.raises(ValueError, match=f"{field} must be a string"):

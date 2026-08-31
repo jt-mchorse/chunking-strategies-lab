@@ -250,7 +250,9 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   is handled by a per-module override rather than an inline ignore,
   which with `warn_unused_ignores` on would itself become an error the
   moment someone installs the extra. The original scope excluded
-  `scripts/` and `tests/`; `scripts/` joined it in D-014 below.
+  `scripts/` and `tests/`; `scripts/` joined it in D-014 below and
+  `tests/` in D-015, so a bare `mypy` now covers every directory the
+  repo tracks Python under.
 - **D-014 (#165).** The gate covers `scripts/` as well as the package.
   It could not before: `mypy chunking_lab scripts` stopped with
   `Source file found twice under different module names: "run_matrix"
@@ -270,9 +272,29 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   `python scripts/run_matrix.py` resolves and would not have removed the
   duplicate either. The gate then reported one real error, a dead
   `# type: ignore[attr-defined]`, which was removed rather than
-  silenced. `tests/` stays out of scope, but is now *measured* rather
-  than unknown — 12 errors, one of which needs `types-PyYAML` added to
-  the dev extra — and tracked separately.
+  silenced. `tests/` stayed out of scope in D-014, but *measured* rather
+  than unknown, and tracked separately as #174 — which D-015 closes.
+- **D-015 (#174).** The gate covers `tests/` too, completing the scope.
+  D-014 deferred it for two reasons and both are settled here: it
+  carries a dependency change (`types-PyYAML` in the `dev` extra, chosen
+  over a `module = "yaml.*"` override because that would be silencing,
+  and there is nothing to annotate at the call sites — the untyped thing
+  is the library), and two of its findings needed reading as possible
+  test bugs before being annotated away. The measured count was 11, not
+  the 12 the issue estimated. Three were dead suppressions, and one was
+  the same one-file-two-names shape D-014 had just fixed for
+  `run_matrix` — `notebooks/_build_notebook.py`, imported bare from two
+  test files after a `sys.path` insert, in the second script directory
+  D-014's guard did not look at. So `tests/test_script_module_identity.py`
+  (renamed from `test_run_matrix_single_module_identity.py`) now
+  *discovers* the script directories and their modules from what git
+  tracks, instead of naming one of each. Two findings were kept as
+  narrow `# type: ignore`s because the input really is deliberately
+  ill-typed — a `float` handed to a `Sequence[int]` validator, an `int`
+  handed to a `str` dataclass field — and in one of those cases the
+  function's signature was *annotated* so mypy would check the body
+  again, since an unannotated test body is skipped and the suppression
+  had gone dead only for that reason.
 
 ---
 

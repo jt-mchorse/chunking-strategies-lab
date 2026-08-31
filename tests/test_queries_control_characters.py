@@ -229,9 +229,20 @@ def test_find_invisible_char_reports_the_first_of_either_category() -> None:
     of either kind -- not the first Cf then separately the first Cc."""
     zwsp = chr(0x200B)
     assert find_invisible_char("clean") is None
-    index, label = find_invisible_char("ab" + chr(0x1B) + "cd" + zwsp)
+
+    # `find_invisible_char` returns `tuple[int, str] | None`, so the unpack
+    # below needs the `None` ruled out (#174). Asserted rather than annotated
+    # away: if the scan ever regresses to returning `None` on a string that
+    # plainly contains an escape and a ZWSP, this fails on the assertion naming
+    # the input, not on a `TypeError` about unpacking.
+    first = find_invisible_char("ab" + chr(0x1B) + "cd" + zwsp)
+    assert first is not None, "no invisible character found in a string containing two"
+    index, label = first
     assert index == 2
     assert label.startswith("U+001B")
-    index, label = find_invisible_char("ab" + zwsp + "cd" + chr(0x1B))
+
+    second = find_invisible_char("ab" + zwsp + "cd" + chr(0x1B))
+    assert second is not None, "no invisible character found in a string containing two"
+    index, label = second
     assert index == 2
     assert label.startswith("U+200B")

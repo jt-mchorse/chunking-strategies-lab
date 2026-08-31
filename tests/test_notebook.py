@@ -11,7 +11,6 @@ The plot extras (`[notebook]`) install `nbformat`. If `nbformat` is missing
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -22,11 +21,11 @@ nbformat = pytest.importorskip("nbformat")
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _NOTEBOOK = _REPO_ROOT / "notebooks" / "comparison.ipynb"
 
-# Build script lives next to the notebook; import it so the lock test below can
+# Build script lives next to the notebook; the lock test below imports it to
 # inspect the actual `_LOAD_CELL` source that ships into comparison.ipynb.
-_NOTEBOOKS_DIR = _REPO_ROOT / "notebooks"
-if str(_NOTEBOOKS_DIR) not in sys.path:
-    sys.path.insert(0, str(_NOTEBOOKS_DIR))
+# Imported as `notebooks._build_notebook`, not bare after a `sys.path` insert
+# (#174) — the same one-file-one-module-name rule D-014 established for
+# `scripts.run_matrix`, applied to the directory that guard didn't look at.
 
 
 def _stamp_rank(stamp: str) -> tuple[int, str]:
@@ -159,7 +158,7 @@ def test_build_notebook_load_cell_ships_the_stamp_rank_fix():
     this guarantees the shipped `comparison.ipynb` ranks `canonical` lowest and
     can't silently regress to a bare `stamp > latest_stamp[name]` compare.
     """
-    import _build_notebook  # noqa: PLC0415
+    from notebooks import _build_notebook  # noqa: PLC0415
 
     cell = _build_notebook._LOAD_CELL
     assert "_stamp_rank" in cell, "load cell lost the _stamp_rank recency key (#78)"
@@ -214,8 +213,9 @@ def test_chart_cells_handle_non_default_ks():
     matplotlib = pytest.importorskip("matplotlib")
 
     matplotlib.use("Agg")  # headless: plt.show() is a no-op
-    import _build_notebook  # noqa: PLC0415
     import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    from notebooks import _build_notebook  # noqa: PLC0415
 
     runs = _non_default_ks_runs()
     ns: dict = {"runs": runs, "plt": plt, "embedder": "HashEmbedder", "n_queries": 4}
@@ -231,7 +231,7 @@ def test_load_cell_reports_max_available_k_not_hardcoded_five():
     k actually present (`max(...)`), not a hardcoded "5" that KeyErrors on a
     non-default `--ks`. Also lock that the emitted source dropped the literals.
     """
-    import _build_notebook  # noqa: PLC0415
+    from notebooks import _build_notebook  # noqa: PLC0415
 
     load = _build_notebook._LOAD_CELL
     recall = _build_notebook._RECALL_CELL
