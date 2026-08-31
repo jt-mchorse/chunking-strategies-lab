@@ -114,6 +114,22 @@ warn_redundant_casts = true
 module = "sentence_transformers.*"
 ignore_missing_imports = true
 
+# Same treatment, same reason, found by CI rather than by me (#174).
+# `tests/test_notebook.py` guards matplotlib at *runtime* with
+# `pytest.importorskip("matplotlib")` and then does a static
+# `import matplotlib.pyplot as plt` on the next line. mypy does not know what
+# `importorskip` means, so it resolves that import statically and fails wherever
+# the `[notebook]` extra is absent — which is CI, and which is not my laptop.
+# Bringing `tests/` into the gate is what first pointed the checker at it.
+#
+# An inline `# type: ignore` is the wrong instrument here for the reason the
+# `sentence_transformers` note above already gives: with `warn_unused_ignores`
+# on it would be *unused* on a machine that has the extra and *required* on one
+# that does not, so it cannot be right in both places at once.
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
+ignore_missing_imports = true
+
 [tool.ruff]
 # ruff 0.16.1 extended `ruff format` to Python code blocks inside Markdown.
 # CI installs ruff unpinned (`pip install -e '.[dev]'`), so the tool's scope

@@ -32,6 +32,7 @@ is added rather than on the day someone remembers this file.
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -208,7 +209,19 @@ def test_importing_it_both_ways_really_does_produce_two_modules(stem: str) -> No
     proc = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, cwd=_REPO_ROOT
     )
-    assert proc.returncode == 0, proc.stderr
+    if proc.returncode != 0:
+        # A script module may need an optional extra to import at all —
+        # `notebooks/_build_notebook.py` imports `nbformat`, which lives in
+        # `[notebook]` and is absent from CI's `.[dev]` install. Skip on a
+        # missing *third-party* module and fail on anything else, so this stays
+        # a real assertion wherever it can run rather than a blanket skip.
+        # D-009's promise is that the base CI matrix passes without the extras,
+        # and a new guard has to honour it like every other test in this repo.
+        missing = re.search(r"ModuleNotFoundError: No module named '([^']+)'", proc.stderr)
+        ours = {stem, qualified, qualified.split(".", 1)[0]}
+        if missing and missing.group(1) not in ours:
+            pytest.skip(f"{qualified} needs an optional extra: {missing.group(1)} not installed")
+        raise AssertionError(f"importing {qualified} failed:\n{proc.stderr}")
     assert proc.stdout.strip() == "False", (
         "the two import spellings resolved to the same module object; if Python "
         "ever unified them, the guards above are no longer load-bearing and this "
