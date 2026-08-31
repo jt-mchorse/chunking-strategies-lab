@@ -224,3 +224,48 @@ anything with `Source file found twice under different module names:
 **Reversibility:** Cheap. A config block, a CI line, and a test file.
 
 **Related issues:** #164
+
+## D-014 — the mypy gate covers `scripts/`, and the collision it was blocked on was a real bug
+
+**Date.** 2026-08-28 · **Issue.** #165 · **Reversibility.** Cheap.
+
+**Decision.** Extend D-013's `mypy` gate to `scripts/`, using `mypy_path = "."`
+plus `explicit_package_bases = true`, and normalize the test suite to import
+`scripts/run_matrix.py` under a single module name. Do not add
+`scripts/__init__.py`.
+
+**Why.** D-013 left `scripts/` out because `mypy chunking_lab scripts` did not
+merely report errors there — it stopped before checking anything at all, with
+"Source file found twice under different module names". So the repo did not
+know whether `scripts/` was clean, only that it was unchecked, and
+`scripts/run_matrix.py` is not a throwaway: it writes the `results/*.json` that
+the README's comparison table and the notebook are derived from.
+
+Investigating turned the premise around. That error was a true finding, not a
+layout quirk to configure away. The test suite really did import that one file
+both ways — four bare `from run_matrix import …` sites in `test_metrics.py`
+after a `sys.path` insert, and `scripts.run_matrix` everywhere else. Python
+treats those as unrelated modules: the file's body executes twice, and a
+`monkeypatch.setattr` on one copy is invisible to the other. Nothing was
+failing, but only because each group of tests happened to patch and call the
+same copy — a property of which tests exist, not one anyone had enforced.
+
+So the fix has two halves and neither alone is enough. The configuration keys
+make the *mapping* unambiguous; normalizing the imports removes the *cause*.
+Once the gate could run it found exactly one real error — a `# type: ignore`
+that had been dead all along, on a name that is defined unconditionally — which
+was removed rather than silenced. Notably, `pyproject.toml`'s own comment
+already argued against inline ignores for precisely this reason; the script was
+simply out of scope, so nothing checked it.
+
+**Alternatives considered.** `scripts/__init__.py` was the other option the
+issue listed: it changes how `python scripts/run_matrix.py` resolves, and it
+would not have removed the duplicate module. Either half of the fix on its own
+leaves the other problem standing. Extending the gate to `tests/` in the same
+change was rejected as too large — it reports 12 errors and one of them needs a
+new dev dependency — but it is now measured rather than unknown, which was the
+issue's actual complaint, and tracked separately.
+
+**Portfolio note.** The same probe across the six repos with a `scripts/`
+directory found the identical collision in `llm-cost-optimizer`
+(`_io` vs `scripts._io`). Filed there rather than fixed here.

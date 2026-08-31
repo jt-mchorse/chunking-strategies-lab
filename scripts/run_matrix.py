@@ -93,8 +93,14 @@ def _build_embedder(name: str) -> Embedder:
         return HashEmbedder()
     if name == "minilm":
         # Imported lazily so the script works on a fresh CI clone that
-        # doesn't have `sbert` installed; the operator opts in.
-        from chunking_lab.embedder import MiniLMEmbedder  # type: ignore[attr-defined]
+        # doesn't have `sbert` installed; the operator opts in. `MiniLMEmbedder`
+        # itself is defined unconditionally (`embedder.py`) -- only its
+        # `sentence_transformers` import is deferred -- so the name always
+        # resolves and the `# type: ignore[attr-defined]` this line used to
+        # carry was dead. `[tool.mypy]`'s own comment argues against inline
+        # ignores here for exactly this reason; nothing checked it until the
+        # gate reached `scripts/` (#165).
+        from chunking_lab.embedder import MiniLMEmbedder
 
         return MiniLMEmbedder(model_name=CANONICAL_EMBEDDING_MODEL)
     raise ValueError(f"unknown embedder: {name}")  # pragma: no cover - argparse rejects

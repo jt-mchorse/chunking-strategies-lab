@@ -428,8 +428,7 @@ def test_evaluate_strategy_deduplicates_ks_no_double_count():
 
 
 def test_run_matrix_writes_one_json_per_strategy_plus_summary(tmp_path: Path):
-    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-    from run_matrix import main
+    from scripts.run_matrix import main
 
     # --canonical-out is the path that writes the tracked canonical
     # fixture set (results/canonical__*.json + results/summary.md). The
@@ -457,8 +456,7 @@ def test_run_matrix_summary_honors_non_default_ks(tmp_path: Path):
     # #76: `_render_summary` hardcoded recall@1/3/5, so a non-default `--ks`
     # produced an all-zeros table while the JSONs held real values. The summary
     # columns must reflect the chosen ks and match the JSON cells.
-    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-    from run_matrix import main
+    from scripts.run_matrix import main
 
     rc = main(
         ["--results-dir", str(tmp_path), "--embedder", "hash", "--canonical-out", "--ks", "2,4,6"]
@@ -488,8 +486,7 @@ def test_run_matrix_summary_honors_non_default_ks(tmp_path: Path):
 def test_run_matrix_default_writes_timestamped_scratch(tmp_path: Path):
     """Default (non-canonical) runs write timestamped filenames so the
     regen scratch can't overwrite the tracked canonical fixtures."""
-    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-    from run_matrix import main
+    from scripts.run_matrix import main
 
     rc = main(["--results-dir", str(tmp_path), "--embedder", "hash"])
     assert rc == 0
@@ -503,8 +500,7 @@ def test_run_matrix_default_writes_timestamped_scratch(tmp_path: Path):
 
 
 def test_summary_md_contains_disclosure_when_using_hash_embedder(tmp_path: Path):
-    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-    from run_matrix import main
+    from scripts.run_matrix import main
 
     rc = main(["--results-dir", str(tmp_path), "--embedder", "hash", "--canonical-out"])
     assert rc == 0
