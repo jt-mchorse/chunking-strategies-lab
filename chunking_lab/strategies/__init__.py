@@ -35,8 +35,19 @@ from typing import Any, Protocol
 def check_chunk_input(text: object, source_doc_id: object) -> None:
     """Raise unless `chunk()`'s two inputs are the `str`s its signature declares.
 
-    One definition, called at the top of all five `chunk()` methods, so the
-    strategies agree and a sixth gets it by construction (#167).
+    One definition, called at the top of every public chunk-producing method, so
+    the strategies agree and a new one gets it by construction (#167, #176).
+
+    That used to read "all five `chunk()` methods". The count was right and the
+    population was wrong: there are five strategies but **six** entry points --
+    `LateChunkingStrategy.chunk_with_vectors` is the surface D-006 exists for,
+    the one its sibling `chunk()` delegates to, and the one
+    `metrics._materialize_vectors` deliberately routes late chunking through.
+    It did not call this function, so the shipped evaluator took the unguarded
+    road for exactly one of the five strategies (#176). The population to
+    enumerate is entry points, not classes;
+    `tests/test_chunk_input_guard_entry_points.py` now discovers them rather
+    than listing them.
 
     Before this, they did not agree. Measured over nine inputs:
 
