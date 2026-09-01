@@ -269,3 +269,28 @@ issue's actual complaint, and tracked separately.
 **Portfolio note.** The same probe across the six repos with a `scripts/`
 directory found the identical collision in `llm-cost-optimizer`
 (`_io` vs `scripts._io`). Filed there rather than fixed here.
+
+## D-015 — The mypy gate covers `tests/` too (2026-08-31)
+**Decision:** Extend D-014's gate to `tests/`, adding `types-PyYAML` to the `dev` extra, and generalize the module-identity guard from one module in one directory to every module in every tracked script directory.
+
+**Why:** D-014 deferred `tests/` for two stated reasons, and both are settled here. It carries a dependency change — the three workflow-parsing tests need `types-PyYAML` — and two of its findings needed reading as possible test bugs before being annotated away. Measured fresh, the count was **11**, not the 12 the issue estimated: one of the four "unused ignore" rows was the `scripts/`-side one D-014 had already removed.
+
+On stubs versus silence: a `module = "yaml.*"` override with `ignore_missing_imports` is silencing, which both D-013's posture and #174 rule out by name, and there is nothing to annotate at the call sites because the untyped thing is the library, not our code. `types-PyYAML` is unpinned like every other dev dependency here — a stub-only floor pinned tighter than the library it describes is its own drift risk, and `portfolio-ops`' `unpinned-lint-config` audit fingerprint is what watches this class.
+
+**The finding worth remembering** is one of the eleven: `notebooks/_build_notebook.py` was imported bare from two test files after a `sys.path` insert — the exact one-file-two-names shape D-014 had just fixed for `run_matrix`, in a second script directory D-014's guard did not look at. `test_run_matrix_single_module_identity.py` hardcoded `scripts.run_matrix` and matched the literal string `"scripts"` in its `sys.path` arm. It is renamed to `test_script_module_identity.py` and now discovers the directories and their modules from `git ls-files`, so a third one is covered on the day it is added.
+
+Two suppressions were kept rather than removed, because the input really is deliberately ill-typed: a `float` handed to a `Sequence[int]` validator, and an `int` handed to a `str` dataclass field. In the second case the enclosing test function was *annotated* rather than the ignore deleted — mypy skips the body of an unannotated function, which is the only reason that ignore read as unused, and deleting it would have "fixed" the error by leaving the line permanently unchecked.
+
+**Two failures CI found that a local run could not.** Widening the gate to `tests/` pointed mypy at `tests/test_notebook.py:216`, a *static* `import matplotlib.pyplot` one line after `pytest.importorskip("matplotlib")`. mypy doesn't know what `importorskip` means, so it resolves that import statically and fails wherever the `[notebook]` extra is absent — which is CI, and is not my laptop. Fixed with a `matplotlib.*` per-module override mirroring `sentence_transformers.*`, and deliberately *not* with an inline `# type: ignore`: with `warn_unused_ignores` on, that ignore would be unused on a machine with the extra and required on one without, so it cannot be right in both places at once — the argument the `sentence_transformers` note already makes. Separately, the new subprocess identity test imported `notebooks/_build_notebook.py`, whose module-level `import nbformat` needs the same extra; it now skips on a missing *third-party* module and fails on anything else, so it stays a real assertion where it can run. Both were reproduced locally by building a throwaway venv with `pip install -e '.[dev]'`, which is what CI actually installs.
+
+**Alternatives considered:**
+- A `yaml.*` per-module override — rejected: silencing, which #174 rules out.
+- Pinning `types-PyYAML` tighter than the other dev deps — rejected as inconsistent and its own drift risk.
+- Annotating the `find_invisible_char` Optional away — rejected: an `assert ... is not None` fails with a readable message if the scan ever regresses.
+- Deleting `test_corpus.py`'s unused ignore — rejected for the reason above.
+- An `__init__.py` under `notebooks/` — rejected on D-014's own argument against one under `scripts/`.
+- Turning on `--check-untyped-defs` in the same change — rejected: a strictness change to D-013's non-strict baseline, not a scope change, and it would land an unknown number of new errors. Separate issue if wanted.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #174, #165

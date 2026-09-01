@@ -50,8 +50,8 @@ def test_mypy_reports_no_issues() -> None:
     )
 
 
-def test_mypy_config_covers_the_package_and_scripts() -> None:
-    """`files` must name both roots, so a bare `mypy` checks both.
+def test_mypy_config_covers_the_package_and_scripts_and_tests() -> None:
+    """`files` must name all three roots, so a bare `mypy` checks all three.
 
     Without a `files` key, a bare `mypy` exits 2 with "no files or directories
     to check" — which `test_mypy_reports_no_issues` would report as a failure,
@@ -60,10 +60,17 @@ def test_mypy_config_covers_the_package_and_scripts() -> None:
     `scripts` joined the scope in #165 (D-014). It had been excluded because
     `mypy chunking_lab scripts` could not start at all, so nobody knew whether
     it was clean; it wasn't, by one dead `type: ignore`.
+
+    `tests` joined in #174 (D-015), the deliberate follow-up D-014 left open
+    because it carried a dependency change (`types-PyYAML`) and because two of
+    its findings needed reading as possible test bugs first. It wasn't clean
+    either: eleven errors, including three dead suppressions and a bare
+    `import _build_notebook` — the same one-file-two-names shape D-014 fixed
+    for `run_matrix`, in the directory that fix didn't look at.
     """
     config = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     mypy_cfg = config["tool"]["mypy"]
-    assert mypy_cfg["files"] == ["chunking_lab", "scripts"]
+    assert mypy_cfg["files"] == ["chunking_lab", "scripts", "tests"]
     for root in mypy_cfg["files"]:
         assert (_REPO_ROOT / root).is_dir(), f"{root} in mypy files= does not exist"
 

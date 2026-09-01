@@ -182,10 +182,14 @@ def test_the_range_rule_is_shared_not_restated() -> None:
 
     original = metrics.validate_ks
     try:
-        metrics.validate_ks = lambda ks: None  # type: ignore[assignment]
+        # No `# type: ignore[assignment]` on either line: mypy does not treat a
+        # module attribute as a declared-type target here, so the suppressions
+        # that used to sit on them were dead the moment `tests/` entered the
+        # gate under `warn_unused_ignores` (#174).
+        metrics.validate_ks = lambda ks: None
         run = _load({"0": 0.9})
     finally:
-        metrics.validate_ks = original  # type: ignore[assignment]
+        metrics.validate_ks = original
     assert dict(run.recall_at_k) == {0: 0.9}, (
         "the reader did not go through validate_ks; the rule is restated somewhere"
     )

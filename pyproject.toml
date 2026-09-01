@@ -32,6 +32,14 @@ dev = [
   # Powers tests/test_workflows_yaml_parseable.py (#39), the inverse
   # safety net for the 21-day silent CI outage closed in portfolio-ops#27.
   "pyyaml>=6.0",
+  # Stubs for the above, so the three workflow-parsing tests type-check once
+  # `tests/` entered the mypy gate (#174, D-015). The alternative — a
+  # `module = "yaml.*"` override with `ignore_missing_imports` — is silencing,
+  # which D-013's posture rules out; and there is nothing to annotate at the
+  # call sites, because the untyped thing is the library, not our code.
+  # Unpinned like every other dev dep here: a stub-only floor pinned tighter
+  # than the library it describes is its own drift risk.
+  "types-PyYAML>=6.0",
   # Powers tests/test_mypy_clean.py and the CI lint step (#164, D-013).
   "mypy>=1.10",
 ]
@@ -79,8 +87,11 @@ addopts   = "-ra -q"
 # *mapping* (one file, one module name, rooted at the repo), and #165 fixed the
 # *cause* by normalizing the imports; neither alone would have been enough.
 #
-# `tests/` is still out of scope, but now measured rather than unknown -- see
-# the follow-up issue for the 12 errors it reports.
+# `tests/` joined the gate in #174 (D-015). D-014 left it out because it
+# carried a dependency change -- the three workflow-parsing tests need
+# `types-PyYAML` -- and because two of its errors needed reading as possible
+# test bugs before being annotated away. Both are settled now, so all three
+# directories that ship code are checked by a bare `mypy`.
 #
 # No blanket `ignore_missing_imports`, so a typo'd import still surfaces. The
 # only external import in the package is the optional `sentence_transformers`
@@ -88,10 +99,12 @@ addopts   = "-ra -q"
 # inline `# type: ignore` — with `warn_unused_ignores` on, an inline ignore
 # would itself become an error the moment someone installs the extra.
 python_version = "3.11"
-files = ["chunking_lab", "scripts"]
+files = ["chunking_lab", "scripts", "tests"]
 # Root the package base at the repo so `scripts/run_matrix.py` maps to
 # `scripts.run_matrix` -- the name the test suite imports it by -- rather than
-# ambiguously to both that and bare `run_matrix`.
+# ambiguously to both that and bare `run_matrix`. Same mechanism now carries
+# `notebooks/_build_notebook.py` -> `notebooks._build_notebook` (#174), which
+# the suite reached by a bare name after a `sys.path` insert until this change.
 mypy_path = "."
 explicit_package_bases = true
 warn_unused_ignores = true
@@ -99,6 +112,22 @@ warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
 module = "sentence_transformers.*"
+ignore_missing_imports = true
+
+# Same treatment, same reason, found by CI rather than by me (#174).
+# `tests/test_notebook.py` guards matplotlib at *runtime* with
+# `pytest.importorskip("matplotlib")` and then does a static
+# `import matplotlib.pyplot as plt` on the next line. mypy does not know what
+# `importorskip` means, so it resolves that import statically and fails wherever
+# the `[notebook]` extra is absent — which is CI, and which is not my laptop.
+# Bringing `tests/` into the gate is what first pointed the checker at it.
+#
+# An inline `# type: ignore` is the wrong instrument here for the reason the
+# `sentence_transformers` note above already gives: with `warn_unused_ignores`
+# on it would be *unused* on a machine that has the extra and *required* on one
+# that does not, so it cannot be right in both places at once.
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
 ignore_missing_imports = true
 
 [tool.ruff]

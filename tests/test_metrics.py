@@ -901,7 +901,11 @@ def test_retrieval_run_from_json_rejects_non_array_per_query(bad: object) -> Non
 @pytest.mark.parametrize("field", ["retrieved_doc_ids_in_rank_order", "snippet_hits_in_rank_order"])
 @pytest.mark.parametrize("bad", [42, 0.5, None, True])
 def test_query_result_from_json_rejects_non_array_rank_order(field: str, bad: object) -> None:
-    payload = {
+    # Annotated, not inferred (#174): mypy reads the literal as
+    # `dict[str, Sequence[str]]` (every value there is one), and the next line
+    # deliberately assigns a non-sequence. `object` is what this payload
+    # actually is — a decoded JSON body — and it is what `from_json` accepts.
+    payload: dict[str, object] = {
         "query_id": "q",
         "expected_doc": "d",
         "expected_snippet": "s",
