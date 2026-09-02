@@ -210,17 +210,23 @@ def test_validate_out_with_unencodable_name_never_exits_one(tmp_path: Path) -> N
     proc = subprocess.run(
         [sys.executable, "-m", "chunking_lab.validate", str(queries), "--out", str(out)],
         capture_output=True,
-        text=True,
         check=False,
     )
+    # Captured as bytes, not `text=True`. On a filesystem that accepts the name
+    # (ext4, i.e. CI) the write succeeds and anything the child prints carries
+    # the original raw byte, because `sys.stdout` uses `surrogateescape`.
+    # `text=True` decodes that strictly *in the parent* and raises
+    # `UnicodeDecodeError` inside `subprocess` — a failure of the harness, not
+    # of the code under test.
+    stderr = proc.stderr.decode("utf-8", errors="replace")
 
-    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "Traceback" not in stderr, stderr
     assert proc.returncode != 1, (
         "exit 1 means 'the corpus has findings'; this corpus is clean, so a 1 "
-        f"here is the write crash wearing the content code:\n{proc.stderr}"
+        f"here is the write crash wearing the content code:\n{stderr}"
     )
     if out.exists():
         assert proc.returncode == 0
     else:
         assert proc.returncode == 2
-        assert "failed to write" in proc.stderr
+        assert "failed to write" in stderr
