@@ -77,6 +77,23 @@ class LateChunkingStrategy:
         return [lc.chunk for lc in self.chunk_with_vectors(text, source_doc_id=source_doc_id)]
 
     def chunk_with_vectors(self, text: str, *, source_doc_id: str = "doc") -> list[LateChunk]:
+        """Return `(chunk, vector)` pairs, the primary late-chunking surface (D-006).
+
+        Validates its own inputs rather than relying on `chunk()` above (#176).
+        `chunk()` delegates *here*, so for three months the guard was reachable
+        only by taking the road late chunking does not use -- and
+        `metrics._materialize_vectors` routes this strategy through this method
+        on purpose, so the shipped evaluator took the unguarded one. A
+        `Document` whose `filename` is a `Path` (the likely wrong type, since
+        the field is built from `path.name`) then made the four other
+        strategies raise while this one reported `recall={1: 0.0, 3: 0.0}`
+        beside `snippet={1: 1.0, 3: 1.0}` -- the right chunk retrieved, and only
+        the attribution key failing to compare equal.
+
+        Each public entry point owns its guard, so this stays correct if
+        `chunk()` ever stops delegating.
+        """
+        check_chunk_input(text, source_doc_id)
         if not text:
             return []
         doc_vector = self.embedder.embed(text)

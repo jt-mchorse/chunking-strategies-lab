@@ -1832,3 +1832,37 @@ request against a repo that already has one open tonight.
 **Open questions / blockers:** none. `--check-untyped-defs` stays off — that is a strictness change to D-013's baseline, not a scope change, and it would land an unknown number of new errors.
 
 **Next session:** #144 remains, and is a decision-revisit gated on JT.
+
+## 2026-09-01 — Issue #176: five strategies, six doors
+**Branch:** `session/2026-09-01-0747-issue-176`
+
+- `check_chunk_input` was added so the five chunking strategies could not
+  disagree about what they accept, and its comment said it was "called at the
+  top of all five `chunk()` methods." The count of strategies was right; the
+  unit was wrong. Late chunking has a second entry point, `chunk_with_vectors`,
+  which its own sibling delegates to and which the module docstring tells you to
+  use — and it was not guarded.
+- That is the road the shipped evaluator takes. Given a document whose filename
+  is a `Path` rather than a string — the likeliest mistake, since the field is
+  built from `path.name` — four strategies raised a clear error and late
+  chunking quietly reported recall 0.0 while simultaneously reporting that it
+  had retrieved the right snippet. Recall is the number this repo publishes.
+- The guard moved to where the callers actually are, but the more durable half
+  is the test: it now *discovers* every chunk-producing method from the
+  strategies' return annotations rather than listing them, with three separate
+  arms guarding the discovery itself — including one that fails if the number of
+  entry points ever equals the number of strategies again, which is exactly the
+  state this shipped in.
+
+**Why this work, this session:** the repo's only open issue is a decision
+revisit, so the session hunted. Ranking the strategy modules by issue traffic
+put `recursive.py` first; it survived a 30,000-case brute-force search of its
+offset and content invariants, and the shared guard it imports is where the
+defect was.
+
+**Open questions / blockers:** none. `Document` still declares `filename: str`
+and `text: str` and validates neither — the strategy boundary now catches it for
+all five, which is what #167 intended, but the dataclass itself is a second seam
+and a different contract question.
+
+**Next session:** #144 (notebook snapshot lock) still needs a decision from JT.
