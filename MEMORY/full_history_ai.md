@@ -1996,3 +1996,28 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-09-02T07:35Z
+issue: 178
+focus: the_temp_name_byte_budget_was_measured_in_strict_utf8_so_an_unencodable_out_exited_1_the_code_that_means_findings
+phase: night_session_multi_issue_loop_issue_4
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: 1381_to_1396_green
+measured:
+  pre_fix_exit_code: "python -m chunking_lab.validate <clean single-row corpus> --out <tmp>/report<U+DCFF>.txt -> rc 1 with UnicodeEncodeError traceback. The SIBLING TEST test_cli_clean_queries_exit_zero PROVES that corpus exits 0, so 1 cannot mean findings on that input"
+  post_fix: "rc 2 with 'failed to write ... [Errno 92] Illegal byte sequence' on APFS; on ext4 the write succeeds and it is rc 0"
+  equivalence: "os.fsencode and str.encode('utf-8') give the same count for every valid-utf8 NAME_VARIANTS row"
+  anti_vacuous: "reverting the single measurement line turns 9 of 15 red and leaves the 6 encodable-name controls green"
+context_for_next_session:
+  - PORTFOLIO_CLASS_FOURTH_OF_NINE_leh_226_lco_205_rag_199_and_this_ONE_SHARED_LINE_NINE_DIFFERENT_CONSEQUENCES_the_per_repo_work_is_ESTABLISHING_WHAT_THE_LOCAL_WRITE_SEAM_CALLERS_CATCH_AND_WHAT_THE_LEAKED_EXIT_CODE_MEANS_IN_THAT_CLI
+  - AND_THIS_REPO_IS_WHERE_IT_COSTS_MOST_BECAUSE_EXIT_1_IS_NOT_AN_ERROR_CODE_HERE_IT_IS_A_CONTENT_VERDICT_the_corpus_has_findings_so_an_uncaught_write_crash_does_not_merely_CRASH_it_returns_A_WRONG_ANSWER_ABOUT_THE_DATA_GENERALISE_WHEN_A_CLI_GIVES_EXIT_1_A_MEANING_EVERY_UNCAUGHT_EXCEPTION_IS_A_FALSE_POSITIVE_OF_THAT_MEANING_not_just_noise
+  - THE_TEST_THAT_SEPARATES_THEM_NEEDS_A_PROVABLY_CLEAN_INPUT_i_reused_the_exact_corpus_the_sibling_test_cli_clean_queries_exit_zero_asserts_is_0_so_ON_THAT_INPUT_1_CAN_ONLY_MEAN_THE_CRASH_A_TEST_FOR_A_COLLIDING_EXIT_CODE_IS_ONLY_MEANINGFUL_OVER_AN_INPUT_WHOSE_HONEST_CODE_YOU_ALREADY_KNOW
+  - AND_THE_GUARDS_OWN_COMMENT_NAMED_THE_COLLISION_IT_EXISTS_TO_PREVENT_without_this_guard_escaped_as_a_raw_traceback_at_exit_1_COLLIDING_WITH_THE_FINDINGS_CODE_a_guard_that_states_the_collision_it_prevents_IS_TELLING_YOU_THE_TEST_TO_RUN_AGAINST_A_NEIGHBOURING_INPUT_CLASS
+  - HOST_SKEW_ext4_ACCEPTS_ANY_NON_NUL_BYTE_IN_A_NAME_so_ON_CI_THE_WRITE_SUCCEEDS_AND_THE_EXIT_IS_0_while_APFS_RETURNS_EILSEQ_AND_IT_IS_2_BOTH_ARE_CORRECT_ANSWERS_ABOUT_THE_CORPUS_the_assertion_is_NEVER_1_AND_IF_NOTHING_WAS_WRITTEN_IT_IS_2
+  - run_matrix_py_HAS_THE_SAME_SINGLE_ARM_TWICE_BUT_NO_ARGV_ROAD_its_basenames_are_derived_prefix_double_underscore_strategy_name_json_so_only_the_DIRECTORY_is_operator_input_and_cap_base_for_temp_only_sees_target_dot_name_CHECK_WHETHER_THE_OPERATOR_CONTROLS_THE_BASENAME_OR_ONLY_THE_DIRECTORY_before_calling_a_write_seam_exposed
+decisions_made: []
+followups: []
+---

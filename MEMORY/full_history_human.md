@@ -1866,3 +1866,69 @@ all five, which is what #167 intended, but the dataclass itself is a second seam
 and a different contract question.
 
 **Next session:** #144 (notebook snapshot lock) still needs a decision from JT.
+
+## 2026-09-02 — #178: an unencodable `--out` exited 1, the code that means "findings"
+
+`io_utils._cap_base_for_temp` shortens a destination's basename before it goes
+into the temp filename `.<base>.<random>.tmp`. Its comment says "Budget is in
+BYTES (NAME_MAX is a byte limit)", and that is true. The code under it counted
+`base.encode("utf-8")` with the strict error handler, which is a *different*
+set of bytes from the ones NAME_MAX limits.
+
+The two counts agree for every name that is valid UTF-8. They disagree for the
+rest by raising. POSIX path bytes — and `sys.argv` — decode through
+`surrogateescape`, so a byte that isn't valid UTF-8 arrives as a lone surrogate
+in U+DC80–U+DCFF, and strict encoding refuses it. `validate --out
+$'report\xff.txt'` was enough: the cap raised `UnicodeEncodeError` before it
+ever got as far as measuring anything.
+
+**In the sibling repos an uncaught write failure is noise. Here it is a wrong
+answer.** `UnicodeEncodeError` is a `ValueError`, so `validate`'s
+`except OSError` guard missed it, and the interpreter's uncaught-exception path
+exits **1** — which in this CLI is not "an error" but *the corpus has
+findings*. The guard's own comment says exactly what it exists to prevent: a
+write failure "colliding with the 'findings' code and breaking the documented
+'0 clean / 1 findings / 2 I/O error' contract". A gating CI job reads "your
+dataset has findings" over a byte in the filename it was told to write to.
+
+Measured against a corpus that is provably clean — the same single valid row
+the existing `test_cli_clean_queries_exit_zero` asserts exits 0 — the pre-fix
+run returns rc 1 with a `UnicodeEncodeError` traceback. Reusing an input whose
+honest exit code is already pinned is what makes the new test meaningful: on
+that input, 1 can only be the crash.
+
+The fix is one line: measure with `os.fsencode`, the filesystem encoding plus
+its own error handler, which is exactly what the kernel receives. It returns
+the identical number for every valid-UTF-8 name, so no name that worked before
+changes budget, and it never raises.
+
+`scripts/run_matrix.py` has the same single-arm guard twice, but its basenames
+are derived (`{prefix}__{strategy_name}.json`) — the operator controls only the
+directory, and `_cap_base_for_temp` only ever sees `target.name`. No argv road
+reaches it; it picks up the fix through the shared helper anyway.
+
+**On testing.** The host must not decide the verdict. ext4 accepts any non-NUL
+byte in a filename, so on CI the write succeeds and the exit is 0; APFS
+validates UTF-8 and returns `EILSEQ`, so it is 2 through the existing guard.
+Both are correct statements about the corpus. What is asserted is "never 1, and
+if nothing was written it is 2". The pure-function half is a variant table over
+short/long crossed with ASCII, multibyte, surrogate-bearing and mixed,
+asserting the capped name is a character-boundary prefix, within budget, and
+**maximal** — that last one because a cap returning `""` for everything
+satisfies the first two.
+
+Reverting the single measurement line turns 9 of the 15 new assertions red and
+leaves the 6 encodable-name controls green.
+
+**Why this work, this session:** found by grepping the portfolio for
+`_MAX_TEMP_BASE_BYTES` after hitting the same defect in `llm-eval-harness#226`.
+Nine repos carry a verbatim copy of this helper; the line is the same every
+time, and the work per repo is establishing what the local write-seam callers
+catch and what the leaked exit code *means* in that CLI.
+
+**Open questions / blockers:** none.
+
+**Next session:** the remaining copies live in `prompt-regression-suite`,
+`embedding-model-shootout`, `vector-search-at-scale`,
+`python-async-llm-pipelines`, and `mcp-server-cookbook`'s
+`filesystem-sandbox-py`.
