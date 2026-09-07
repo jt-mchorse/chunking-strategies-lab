@@ -14,12 +14,20 @@ hand-edited or externally-generated result file with no Python in the
 loop.
 
 The tests below are deliberately anchored to **the corruption**, not to
-the exception type: `test_*_would_render_*` constructs the dataclass
-directly (bypassing the loader) and asserts what `_render_summary`
-actually publishes, so the guard tests can never be widened into
-vacuity by someone later relaxing the raise. If a future change catches
-a broader exception or drops a check, the render assertions still
+the exception type: `test_*_would_render_*` asserts what `_render_summary`
+actually publishes for a corrupt value, so the guard tests can never be
+widened into vacuity by someone later relaxing the raise. If a future change
+catches a broader exception or drops a check, the render assertions still
 describe exactly what comes back.
+
+Those tests used to build a corrupt `RetrievalRun` *directly*, on the stated
+premise that "direct construction bypasses the loader". #180 closed that road:
+`RetrievalRun.__post_init__` now applies the same rule `from_json` did, because
+applying it only on read let this class serialise a payload it could not
+deserialise. The harm assertions are unchanged and now run against
+`_unvalidated(...)`, an attribute-compatible stand-in — `_render_summary` only
+ever reads attributes, so it publishes exactly what it published before — and
+`TestConstructionRoadIsClosed` at the bottom pins the road that closed.
 """
 
 from __future__ import annotations
@@ -34,6 +42,9 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+from types import SimpleNamespace  # noqa: E402
+from typing import Any  # noqa: E402
 
 from chunking_lab.metrics import RetrievalRun  # noqa: E402
 from scripts.run_matrix import _render_summary  # noqa: E402
@@ -56,13 +67,35 @@ def _payload(**overrides: object) -> dict:
     return base
 
 
-def _wall_clock_cell(run: RetrievalRun) -> str:
+def _unvalidated(**overrides: object) -> Any:
+    """A corrupt run object that `_render_summary` reads exactly like the real one.
+
+    A stand-in rather than a real `RetrievalRun`, because #180 made the
+    constructor reject these values — which is the point of that fix and would
+    otherwise silently delete the harm evidence these tests exist to hold.
+    `_render_summary` only reads attributes, so what it publishes is unchanged.
+    """
+    good = RetrievalRun(
+        strategy_name="fixed-size",
+        embedder_model="HashEmbedder",
+        dataset_version="v0",
+        n_queries=2,
+        n_chunks_total=42,
+        recall_at_k={1: 0.5, 3: 1.0},
+        snippet_hit_at_k={1: 0.0, 3: 0.5},
+        per_query=(),
+        wall_clock_ms=19.9,
+    )
+    return SimpleNamespace(**{**good.__dict__, **overrides})
+
+
+def _wall_clock_cell(run: Any) -> str:
     """The wall-clock column of the rendered summary's single data row."""
     row = _render_summary([run], run.embedder_model).splitlines()[-1]
     return row.split("|")[-2].strip()
 
 
-def _n_chunks_cell(run: RetrievalRun) -> str:
+def _n_chunks_cell(run: Any) -> str:
     row = _render_summary([run], run.embedder_model).splitlines()[-1]
     return row.split("|")[2].strip()
 
@@ -87,29 +120,23 @@ def _n_chunks_cell(run: RetrievalRun) -> str:
 def test_corrupt_wall_clock_would_render_into_the_summary(bad: object, cell: str) -> None:
     """Direct construction bypasses the loader, so this documents exactly what
     `results/summary.md` showed before #147 closed the read path."""
-    run = RetrievalRun.from_json(_payload())
-    corrupt = RetrievalRun(**{**run.__dict__, "wall_clock_ms": bad})
-    assert _wall_clock_cell(corrupt) == cell
+    assert _wall_clock_cell(_unvalidated(wall_clock_ms=bad)) == cell
 
 
 def test_string_wall_clock_would_crash_the_renderer() -> None:
     """A string latency never reaches a field-named loader error — it reaches
     `f"{value:.0f}"` and raises a raw formatting error at an unrelated site."""
-    run = RetrievalRun.from_json(_payload())
-    corrupt = RetrievalRun(**{**run.__dict__, "wall_clock_ms": "19.9"})
+    corrupt = _unvalidated(wall_clock_ms="19.9")
     with pytest.raises(ValueError, match="Unknown format code"):
         _render_summary([corrupt], corrupt.embedder_model)
 
 
 def test_corrupt_n_chunks_total_would_render_into_the_summary() -> None:
-    run = RetrievalRun.from_json(_payload())
-    corrupt = RetrievalRun(**{**run.__dict__, "n_chunks_total": "many"})
-    assert _n_chunks_cell(corrupt) == "many"
+    assert _n_chunks_cell(_unvalidated(n_chunks_total="many")) == "many"
 
 
 def test_corrupt_n_queries_would_render_into_the_summary_header() -> None:
-    run = RetrievalRun.from_json(_payload())
-    corrupt = RetrievalRun(**{**run.__dict__, "n_queries": True})
+    corrupt = _unvalidated(n_queries=True)
     header = _render_summary([corrupt], corrupt.embedder_model).splitlines()[2]
     assert "_n_queries_: True" in header
 
@@ -195,3 +222,55 @@ def test_committed_canonical_fixtures_still_round_trip() -> None:
         assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(raw, sort_keys=True)
         assert run.wall_clock_ms >= 0.0
         assert isinstance(run.n_chunks_total, int)
+
+
+# ---------------------------------------------------------------------------
+# #180 — and the construction road, which this file used to rely on being open.
+# ---------------------------------------------------------------------------
+
+
+class TestConstructionRoadIsClosed:
+    """`from_json`'s rule now also applies at construction.
+
+    Stating it as a *round trip* rather than as "the constructor raises": the
+    defect was not that a bad value could be built, it was that this class
+    could `to_json` a payload its own `from_json` refused to read back.
+    """
+
+    @pytest.mark.parametrize(
+        ("field", "bad"),
+        [
+            ("n_queries", True),
+            ("n_queries", -1),
+            ("n_queries", "many"),
+            ("n_chunks_total", True),
+            ("n_chunks_total", -1),
+            ("n_chunks_total", "many"),
+            ("wall_clock_ms", True),
+            ("wall_clock_ms", float("nan")),
+            ("wall_clock_ms", float("inf")),
+            ("wall_clock_ms", -5.0),
+            ("wall_clock_ms", "19.9"),
+        ],
+        ids=lambda v: repr(v),
+    )
+    def test_a_value_from_json_would_reject_can_no_longer_be_constructed(
+        self, field: str, bad: object
+    ) -> None:
+        good = RetrievalRun.from_json(_payload())
+        with pytest.raises(ValueError, match=field):
+            RetrievalRun(**{**good.__dict__, field: bad})
+
+    def test_every_constructible_run_survives_its_own_round_trip(self) -> None:
+        """The invariant, stated positively so it cannot pass by refusing everything."""
+        run = RetrievalRun.from_json(_payload())
+        assert RetrievalRun.from_json(json.loads(json.dumps(run.to_json()))) == run
+
+    def test_an_int_wall_clock_is_still_accepted(self) -> None:
+        """A whole-millisecond latency is a legitimate JSON number.
+
+        `from_json` accepts one, so the constructor must too, or the two halves
+        disagree again in the opposite direction.
+        """
+        good = RetrievalRun.from_json(_payload())
+        assert RetrievalRun(**{**good.__dict__, "wall_clock_ms": 20}).wall_clock_ms == 20

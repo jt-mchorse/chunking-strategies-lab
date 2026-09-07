@@ -62,6 +62,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from chunking_lab._fields import require_non_negative_int
 from chunking_lab.io_utils import atomic_write_text
 from chunking_lab.queries import MATCHED_FIELDS, invisible_char_reason
 
@@ -79,6 +80,12 @@ class ValidationFinding:
     line_no: int
     reason: str
     code: str
+
+    def __post_init__(self) -> None:
+        # #180: same construction-boundary rule as `Chunk` and `RetrievalRun`.
+        # `line_no` is interpolated into operator-facing findings and into the
+        # JSON report; `True` renders as a finding on "line True".
+        require_non_negative_int("line_no", self.line_no)
 
     def to_dict(self) -> dict[str, Any]:
         return {"line_no": self.line_no, "reason": self.reason, "code": self.code}
@@ -98,6 +105,13 @@ class ValidationReport:
     n_rows: int
     n_valid: int
     findings: tuple[ValidationFinding, ...]
+
+    def __post_init__(self) -> None:
+        # #180. `ok` reads `self.n_valid > 0`, and `True > 0` is True -- so a
+        # bool `n_valid` reports a *valid* file off a count that was never a
+        # count, which is the silent direction.
+        require_non_negative_int("n_rows", self.n_rows)
+        require_non_negative_int("n_valid", self.n_valid)
 
     @property
     def ok(self) -> bool:

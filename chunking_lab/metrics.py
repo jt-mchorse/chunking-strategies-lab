@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._fields import require_non_negative_finite_number, require_non_negative_int
 from .corpus import Document
 from .embedder import Embedder
 from .queries import Query
@@ -235,10 +236,13 @@ def _validate_count(name: str, value: Any) -> None:
     corruption is silent. Bool is excluded explicitly because it
     subclasses int and would otherwise pass the type check.
     """
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{name} must be an int; got {value!r}")
-    if value < 0:
-        raise ValueError(f"{name} must be >= 0; got {value!r}")
+    # Delegates to the shared definition (#180). This rule was written here for
+    # the read path and, separately, nine times over in the strategy
+    # constructors -- and the *write* path of this very class had neither, so
+    # `RetrievalRun(n_queries=True, ...)` constructed fine, `to_json` wrote
+    # `"n_queries": true`, and this function then refused to read it back. A
+    # writer that emits what its own reader rejects.
+    require_non_negative_int(name, value)
 
 
 @dataclass(frozen=True)
@@ -264,6 +268,23 @@ class RetrievalRun:
     # via consumers that pass `wall_clock_ms=0.0` when reading.
     wall_clock_ms: float = 0.0
     notes: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # The write-side half of `_validate_count` (#180). `from_json`'s
+        # docstring already states the rule -- "`n_queries` / `n_chunks_total`
+        # must be non-bool, non-negative ints" -- and applying it only on read
+        # let this class serialise a payload it could not deserialise.
+        _validate_count("n_queries", self.n_queries)
+        _validate_count("n_chunks_total", self.n_chunks_total)
+        # `wall_clock_ms` is the same asymmetry one annotation over. #180's
+        # discovery walked `int`-annotated fields, so it did not surface this
+        # `float` -- but `from_json` states its rule in the same sentence as the
+        # other two ("a non-bool, finite, non-negative number"), and
+        # `test_corrupt_wall_clock_would_render_into_the_summary` had already
+        # measured the bool case rendering as a fabricated `1` ms in
+        # `results/summary.md`. Guarding two of the three numeric fields would
+        # be the half-fix this issue is about.
+        require_non_negative_finite_number("wall_clock_ms", self.wall_clock_ms)
 
     def to_json(self) -> dict[str, Any]:
         return {

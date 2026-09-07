@@ -31,6 +31,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from .._fields import require_non_negative_int, require_str
+
 
 def check_chunk_input(text: object, source_doc_id: object) -> None:
     """Raise unless `chunk()`'s two inputs are the `str`s its signature declares.
@@ -109,8 +111,42 @@ class Chunk:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.start_offset < 0:
-            raise ValueError(f"start_offset must be >= 0; got {self.start_offset}")
+        # Type before range (#180), completing the #29/#31 sweep. That sweep put
+        # `isinstance(x, int) and not isinstance(x, bool)` on nine numeric fields
+        # across all five strategy classes and never reached this dataclass --
+        # whose two numeric fields are the ones the offset invariant above is
+        # *about*. Ordering-only, the boundary accepted:
+        #
+        #   start=True, end=5   -> source[True:5] is 'ello' for a chunk whose
+        #                          text is 'Hello'. Silent: the invariant is
+        #                          false and nothing raises.
+        #   start=0.0, end=5.0  -> accepted here, TypeError at the eventual
+        #                          slice, far from this constructor.
+        #   start='0'           -> rejected, but by a bare TypeError out of the
+        #                          `<` comparison rather than a field-named
+        #                          ValueError, so a caller's `except ValueError`
+        #                          (the class `check_chunk_input` raises) missed
+        #                          it.
+        #
+        # `bool` is the one that matters most, for the same reason it did in
+        # #29/#31: it is the only row that fails *silently*. It also degrades
+        # `metrics.evaluate_strategy`'s ranking -- that sort breaks score ties on
+        # "the chunk's stable identity (source_doc_id, start/end offsets)" (#68)
+        # so recall@k is a pure function of the (score, chunk) set rather than of
+        # corpus iteration order, and `True == 1`, so two chunks differing only
+        # there tie on all four key components and fall back to insertion order.
+        require_non_negative_int("start_offset", self.start_offset)
+        require_non_negative_int("end_offset", self.end_offset)
+        # The three string fields, for the same reason and by the same road:
+        # `check_chunk_input` guards the strategies' *inputs*, and `Chunk` is
+        # exported on `__all__` and constructible directly, so nothing guarded
+        # the output. `source_doc_id` is the sharp one -- a non-str value is the
+        # #176 harm (an attribution key that cannot compare equal to a query's
+        # `expected_doc`, giving recall 0.0 next to snippet 1.0) reached without
+        # going through a strategy at all.
+        require_str("text", self.text)
+        require_str("source_doc_id", self.source_doc_id)
+        require_str("strategy_name", self.strategy_name)
         if self.end_offset < self.start_offset:
             raise ValueError(
                 f"end_offset ({self.end_offset}) must be >= start_offset ({self.start_offset})"

@@ -1932,3 +1932,48 @@ catch and what the leaked exit code *means* in that CLI.
 `embedding-model-shootout`, `vector-search-at-scale`,
 `python-async-llm-pipelines`, and `mcp-server-cookbook`'s
 `filesystem-sandbox-py`.
+
+## 2026-09-04 — Issue #180: the numeric-field rule was missing at four construction boundaries
+**Branch:** `session/2026-09-04-0734-issue-180` · **PR:** #181
+
+#29/#31 put `isinstance(x, int) and not isinstance(x, bool)` on nine
+strategy-constructor fields, and `metrics._validate_count` states the same rule
+on `RetrievalRun.from_json`'s read path. Four dataclasses had neither.
+
+I filed the issue claiming `Chunk` was *the* boundary the sweep missed. Writing
+the test as a **discovered** population rather than a hand-written list proved
+that wrong immediately: it found five more fields, on `RetrievalRun`,
+`ValidationFinding` and `ValidationReport`. I had hand-counted and been wrong by
+exactly the mechanism the issue was about. Then the discovery turned out to have
+the same bug one layer in — it walked fields annotated `int`, which is why it
+missed `RetrievalRun.wall_clock_ms`, a `float` with the identical asymmetry
+whose bool case an *existing* test had already measured rendering as a
+fabricated 1 ms in `results/summary.md`. Widening the walk to `int` or `float`
+gives the honest count: eleven fields across four classes.
+
+The sharpest evidence is a round trip. `RetrievalRun(n_queries=True, ...)`
+constructs fine, `to_json` writes `"n_queries": true`, and its own `from_json`
+then raises `ValueError: n_queries must be an int; got True`. A writer that
+emits what its own reader rejects — and the rule was already written down, just
+only on the read side.
+
+The fix is one shared definition in `chunking_lab/_fields.py` rather than a
+fourth copy; `_validate_count` delegates to it and keeps its name and its
+read-path call site.
+
+Seven existing tests broke, and they were the interesting part. They exist to
+lock the *harm* so the guard tests can't go vacuous, and their module docstring
+states the premise "direct construction bypasses the loader" — which is exactly
+what this closes. Rather than delete that evidence I moved them onto an
+attribute-compatible stand-in: `_render_summary` only reads attributes, so what
+it publishes is pinned unchanged, and the reason is recorded at the moved row.
+
+One process note worth keeping: my first full-revert check reported zero
+failures and I nearly wrote the new tests off as vacuous. The revert script had
+*deleted* the guard lines, leaving three empty `__post_init__` bodies, so the
+suite failed to collect and a grep for `FAILED` matched nothing. Replacing each
+call with `pass` instead gives 42 red.
+
+Two thorough hunts came back empty before this one and are recorded so they
+aren't repeated: the structure chunker survived 24 000 property-test cases, and
+the entry-point guard discovery from #176 is genuinely solid.
