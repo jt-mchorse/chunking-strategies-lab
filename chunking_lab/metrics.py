@@ -111,6 +111,82 @@ def _validate_metric_map(name: str, mapping: dict[int, float]) -> None:
             raise ValueError(f"{name}[{k}] must be in [0, 1]; got {v!r}")
 
 
+def _validate_metric_map_keys(name: str, mapping: dict[int, float]) -> None:
+    """Reject corrupt metric-map *keys* on a path where they are already ``int``.
+
+    The read path gets its keys as JSON strings and reaches this rule through
+    :func:`_coerce_metric_keys`, which does the ``str -> int`` step and then
+    delegates. The write path builds them as ``int`` already, so it needs the
+    rule without the coercion — which is the only thing the two paths
+    legitimately differ on (#182).
+
+    ``bool`` is excluded explicitly and it is not pedantry here: ``bool``
+    subclasses ``int``, so ``validate_ks`` accepts ``True`` as a positive
+    ``k``, and ``to_json`` then writes ``str(True)`` -> ``"True"``, which
+    ``_coerce_metric_keys`` refuses. A bool key is the sharpest instance of
+    the whole class this issue is about — the writer emitting a key its own
+    reader cannot parse.
+    """
+    bad_bools = sorted(repr(k) for k in mapping if isinstance(k, bool))
+    if bad_bools:
+        raise ValueError(
+            f"{name} keys must be ints, not bools; got {', '.join(bad_bools)} — "
+            "`to_json` writes str(k), and str(True) is 'True', which "
+            "`from_json` cannot read back"
+        )
+    if mapping:
+        try:
+            validate_ks(sorted(mapping))
+        except ValueError as e:
+            raise ValueError(f"{name} keys: {e}") from None
+
+
+def _validate_metric_maps(recall: dict[int, float], snippet: dict[int, float]) -> None:
+    """The whole metric-map contract, in one place, for both paths (#182).
+
+    ``from_json`` validated the two maps on three axes — key type/sign, value
+    type/finiteness/range, and cross-map key-set parity — and
+    ``__post_init__`` validated **none** of them. #181 added the write-side
+    half of ``_validate_count`` for ``n_queries`` / ``n_chunks_total`` and of
+    ``_validate_wall_clock`` for ``wall_clock_ms``, and its own comment named
+    the hazard it was closing:
+
+        Guarding two of the three numeric fields would be the half-fix this
+        issue is about.
+
+    It guarded three of three *scalar* numeric fields and left the two *map*
+    fields, which carry more read-side validation than any scalar in the
+    class. Twelve shapes constructed, serialised through ``to_json``, and were
+    then rejected by ``from_json`` — a writer emitting what its own reader
+    refuses, which is #180's defect statement verbatim.
+
+    Written as one function over the *pair* rather than as a second copy of
+    each rule on the write side, because a second copy is what produced this
+    issue: three separate issues (#180, #181, #182) are three instances of
+    the same two paths describing each other instead of sharing a definition.
+    ``validate_ks``'s docstring argues the same thing about the ``--ks`` CLI
+    pre-flight in this very file.
+
+    Callers pass ``dict[int, float]``. The read path reaches that shape via
+    :func:`_coerce_metric_keys` first; that coercion is genuinely read-only
+    and stays where it is.
+    """
+    _validate_metric_map_keys("recall_at_k", recall)
+    _validate_metric_map_keys("snippet_hit_at_k", snippet)
+    _validate_metric_map("recall_at_k", recall)
+    _validate_metric_map("snippet_hit_at_k", snippet)
+    # A run is one strategy over one query set at one `ks` — `evaluate_strategy`
+    # builds both dicts from the same `ks` in a single comprehension pair — so
+    # two different key sets describe a run that cannot exist (#160). It loaded
+    # cleanly anyway; now it cannot be *built* either.
+    if recall.keys() != snippet.keys():
+        raise ValueError(
+            "recall_at_k and snippet_hit_at_k must cover the same k values — "
+            f"got recall_at_k={sorted(recall)} and snippet_hit_at_k={sorted(snippet)}; "
+            "a run is one strategy over one query set at one ks"
+        )
+
+
 def _coerce_metric_keys(name: str, raw: dict[str, Any]) -> dict[int, Any]:
     """Coerce a metric map's JSON string keys back to ``int``, loudly (#169).
 
@@ -285,6 +361,22 @@ class RetrievalRun:
         # `results/summary.md`. Guarding two of the three numeric fields would
         # be the half-fix this issue is about.
         require_non_negative_finite_number("wall_clock_ms", self.wall_clock_ms)
+        # And the two *map* fields, which #181 left out (#182). Its comment
+        # above names the hazard -- "guarding two of the three numeric fields
+        # would be the half-fix this issue is about" -- and it guarded three of
+        # three *scalar* numeric fields, while `recall_at_k` and
+        # `snippet_hit_at_k` carry more read-side validation than any scalar
+        # here: key type/sign, value type/finiteness/range, and cross-map
+        # key-set parity. Twelve shapes constructed, serialised, and were then
+        # refused by this class's own `from_json`. A `nan` recall does not even
+        # need to survive a round trip to do harm: `scripts/run_matrix.py`
+        # renders `results/summary.md` from these runs in memory, so it
+        # published a literal `nan` cell.
+        #
+        # One definition, shared with the read path, rather than a second copy
+        # of each rule -- a second copy is exactly what produced #180, #181 and
+        # this issue.
+        _validate_metric_maps(self.recall_at_k, self.snippet_hit_at_k)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -378,23 +470,19 @@ class RetrievalRun:
         # mismatch #160's check below exists to catch.
         recall = _coerce_metric_keys("recall_at_k", payload["recall_at_k"])
         snippet = _coerce_metric_keys("snippet_hit_at_k", payload["snippet_hit_at_k"])
-        _validate_metric_map("recall_at_k", recall)
-        _validate_metric_map("snippet_hit_at_k", snippet)
-        # Both maps validated, but only ever *independently* (#160). A run is
-        # one strategy over one query set at one `ks` — `evaluate_strategy`
-        # builds both dicts from the same `ks` in a single comprehension pair —
-        # so two different key sets describe a run that cannot exist. It loaded
-        # cleanly anyway, and `_render_summary` then derived its columns from
-        # `recall_at_k` alone and rendered the snippet cells with `.get(k, 0)`,
-        # publishing a fabricated `0.000` for measurements that were simply
-        # keyed elsewhere. Reject at the seam it enters through; the renderer
-        # handles the legitimate case (separate runs at different `k`).
-        if recall.keys() != snippet.keys():
-            raise ValueError(
-                "recall_at_k and snippet_hit_at_k must cover the same k values — "
-                f"got recall_at_k={sorted(recall)} and snippet_hit_at_k={sorted(snippet)}; "
-                "a run is one strategy over one query set at one ks"
-            )
+        # Values, keys and cross-map parity, through the definition
+        # `__post_init__` also uses (#182). `_coerce_metric_keys` above did the
+        # read-only half — JSON names are strings, so the keys have to become
+        # ints before any of these rules can run; from here the two paths are
+        # looking at the same shape and must apply the same rule.
+        #
+        # (#160's half of that rule: a run is one strategy over one query set
+        # at one `ks`, so two different key sets describe a run that cannot
+        # exist. It used to load cleanly, and `_render_summary` derived its
+        # columns from `recall_at_k` alone and rendered snippet cells with
+        # `.get(k, 0)`, publishing a fabricated `0.000` for measurements that
+        # were simply keyed elsewhere.)
+        _validate_metric_maps(recall, snippet)
         # A present-but-non-array `per_query` (a JSON scalar/null from a hand-edit
         # or truncated write) makes the `for q in ...` below raise a raw
         # `TypeError`, escaping the documented `KeyError`/`ValueError` loud
