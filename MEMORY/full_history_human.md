@@ -1977,3 +1977,38 @@ call with `pass` instead gives 42 red.
 Two thorough hunts came back empty before this one and are recorded so they
 aren't repeated: the structure chunker survived 24 000 property-test cases, and
 the entry-point guard discovery from #176 is genuinely solid.
+
+## 2026-09-07 — Issue #182: the half-fix #181's own comment warned about
+**Duration:** ~24 min · **Branch:** `session/2026-09-07-0758-issue-182`
+
+- #181 added the write-side half of the field rules and its comment said
+  "guarding two of the three numeric fields would be the half-fix this issue is
+  about". It guarded three of three **scalar** numeric fields and left the two
+  **map** fields — `recall_at_k` and `snippet_hit_at_k` — which carry more
+  read-side validation than any scalar in the class: key type/sign, value
+  type/finiteness/range, and cross-map key-set parity.
+- Sixteen shapes constructed, serialised, and were then rejected by
+  `RetrievalRun.from_json`. And the harm needs no round trip: `run_matrix.py`
+  renders `results/summary.md` from the in-memory runs, so a `nan` recall was
+  published as a literal `nan` cell.
+- Fixed as **one** function over the pair, called from both paths. A second copy
+  is exactly what produced #180, #181 and #182 — three instances of two paths
+  describing each other instead of sharing a rule.
+- **The drift neighbour passes every behavioural assertion.** Copying the checks
+  into `__post_init__` satisfies all sixteen rows and every message comparison.
+  Only the two structural tests catch it: an AST check that both call sites name
+  `_validate_metric_maps`, and a check that the parity message appears exactly
+  once in the module.
+- One row is exempt from the same-message assertion, and the exemption is itself
+  tested: a bool key genuinely cannot match, because `to_json` has already
+  written `str(True)` as `"True"` before the reader sees it.
+
+**Why this work, this session:** csl's only open issue is JT-gated, so the hunt
+was the work — and the entry point was the PR merged in this same session's
+Phase A (#181), whose own wording pointed at the fields it missed.
+
+**Open questions / blockers:** none.
+
+**Next session:** `QueryResult` has no `__post_init__` and an unenforced "Length
+matches" comment on `snippet_hits_in_rank_order`. Not filed: no shipped consumer
+reads a `from_json`-built `QueryResult`, so it is genuinely low priority.
