@@ -193,6 +193,24 @@ the contract between layers.
   produced all three issues. The one genuine asymmetry that remains is
   key *coercion*: JSON names are strings, so the read path runs
   `_coerce_metric_keys` first and the write path does not need it.
+- **The fourth construction boundary (#184).** `QueryResult` was the
+  last class in `metrics.py` with no rule at all, and its invariant
+  was stated in a *comment*: "Length matches
+  `retrieved_doc_ids_in_rank_order`". Enforced on neither path, and
+  neither were the element types — eight shapes constructed and
+  survived `to_json` → `from_json` unchanged, including flags shorter
+  than the ids, longer, empty against two ids, and `(1, 0)` /
+  `("yes", "no")` / `(None, None)` in a field annotated
+  `tuple[bool, ...]`. `bool` and not `int`, because `any()` and
+  `sum()` treat `1` and `True` identically, so an int flag is
+  invisible to every consumer that would otherwise catch it — the
+  same bool-is-int vein as #29/#31. Here the shared definition needed
+  no arranging: `from_json` builds through `cls(...)`, so
+  `__post_init__` *is* the one door, and
+  `test_from_json_states_no_rule_of_its_own` pins that it stayed that
+  way. The `str` fields stay unchecked on purpose — `RetrievalRun`
+  does not type-check `strategy_name` either, and that boundary has
+  its own test rather than being left to inference.
 - **D-011.** `evaluate_strategy()` enforces the late-chunking embedder
   consistency contract at runtime: if a `LateChunkingStrategy` is
   passed alongside an embedder whose `model_name` doesn't match the
