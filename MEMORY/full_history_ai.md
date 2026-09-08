@@ -2074,3 +2074,27 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-09-08T14:55Z
+duration_min: 25
+issue: 184
+focus: the_fourth_construction_boundary_where_the_invariant_lived_in_a_COMMENT_and_the_constructor_turned_out_to_be_the_shared_definition_for_free
+phase: day_session_multi_issue_loop_issue_4
+delta:
+  files_changed: 3
+  tests_added: 31
+  suite: 1495_to_1526_green
+measured:
+  eight_shapes_on_main: "flags shorter than the ids, longer, EMPTY against two ids, and (1,0) / ('yes','no') / (None,None) / (1.0,0.0) in a field annotated tuple[bool, ...] - ALL EIGHT constructed AND survived to_json -> from_json UNCHANGED"
+  anti_vacuous: "FOUR neighbours built and run - no __post_init__ at all 22 red; length check only 13 red; isinstance(flag, int) instead of bool 6 red; the rules COPIED into from_json instead of the constructor 12 red and it passes ALL NINE read-path rows"
+context_for_next_session:
+  - THE_STRUCTURAL_SHAPE_WORTH_KEEPING_from_json_BUILDS_THROUGH_cls_SO_post_init_IS_THE_SHARED_DEFINITION_BY_CONSTRUCTION_which_is_the_thing_180_181_and_182_each_had_to_ARRANGE_BY_HAND_via_a_module_level_validator_called_from_both_sides_WHEN_THE_READER_GOES_THROUGH_THE_CONSTRUCTOR_THE_CONSTRUCTOR_IS_THE_ONE_DOOR_and_the_only_work_left_is_ASSERTING_NOBODY_ADDED_A_SECOND_ONE
+  - AND_THAT_ASSERTION_IS_LOAD_BEARING_the_copy_into_from_json_neighbour_PASSES_ALL_NINE_READ_PATH_ROWS_and_is_caught_by_the_nine_CONSTRUCTION_rows_plus_the_ast_test_A_BEHAVIOURAL_SUITE_CANNOT_TELL_THE_ONE_DOOR_FROM_TWO_DOORS_THAT_CURRENTLY_AGREE
+  - AN_INVARIANT_IN_A_COMMENT_IS_A_TODO_the_field_comment_said_Length_matches_retrieved_doc_ids_in_rank_order_and_that_sentence_had_been_read_by_everyone_who_touched_this_class_and_enforced_by_nobody_GREP_FIELD_COMMENTS_FOR_DECLARATIVE_SENTENCES_ABOUT_OTHER_FIELDS
+  - bool_NOT_int_AND_THE_NEIGHBOUR_PROVES_WHY_isinstance_flag_int_READS_AS_A_TYPE_CHECK_AND_ACCEPTS_EXACTLY_THE_VALUE_THE_RULE_REJECTS_because_True_IS_an_int_6_red_and_any_plus_sum_treat_1_and_True_identically_so_an_int_flag_is_INVISIBLE_to_every_consumer_that_would_otherwise_catch_it
+  - I_PINNED_THE_SCOPE_BOUNDARY_WITH_A_TEST_NOT_A_COMMENT_test_the_str_fields_are_deliberately_unchecked_CONSTRUCTS_QueryResult_query_id_1_AND_RetrievalRun_strategy_name_7_and_asserts_BOTH_succeed_because_RetrievalRun_does_not_type_check_strategy_name_either_MAKING_ONE_CLASS_STRICTER_THAN_ITS_SIBLING_FOR_NO_STATED_REASON_IS_HOW_A_MODULES_BAR_BECOMES_UNKNOWABLE
+  - THE_ACCEPT_ROW_THAT_MATTERS_both_tuples_EMPTY_is_legitimate_an_empty_ranking_and_a_guard_written_as_the_flags_must_be_non_empty_satisfies_every_reject_row_and_breaks_it
+decisions_made: []
+followups: []
+---
