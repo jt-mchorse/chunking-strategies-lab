@@ -172,6 +172,27 @@ the contract between layers.
   `evaluate_strategy` itself because that's the only place with
   visibility into the full chunk → embed → retrieve pipeline.
   Defaults to `0.0` so JSON files written before D-009 still load.
+- **One rule per field, shared by both paths (#180, #181, #182).**
+  `RetrievalRun` is written by `evaluate_strategy` and read back by
+  `from_json`, and every field contract lives in exactly one function
+  that both paths call. The three issues above are three instances of
+  the same drift: a rule enforced on read and not on write, so the
+  class serialised payloads its own loader refused. #180/#181 closed
+  it for the scalar numeric fields (`n_queries`, `n_chunks_total`,
+  `wall_clock_ms`, via `chunking_lab/_fields.py`); #182 closed it for
+  the two metric *maps*, which carry more read-side validation than
+  any scalar here — key type/sign, value type/finiteness/range, and
+  cross-map key-set parity (#160) — and had none of it on the write
+  side. Twelve shapes constructed, serialised, and then failed their
+  own reader; a `nan` recall did not even need a round trip to do
+  harm, because `scripts/run_matrix.py` renders `results/summary.md`
+  from the in-memory runs and published a literal `nan` cell. The
+  shared definition is `_validate_metric_maps`, and
+  `test_both_paths_reach_the_same_function_object` pins that both call
+  sites reach it rather than each carrying a copy — a copy is what
+  produced all three issues. The one genuine asymmetry that remains is
+  key *coercion*: JSON names are strings, so the read path runs
+  `_coerce_metric_keys` first and the write path does not need it.
 - **D-011.** `evaluate_strategy()` enforces the late-chunking embedder
   consistency contract at runtime: if a `LateChunkingStrategy` is
   passed alongside an embedder whose `model_name` doesn't match the
