@@ -211,6 +211,26 @@ the contract between layers.
   way. The `str` fields stay unchecked on purpose — `RetrievalRun`
   does not type-check `strategy_name` either, and that boundary has
   its own test rather than being left to inference.
+- **And the container axis, which none of those four touched (#186).**
+  `from_json` has guarded four containers since #114/#118 — the
+  top-level payload, both metric maps, `per_query` and `notes` — each
+  with a comment about a raw `TypeError`/`AttributeError` "escaping the
+  documented `KeyError`/`ValueError` loud contract". `__post_init__`
+  guarded every *numeric* field and no container. Six shapes
+  constructed and then raised exactly those types out of `to_json`,
+  and two round-tripped silently: `notes="chunk overlap looks high"`
+  became **24 single-character notes**, because `to_json` writes
+  `list(self.notes)` and `from_json`'s guard for that very field names
+  the harm — "a JSON string silently char-splats into a per-character
+  list" — while calling itself "the last list container built via
+  `list(...)` on the *read* path". `_validate_per_query` and
+  `_validate_notes` are the shared definitions, and `from_json` keeps
+  its own container guards because they are **not** redundant: the
+  coercion between the two launders the error, since `list("abc")` is
+  a perfectly good `list[str]` by the time the constructor sees it.
+  The scope line #184 drew still holds — that reason is about scalar
+  `str` fields and says nothing about containers, which `from_json`
+  does guard.
 - **D-011.** `evaluate_strategy()` enforces the late-chunking embedder
   consistency contract at runtime: if a `LateChunkingStrategy` is
   passed alongside an embedder whose `model_name` doesn't match the

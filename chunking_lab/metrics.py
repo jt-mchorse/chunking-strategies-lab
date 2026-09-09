@@ -201,6 +201,88 @@ def _validate_metric_map_keys(name: str, mapping: dict[int, float]) -> None:
             raise ValueError(f"{name} keys: {e}") from None
 
 
+def _is_sequence_container(value: Any) -> bool:
+    """True for a real sequence container, false for a ``str``/``bytes`` (#186).
+
+    Shared by the write-side rule below and by ``from_json``'s own container
+    check, which keeps its own message because six assertions pin the wording.
+    One definition of the *rule*, each site owning its *message* -- the split
+    that lets a shared rule land without touching an assertion.
+
+    ``str`` is excluded deliberately and it is not pedantry: a ``str`` is a
+    ``Sequence``, and letting one through is the whole of the ``notes`` failure
+    one function down.
+    """
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _validate_per_query(value: Any) -> None:
+    """The ``per_query`` container contract, in one place, for both paths (#186).
+
+    ``from_json`` guarded this container in #118 -- "a present-but-non-array
+    ``per_query`` ... makes the ``for q in ...`` below raise a raw
+    ``TypeError``, escaping the documented ``KeyError``/``ValueError`` loud
+    contract" -- and ``__post_init__`` guarded nothing. That is the same
+    asymmetry #180, #181, #182 and #184 each closed one field at a time, on the
+    axis none of them touched: the numeric side is now complete and the
+    container side was never started on the write path.
+
+    Measured on the unguarded class::
+
+        per_query = 'not a list'            constructed, to_json raw AttributeError
+        per_query = 5                       constructed, to_json raw TypeError
+        per_query = None                    constructed, to_json raw TypeError
+        per_query = ('not a QueryResult',)  constructed, to_json raw AttributeError
+
+    All four raise the exact exception types ``from_json``'s comments exist to
+    convert, one seam later and out of a method with no such guard at all.
+
+    Accepts any sequence, because the two paths hold different concrete types --
+    ``from_json`` reads a JSON ``list``, the annotation is a ``tuple`` -- and
+    excludes ``str``/``bytes`` explicitly, which is not pedantry: a ``str`` is a
+    sequence, and letting one through is exactly the failure the sibling
+    ``notes`` rule is about.
+
+    The element rule is the second half of the container rule, not a new
+    strictness bar on scalars. #184 left the plain ``str`` fields unchecked with
+    a stated reason -- ``RetrievalRun`` does not type-check ``strategy_name``
+    either -- and that reason is about scalar ``str`` fields; it says nothing
+    about containers, which ``from_json`` does guard.
+    """
+    if not _is_sequence_container(value):
+        raise ValueError(f"per_query must be a sequence of QueryResult, got {type(value).__name__}")
+    for index, entry in enumerate(value):
+        if not isinstance(entry, QueryResult):
+            raise ValueError(
+                f"per_query[{index}] must be a QueryResult, got {type(entry).__name__}"
+            )
+
+
+def _validate_notes(value: Any) -> None:
+    """The ``notes`` container contract, in one place, for both paths (#186).
+
+    The silent one, and the reason this issue exists rather than being filed as
+    six raw-exception rows. ``to_json`` writes ``"notes": list(self.notes)``, so::
+
+        RetrievalRun(..., notes="chunk overlap looks high").to_json()["notes"]
+        -> ['c', 'h', 'u', 'n', 'k', ' ', 'o', 'v', ...]      24 entries
+        from_json(that).notes
+        -> the same 24 single-character notes
+
+    ``from_json``'s guard for this very field names the harm -- "a JSON string
+    silently char-splats into a per-character list" -- and its comment calls
+    itself "the last list container built via ``list(...)`` on the **read**
+    path". The identical ``list(...)`` on the write path was never asked about.
+
+    ``notes = [1, 2]`` round-tripped too, in a field annotated ``list[str]``.
+    """
+    if not isinstance(value, list):
+        raise ValueError(f"notes must be a list of strings, got {type(value).__name__}")
+    for index, entry in enumerate(value):
+        if not isinstance(entry, str):
+            raise ValueError(f"notes[{index}] must be a str, got {type(entry).__name__}")
+
+
 def _validate_metric_maps(recall: dict[int, float], snippet: dict[int, float]) -> None:
     """The whole metric-map contract, in one place, for both paths (#182).
 
@@ -437,6 +519,17 @@ class RetrievalRun:
         # of each rule -- a second copy is exactly what produced #180, #181 and
         # this issue.
         _validate_metric_maps(self.recall_at_k, self.snippet_hit_at_k)
+        # And the two *container* fields, which every one of #180/#181/#182/#184
+        # left out (#186). Those four completed the numeric axis one field at a
+        # time; `from_json` has guarded four containers since #114/#118, each
+        # with a comment about a raw `TypeError`/`AttributeError` "escaping the
+        # documented `KeyError`/`ValueError` loud contract", and this method
+        # guarded none of them. Six shapes reached `to_json` and raised exactly
+        # those types; `notes="..."` reached it and silently became one note per
+        # character. Shared definitions, not second copies — a second copy is
+        # what produced #180, #181 and #182.
+        _validate_per_query(self.per_query)
+        _validate_notes(self.notes)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -548,8 +641,16 @@ class RetrievalRun:
         # `TypeError`, escaping the documented `KeyError`/`ValueError` loud
         # contract — the list-container sibling of the metric-map guards above
         # (#114 guarded the top-level and both metric maps, not this container).
+        #
+        # Through `_is_sequence_container` since #186, message unchanged. And
+        # this check is NOT made redundant by the `__post_init__` rule the same
+        # issue added: the coercion between here and there launders the error.
+        # `tuple(QueryResult.from_json(q) for q in "abc")` iterates a string
+        # into characters before the constructor ever sees a container, so by
+        # the time `_validate_per_query` runs there is nothing left for it to
+        # object to. Two guards, one rule, two different moments.
         per_query_raw = payload.get("per_query", ())
-        if not isinstance(per_query_raw, (list, tuple)):
+        if not _is_sequence_container(per_query_raw):
             raise ValueError(f"per_query must be a JSON array, got {type(per_query_raw).__name__}")
         # A present-but-non-array `notes` (a JSON scalar/null from a hand-edit or
         # external generator) reaches `list(...)` below and raises a raw
@@ -558,6 +659,11 @@ class RetrievalRun:
         # This is the last list container built via `list(...)` on the read path
         # — the same sibling class #114 guarded for the top-level/metric maps and
         # #118 guarded for `per_query`/rank-order, neither of which touched `notes`.
+        # Same non-redundancy as `per_query` above (#186): `list("abc")` is a
+        # perfectly good `list[str]`, so `_validate_notes` in `__post_init__`
+        # has nothing to object to by the time it runs. `list` and not
+        # `_is_sequence_container` here because a JSON array is always a list
+        # and the message says so.
         notes_raw = payload.get("notes", [])
         if not isinstance(notes_raw, list):
             raise ValueError(f"notes must be a JSON array, got {type(notes_raw).__name__}")
