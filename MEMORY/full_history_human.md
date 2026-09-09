@@ -2012,3 +2012,41 @@ Phase A (#181), whose own wording pointed at the fields it missed.
 **Next session:** `QueryResult` has no `__post_init__` and an unenforced "Length
 matches" comment on `snippet_hits_in_rank_order`. Not filed: no shipped consumer
 reads a `from_json`-built `QueryResult`, so it is genuinely low priority.
+
+## 2026-09-08 — Issue #184: the invariant that lived in a comment
+**Duration:** ~25 min · **Branch:** `session/2026-09-08-1455-issue-184`
+
+- `QueryResult` was the last construction boundary in `metrics.py` with no rule
+  at all, and its invariant was stated in a field comment — "Length matches
+  `retrieved_doc_ids_in_rank_order`" — enforced on neither path.
+- Measured: eight shapes constructed *and* survived `to_json` → `from_json`
+  unchanged, including flags shorter than the ids, longer, empty against two
+  ids, and `(1, 0)` / `("yes", "no")` / `(None, None)` / `(1.0, 0.0)` in a field
+  annotated `tuple[bool, ...]`.
+- **The constructor turned out to be the shared definition for free.**
+  `from_json` builds through `cls(...)`, so `__post_init__` is the one door —
+  the thing #180, #181 and #182 each had to arrange by hand with a module-level
+  validator called from both sides. The only work left was asserting nobody adds
+  a second door, and that assertion is load-bearing: the copy-into-`from_json`
+  neighbour passes all nine read-path rows and is caught only by the nine
+  construction rows plus the AST test.
+- **`bool`, not `int`, and the neighbour proves why.** `isinstance(flag, int)`
+  reads as a type check and accepts exactly the value the rule rejects, because
+  `True` is an `int`. `any()` and `sum()` treat `1` and `True` identically, so
+  an int flag is invisible to every consumer that would otherwise catch it.
+- The scope boundary is pinned by a test rather than a comment: the `str` fields
+  stay unchecked because `RetrievalRun` does not type-check `strategy_name`
+  either, and `test_the_str_fields_are_deliberately_unchecked` constructs both
+  to say so.
+- Four neighbours built and run — no `__post_init__` (22 red), length check only
+  (13 red), `isinstance(flag, int)` (6 red), rules copied into `from_json`
+  (12 red). Suite 1495 → 1526.
+
+**Why this work, this session:** csl's only other open issue is a JT-gated
+`decision-revisit`, and this one is the direct sibling #182's own close note
+named as still open.
+
+**Open questions / blockers:** none.
+
+**Next session:** nothing outstanding in `metrics.py`'s construction boundaries —
+all four now carry a rule.

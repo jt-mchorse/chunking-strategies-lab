@@ -57,6 +57,66 @@ class QueryResult:
     # `expected_snippet`. Length matches `retrieved_doc_ids_in_rank_order`.
     snippet_hits_in_rank_order: tuple[bool, ...]
 
+    def __post_init__(self) -> None:
+        """Enforce the two invariants this class's own field comment states.
+
+        `QueryResult` was the last construction boundary in this module with no
+        rule at all (#184). #180 gave `RetrievalRun` the write-side half of its
+        count rules, #181 extended that to `wall_clock_ms`, #182 to the two
+        metric maps — and each of those was the same defect: a rule stated in
+        one place and applied in another. Here the rule was stated in a
+        *comment* and applied nowhere.
+
+        Measured on the unguarded class, eight shapes constructed **and**
+        survived `to_json` -> `from_json` unchanged, including flags shorter
+        than the ids, longer than the ids, empty against two ids, and
+        `(1, 0)` / `("yes", "no")` / `(None, None)` / `(1.0, 0.0)` in a field
+        annotated `tuple[bool, ...]`.
+
+        The read path needs no separate call: `from_json` builds through
+        `cls(...)`, so the constructor *is* the shared definition. That is the
+        one thing #180/#181/#182 each had to arrange by hand, and it is asserted
+        rather than assumed — `test_from_json_states_no_rule_of_its_own` pins
+        that `from_json` carries no copy of these checks.
+
+        Scope, deliberately: the plain `str` fields and the `str` elements of
+        `retrieved_doc_ids_in_rank_order` stay unchecked, because
+        `RetrievalRun.__post_init__` does not type-check `strategy_name`
+        either. Making this one class stricter than its sibling for no stated
+        reason is how a module's bar becomes unknowable.
+        """
+        # `bool` first and on its own axis: `isinstance(1, int)` is True and so
+        # is `isinstance(True, int)`, so an `int` check accepts exactly the
+        # value this rejects. `any()` and `sum()` treat `1` and `True`
+        # identically, which is why an int flag is invisible to every consumer
+        # that would otherwise catch it — the same bool-is-int vein as #29/#31
+        # and `_validate_count`'s bool guard two classes down.
+        bad = [
+            (i, flag)
+            for i, flag in enumerate(self.snippet_hits_in_rank_order)
+            if not isinstance(flag, bool)
+        ]
+        if bad:
+            index, flag = bad[0]
+            raise ValueError(
+                f"snippet_hits_in_rank_order[{index}] must be a bool, got "
+                f"{flag!r} ({type(flag).__name__}); the field records whether "
+                "each rank-position's chunk contained the expected snippet, and "
+                "`any()`/`sum()` cannot tell 1 from True"
+            )
+        # The invariant the field comment states — "Length matches
+        # `retrieved_doc_ids_in_rank_order`" — enforced rather than described.
+        # The two are parallel arrays over the same `top` list, so a consumer
+        # that zips them silently drops rank positions when they diverge.
+        if len(self.snippet_hits_in_rank_order) != len(self.retrieved_doc_ids_in_rank_order):
+            raise ValueError(
+                "snippet_hits_in_rank_order and retrieved_doc_ids_in_rank_order "
+                "must be the same length — got "
+                f"{len(self.snippet_hits_in_rank_order)} flag(s) for "
+                f"{len(self.retrieved_doc_ids_in_rank_order)} doc id(s); they are "
+                "parallel per-rank arrays over one ranking"
+            )
+
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> QueryResult:
         """Inverse of the dict shape emitted by ``RetrievalRun.to_json``."""
