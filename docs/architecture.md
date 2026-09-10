@@ -231,6 +231,25 @@ the contract between layers.
   The scope line #184 drew still holds — that reason is about scalar
   `str` fields and says nothing about containers, which `from_json`
   does guard.
+- **And `QueryResult` was the same table one class up (#188).** Its
+  `from_json` guards both container fields and its comment names both
+  harms verbatim; its `__post_init__` checked the *elements* (bool
+  flags) and the *length parity*, and neither container's type. Two
+  things are sharper than #186's version of the identical defect.
+  First, the raw `TypeError`s came out of the guard method **itself** —
+  `len()` and `enumerate()` are called before either `raise ValueError`,
+  so the method that exists to turn bad input into a loud `ValueError`
+  raised the type that contract converts. Second, the length-parity
+  invariant *hid* the string row: `len("abc") == 3`, so three real bool
+  flags make the two "parallel per-rank arrays" agree precisely because
+  a string's length is its character count — the check written to catch
+  divergence is what made this input look correct, and it round-tripped
+  as three document ids `a`, `b`, `c`. The `bytes` row is worse: ids
+  become the integers `97, 98, 99`. Fixed by making `QueryResult` the
+  third caller of `_is_sequence_container`, **before** the two existing
+  checks, because both of them crash on the inputs it rejects — the
+  ordering has its own test, and moving the guard last leaves seven rows
+  red.
 - **D-011.** `evaluate_strategy()` enforces the late-chunking embedder
   consistency contract at runtime: if a `LateChunkingStrategy` is
   passed alongside an embedder whose `model_name` doesn't match the

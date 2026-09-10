@@ -84,7 +84,47 @@ class QueryResult:
         `RetrievalRun.__post_init__` does not type-check `strategy_name`
         either. Making this one class stricter than its sibling for no stated
         reason is how a module's bar becomes unknowable.
+
+        That reason is about `str` *fields* and `str` *elements*; it says
+        nothing about whether the **container** is a `str`, and #188 closed
+        that. #187 had drawn the identical line one class down — it left
+        `strategy_name` alone and guarded `notes` and `per_query` — so this is
+        the sibling rule applied, not a raised bar. Measured before it:
+
+            ids='abc',  3 flags   ROUND-TRIPPED -> ('a','b','c')
+            ids=b'abc', 3 flags   ROUND-TRIPPED -> (97, 98, 99)
+            ids=5 / ids=None      raw TypeError: object of type 'int' has no len()
+            flags=5 / flags=None  raw TypeError: 'int' object is not iterable
+
+        Two things make this sharper than #187's version of the same defect.
+        The raw `TypeError`s come out of **this method** — `len()` and
+        `enumerate()` below are reached before either `raise ValueError`, so
+        the guard raises the exception type the module's contract exists to
+        convert. And the length-parity invariant *hides* the string row:
+        `len("abc") == 3`, so three real bool flags make the two "parallel
+        per-rank arrays" agree precisely because a string's length is its
+        character count. The check written to catch divergence is what made
+        this one look correct.
+
+        Order is load-bearing, not incidental: the container check runs FIRST,
+        because both checks below crash on the inputs it rejects.
         """
+        # #188. First, because `enumerate` and `len` below raise a raw
+        # `TypeError` on a non-container — out of the very method whose job is
+        # to turn bad input into this module's loud `ValueError`. Shared with
+        # `RetrievalRun` through `_is_sequence_container` rather than respelled;
+        # #187 measured that the inline copy passes every behavioural test.
+        for _name, _value in (
+            ("retrieved_doc_ids_in_rank_order", self.retrieved_doc_ids_in_rank_order),
+            ("snippet_hits_in_rank_order", self.snippet_hits_in_rank_order),
+        ):
+            if not _is_sequence_container(_value):
+                raise ValueError(
+                    f"{_name} must be a sequence of per-rank values, got "
+                    f"{_value!r} ({type(_value).__name__}); a str or bytes "
+                    "silently splats into one entry per character or per byte, "
+                    "and `RetrievalRun.to_json` writes `list(...)` of this field"
+                )
         # `bool` first and on its own axis: `isinstance(1, int)` is True and so
         # is `isinstance(True, int)`, so an `int` check accepts exactly the
         # value this rejects. `any()` and `sum()` treat `1` and `True`
