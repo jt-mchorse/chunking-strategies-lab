@@ -2050,3 +2050,57 @@ named as still open.
 
 **Next session:** nothing outstanding in `metrics.py`'s construction boundaries —
 all four now carry a rule.
+
+## 2026-09-09 — Issue #186: the numeric axis was complete and the container axis was never started
+**Branch:** `session/2026-09-09-0819-issue-186`
+
+`RetrievalRun.from_json` has guarded four containers since #114/#118, each with
+a comment about a raw `TypeError`/`AttributeError` "escaping the documented
+`KeyError`/`ValueError` loud contract". That phrase appears four times in one
+method. `__post_init__` guarded every numeric field — #180, #181, #182 closed
+those one at a time, each quoting the previous one's hazard — and no container
+at all.
+
+Six shapes constructed and then raised exactly those types out of `to_json`.
+Two round-tripped silently, and those are why this was worth an issue:
+`notes="chunk overlap looks high"` became 24 single-character notes, because
+`to_json` writes `list(self.notes)`. `from_json`'s guard for that very field
+names the harm — "a JSON string silently char-splats into a per-character list"
+— and calls itself "the last list container built via `list(...)` on the *read*
+path". The identical `list(...)` on the write path was never asked about.
+
+This is the second time today a serializer's own coercion laundered the bug;
+`llm-eval-harness` had `tags="urgent"` becoming six tags a few hours earlier.
+Both times the fix was to check the field, not the payload.
+
+`from_json` keeps its own container guards, and they are not redundant with the
+new write-side ones: the coercion between them launders the error, because
+`list("abc")` is a perfectly good `list[str]` by the time the constructor sees
+it. That is exactly the kind of redundancy argument a later reader deletes, so
+there is a test that *runs* the claim rather than asserting it in prose.
+
+The most useful thing was building the copy-instead-of-share neighbour: inline
+both rules in `__post_init__` rather than calling the shared validators. It
+passed all 1555 tests. That is the fourth time today — across four repos — that
+a behavioural suite could not distinguish one definition from two identical
+ones. It is caught now by five structural arms and nothing else, counted over
+AST string literals excluding docstrings rather than raw source text, because a
+raw `.count` false-hits the day someone quotes a message in a comment
+explaining the fix. My own comment block does.
+
+#184's scope line still holds and is restated rather than assumed: it excluded
+the plain `str` fields because `RetrievalRun` does not type-check
+`strategy_name` either. That reason is about scalar `str` fields and says
+nothing about containers, which `from_json` does guard.
+
+**Why this work, this session:** the repo's only open issue was maintainer-gated,
+so the hunt was the work, and the surface was the PR this same run merged during
+Phase A — whose own docstring named its deliberate scope exclusion, which is
+where the container question came from.
+
+**Open questions / blockers:** none.
+
+**Next session:** `QueryResult.retrieved_doc_ids_in_rank_order`'s element types
+are the remaining open question, and they sit on the boundary #184 drew — a
+`tuple[str, ...]` is a container, but its elements are the scalar `str`s that
+exclusion is about.
