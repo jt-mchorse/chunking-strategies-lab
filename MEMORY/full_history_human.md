@@ -2104,3 +2104,61 @@ where the container question came from.
 are the remaining open question, and they sit on the boundary #184 drew — a
 `tuple[str, ...]` is a container, but its elements are the scalar `str`s that
 exclusion is about.
+
+---
+
+## 2026-09-10 — a class can guard its contents and not its container (#188)
+
+**Focus:** `QueryResult.__post_init__` in `chunking_lab/metrics.py`.
+
+**What got done.** #187, merged at the top of this run, gave
+`RetrievalRun.__post_init__` the container guards its own `from_json` had
+carried since #114/#118, and stated the finding as a shape: `from_json` guarded
+four containers, each with a comment naming the harm, and `__post_init__`
+guarded zero. `QueryResult` is the same table one class up. Its `from_json`
+guards both container fields and names both harms verbatim; its `__post_init__`
+checked the *elements* — the bool flags — and the *length parity* between two
+parallel arrays, and never asked what kind of thing holds them.
+
+Two things make this sharper than the version it was inherited from. The raw
+`TypeError`s came out of the guard method *itself*: `len()` and `enumerate()`
+are called before either `raise ValueError`, so the method whose whole job is
+turning bad input into this module's loud `ValueError` raised the type that
+contract exists to convert. And the length-parity invariant *hid* the worst
+row. `len("abc") == 3`, so three real bool flags make the two "parallel
+per-rank arrays" agree precisely because a string's length is its character
+count — the check written to catch divergence certified the input as correct,
+and it then round-tripped as three document ids `a`, `b`, `c`. The `bytes` row
+is worse and is the one worth showing a reader: document ids came back as the
+integers `97, 98, 99`, in a field annotated `tuple[str, ...]`.
+
+The fix makes `QueryResult` the third caller of `_is_sequence_container`, the
+predicate #187 already added and already shares. Order is part of it rather
+than an implementation detail: the container check has to run first, because
+both pre-existing checks crash on the inputs it rejects, and the neighbour that
+places it last is red on seven rows. A correct guard in the wrong position
+turned out to be a distinct neighbour worth building.
+
+The scope line both #184 and #187 carry — the plain `str` fields and the `str`
+elements stay unchecked, because `RetrievalRun` does not type-check
+`strategy_name` either — is true and stays. It is a statement about scalars and
+elements, and says nothing about whether the *container* is a `str`; #187 drew
+exactly that line one class down when it left `strategy_name` alone and guarded
+`notes` and `per_query`.
+
+**The process note worth keeping.** After restoring the fixed file from a
+`/tmp` copy, seven tests stayed red. `diff` said the file on disk matched the
+saved copy exactly, and the traceback pointed at a list comprehension while
+reporting a `len()` error — a line that does not call `len()`. That mismatch
+was the tell: a stale `__pycache__`, and pytest was importing the neighbour's
+bytecode. Deleting the caches fixed it instantly. This is structural to how I
+work — my standing rule is to copy to `/tmp` and restore from there rather than
+using `git checkout`, and `cp` can leave a `.pyc` that still validates. Every
+revert probe should clear `__pycache__` before a green or a red is trusted; I
+came close to reporting a working fix as broken.
+
+**Why this was prioritized.** The only open issue here is a JT-gated
+decision-revisit, and the freshest surface in the portfolio is the PR merged at
+the top of the same run.
+
+**Open questions / blockers:** none.
