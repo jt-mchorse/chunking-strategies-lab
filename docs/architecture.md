@@ -193,6 +193,46 @@ the contract between layers.
   produced all three issues. The one genuine asymmetry that remains is
   key *coercion*: JSON names are strings, so the read path runs
   `_coerce_metric_keys` first and the write path does not need it.
+- **What the `results/summary.md` snapshot lock does and does not cover
+  (#190).** `tests/test_summary_snapshot.py` re-renders the committed
+  `canonical__*.json` fixtures through `_render_summary` and compares the
+  result to the committed `summary.md`. That pins the **renderer**: it
+  asks whether the markdown agrees with the JSONs beside it. It never
+  asked whether those JSONs agree with the **pipeline**, so a chunking
+  strategy whose recall regressed would leave both the fixtures and the
+  published table exactly as committed and the lock exactly as green.
+  Measured: dropping `FixedSizeStrategy(chunk_chars=600)` to `520` turns
+  exactly one assertion red, and it is the new
+  `test_committed_json_matches_a_fresh_pipeline_run`; the pre-existing
+  renderer assertion stays green.
+
+  The original scoping reason — the committed JSONs "carry
+  `wall_clock_ms` baked in, so feeding them back through the renderer
+  produces a deterministic markdown" — is true of `wall_clock_ms` and of
+  nothing else. Two fresh runs and the committed fixtures agree
+  bit-for-bit on every other field, because `HashEmbedder` is
+  deterministic, and the whole five-strategy matrix takes 0.2 s. So the
+  pipeline lock re-runs the real script and compares every field except
+  that one, with `_HOST_DEPENDENT_FIELDS` pinned to exactly
+  `{"wall_clock_ms"}` and a determinism arm that justifies the exclusion
+  by measurement rather than assumption.
+
+  Three smaller defects in the same file came from following its own
+  failure message. `REGEN_HINT` printed `python scripts/run_matrix.py`,
+  which writes `results/<timestamp>__summary.md` and leaves
+  `results/summary.md` untouched — so the command the failing assertion
+  printed could not refresh the file the assertion was about; the flag's
+  own help text (`--canonical-out`) already said so. `_committed_run_jsons`
+  globbed `results/*.json` while `.gitignore` defines the committed set as
+  `summary.md` plus `canonical__*.json`, so the five gitignored scratch
+  files that command produced turned five tests red and reported them as
+  "committed". And `_runs_in_strategy_order` built its index with a dict
+  comprehension over a sorted list, resolving a duplicate strategy key by
+  whichever filename sorted later — silently, which is why the summary
+  assertion stayed green while the per-strategy count assertion failed: a
+  timestamp prefix starts with a digit (`0x30`–`0x39`) and `canonical__`
+  with `c` (`0x63`), so the canonical file happened to win. The lock was
+  correct by byte ordering and nothing stated it.
 - **The fourth construction boundary (#184).** `QueryResult` was the
   last class in `metrics.py` with no rule at all, and its invariant
   was stated in a *comment*: "Length matches

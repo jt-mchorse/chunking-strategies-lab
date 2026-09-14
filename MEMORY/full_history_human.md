@@ -2162,3 +2162,54 @@ decision-revisit, and the freshest surface in the portfolio is the PR merged at
 the top of the same run.
 
 **Open questions / blockers:** none.
+
+## 2026-09-11 — the snapshot lock's own regen hint broke it (#190)
+
+**What got done.** I started by running the command the failing snapshot test
+tells you to run. `python scripts/run_matrix.py` writes
+`results/<timestamp>__summary.md`, not `results/summary.md` — so the command the
+failing assertion prints cannot refresh the file the assertion is about. It also
+drops five gitignored scratch JSONs into `results/`, and because
+`_committed_run_jsons` globbed `results/*.json` rather than the
+`canonical__*.json` that `.gitignore` already defines as the committed set, those
+five files turned five tests in the same module red and reported them as
+"committed". The flag that does the job, `--canonical-out`, says so in its own
+help text; the hint simply predates it.
+
+A third thing fell out of that. `_runs_in_strategy_order` built its index with a
+dict comprehension over a sorted list, so a duplicate strategy key resolved to
+whichever filename sorted later, silently. That is why the summary assertion stayed
+green while the per-strategy count assertion failed on the same data: a timestamp
+prefix starts with a digit and `canonical__` starts with `c`, so the canonical file
+happened to sort last and happened to win. The lock was correct by byte ordering
+and nothing said so.
+
+**The thing underneath.** The snapshot re-renders the committed JSONs and compares
+the result to the committed markdown. That asks whether the two artifacts agree
+*with each other*. It never asks whether either agrees with the pipeline — so a
+chunking strategy whose recall regressed would leave both stale and the lock green,
+and the published table is this repo's headline result. The separating probe has to
+be a change to the *code*: dropping one strategy's chunk size from 600 to 520 with
+the fixtures untouched turns exactly one assertion red, and it is the new one.
+Perturbing a fixture instead turns both red and proves nothing.
+
+The original scoping reason was sound but scoped to one field: the JSONs carry
+`wall_clock_ms` baked in, so re-rendering them is deterministic. That is true of
+`wall_clock_ms` and of nothing else — every other field is bit-for-bit reproducible
+because `HashEmbedder` is deterministic, and the whole five-strategy matrix runs in
+0.2 seconds. So the new lock re-runs the real script and compares every field
+except that one, with the exclusion set pinned to exactly `{"wall_clock_ms"}`, an
+arm asserting the compared set still contains the recall numbers, and a determinism
+arm so the exclusion rests on a measurement rather than on my word. A host-dependent
+field is a reason to exclude that field, not to give up the comparison.
+
+Regenerating today confirms the committed quality numbers are correct right now.
+This was a gap in what the lock could *see*, not a live staleness.
+
+**Why this was prioritized.** `chunking-strategies-lab`'s only open issue is
+waiting on a decision from JT, so the work came from hunting, and the richest thing
+in the repo turned out to be a failure message nobody had followed.
+
+**Open questions / blockers:** none. The `--embedder minilm` path is still
+unlocked, deliberately — it needs the `[sbert]` extra, so a test over it would be
+an assertion about the host rather than about the code.
