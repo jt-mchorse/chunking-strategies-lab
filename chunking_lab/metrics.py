@@ -828,6 +828,54 @@ def validate_ks(ks: Sequence[int]) -> None:
         raise ValueError(f"every k in ks must be positive; got {bad_k}")
 
 
+def validate_queries(queries: Sequence[Query]) -> None:
+    """Reject an empty ``queries``. Raises ``ValueError``.
+
+    ``evaluate_strategy`` has two populations and ``validate_ks`` guarded one of
+    them. Its reasoning covers this argument too, and the consequence here is
+    worse than the one it names: an empty ``ks`` "silently produces an empty
+    ``recall_at_k`` dict", while an empty ``queries`` produces a **populated**
+    one, full of the floor of the metric's range.
+
+    Measured on the unguarded version::
+
+        evaluate_strategy(FixedSizeStrategy(), corpus, [], HashEmbedder(), ks=(1, 3, 5))
+
+        n_queries      = 0
+        n_chunks_total = 3
+        recall_at_k    = {1: 0.0, 3: 0.0, 5: 0.0}
+        snippet_hit@k  = {1: 0.0, 3: 0.0, 5: 0.0}
+
+    Exit 0, and ``RetrievalRun.from_json`` accepts the result -- the read-path
+    validator permits ``n_queries=0`` and nothing ties the count to the metric
+    values. ``0.0`` is not a neutral placeholder on these two maps: this repo has
+    twice argued what it reads as, in ``_render_summary``'s own comments (#76,
+    #160) -- "the table said it scored zero on everything, and a reader concludes
+    the strategy failed". That is the value ``n == 0`` was manufacturing for a run
+    in which nothing was measured at all.
+
+    **Refused rather than reported as absent.** ``load_queries`` already raises
+    ``"queries file is empty"`` on exactly this condition, and ``recall_at_k`` is
+    validated as floats in ``[0, 1]`` on both the read and write paths -- so
+    refusing is both smaller than making the values nullable and consistent with
+    the rule already in the repo. (``llm-cost-optimizer`` D-019 answered the same
+    shape with ``null`` yesterday, because *there* an existing test required the
+    zero-row run to complete and the payload already had nullable fields. The
+    shape is shared; the right answer is not.)
+
+    ``corpus`` deliberately gets no such guard. An empty corpus with real queries
+    yields a **truthful** ``0.0`` -- the queries ran and retrieved nothing -- which
+    is a measurement, not a fabrication. The distinction is which population the
+    denominator counts. (#192)
+    """
+    if not queries:
+        raise ValueError(
+            "queries must be non-empty; an empty query set would publish "
+            "recall@k = 0.0 and snippet-hit@k = 0.0 for every k, which reads as "
+            "'the strategy retrieved nothing' rather than 'nothing was measured'"
+        )
+
+
 def evaluate_strategy(
     strategy: Strategy,
     corpus: list[Document],
@@ -857,6 +905,12 @@ def evaluate_strategy(
     """
     _check_late_chunking_embedder_consistency(strategy, embedder)
 
+    # Both of this function's populations, guarded at the same boundary. `ks`
+    # has been checked here since #28; `queries` was checked only inside
+    # `load_queries`, three modules away, so every caller that builds `Query`
+    # objects directly -- which is the documented library entry point, and what
+    # every test in `tests/test_metrics.py` does -- bypassed it (#192).
+
     # Non-positive `k` flows through `retrieved_docs[:k]` slicing without
     # raising — k=0 silently produces recall@0=0.0 always; k<0 silently
     # miscounts ("all but the last N"). Empty `ks` silently produces an
@@ -864,6 +918,7 @@ def evaluate_strategy(
     # operators don't chase them one-at-a-time. Mirrors the run_sweep
     # k_values guard in embedding-model-shootout (#28).
     validate_ks(ks)
+    validate_queries(queries)
     # Deduplicate (order-preserving) so the counter dicts, `max(ks)`, and the
     # per-query counting loop all operate on the same unique-key set. The hit
     # dicts below already collapse duplicate keys, but the raw counting loop

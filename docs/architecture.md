@@ -172,6 +172,31 @@ the contract between layers.
   `evaluate_strategy` itself because that's the only place with
   visibility into the full chunk → embed → retrieve pipeline.
   Defaults to `0.0` so JSON files written before D-009 still load.
+- **Both populations guarded at the metric boundary (#192).**
+  `evaluate_strategy` takes two populations it divides and iterates
+  over, and guarded one. `validate_ks` has checked `ks` since #28, for
+  a stated reason — "an empty `ks` silently produces an empty
+  `recall_at_k` dict" — and that reasoning covers `queries` too, where
+  the consequence is worse: an empty query set produced a *populated*
+  map of `0.0`s, the floor of the metric's range, at exit 0 and
+  accepted by `from_json`. `_render_summary`'s own comments argue twice
+  (#76, #160) what a zero in those columns reads as: "the table said it
+  scored zero on everything, and a reader concludes the strategy
+  failed". `validate_queries` now sits beside `validate_ks`.
+
+  Refused rather than reported as absent, unlike the same shape in
+  `llm-cost-optimizer` (D-019), which reports `null`. Two reasons the
+  answers differ: `load_queries` already raises on exactly this input,
+  so refusing keeps one rule rather than adding a second posture; and
+  `recall_at_k` is validated as floats in `[0, 1]` on *both* paths, so
+  nullable values would be a type change across the read path, the
+  write path and the renderer.
+
+  `corpus` deliberately gets no such guard. An empty corpus with real
+  queries yields a **truthful** `0.0` — the queries ran and retrieved
+  nothing, and `per_query` records each one. The distinction is which
+  population the denominator counts.
+
 - **One rule per field, shared by both paths (#180, #181, #182).**
   `RetrievalRun` is written by `evaluate_strategy` and read back by
   `from_json`, and every field contract lives in exactly one function
