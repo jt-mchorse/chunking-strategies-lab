@@ -2213,3 +2213,47 @@ in the repo turned out to be a failure message nobody had followed.
 **Open questions / blockers:** none. The `--embedder minilm` path is still
 unlocked, deliberately — it needs the `[sbert]` extra, so a test over it would be
 an assertion about the host rather than about the code.
+
+## 2026-09-21 — Issue #192: the guard covered one of two populations
+**Duration:** 6 min (measured) · **Branch:** `session/2026-09-21-0752-issue-192`
+
+**How it was found.** csl's only open issue is a JT-gated decision revisit, so
+this was hunted. `validate_ks` is an extracted, heavily documented guard whose
+docstring gives its reason: "an empty `ks` silently produces an empty
+`recall_at_k` dict". `evaluate_strategy` has *two* populations it divides by and
+iterates over. The second had no guard, and its failure is worse — an empty `ks`
+gives an empty map; an empty `queries` gives a populated one, full of `0.0`, at
+exit 0 and accepted by the strict read-path validator.
+
+**The severity argument was already written in the repo.** `_render_summary`'s
+own comments, from #76 and again from #160: "the table said it scored zero on
+everything, and a reader concludes the strategy failed." The repo had already
+ruled, twice, that a zero in those columns is read as a verdict. I didn't have to
+make the case — worth remembering as a habit: when a suspect value turns up,
+grep for prose about what that value *means*.
+
+**Same shape as two other repos this run, different remedy.** `llm-cost-optimizer`
+reports `null` for the same situation, because an existing test there required
+the zero-row run to complete and the payload already had nullable fields. csl
+*refuses*, because `load_queries` already raises on exactly this input and
+`recall_at_k` is validated as floats in `[0, 1]` on both paths — so nullable
+values would be a type change across the reader, the writer and the renderer.
+The shape transfers; the remedy does not.
+
+**What I deliberately did not sweep.** An empty *corpus* with real queries yields
+a truthful `0.0`: the queries ran, retrieved nothing, and `per_query` records
+each one. The distinction is which population the denominator counts. That
+no-change arm is the only thing that catches the over-broad neighbour.
+
+**Placement is a separate claim from presence.** An arm asserting only
+`pytest.raises(ValueError)` passes for a guard placed *after* the per-query loop,
+where `n == 0` is already baked into the maps and the chunking and embedding work
+has already run. The separating arm subclasses the strategy and records whether
+`chunk` was ever called — and also asserts the spy *does* record on the allowed
+path, so an empty list means "nothing happened" rather than "the spy is broken".
+
+**Anti-vacuity.** 6 arms red against the pre-change tree with the helper grafted
+in, 5 green (the helper arm and four invariants). Two neighbours built and run,
+each caught by exactly one arm and a different one.
+
+**Suite:** 1589 → 1600 green. ruff, `ruff format --check` and mypy clean.
