@@ -2257,3 +2257,16 @@ in, 5 green (the helper arm and four invariants). Two neighbours built and run,
 each caught by exactly one arm and a different one.
 
 **Suite:** 1589 → 1600 green. ruff, `ruff format --check` and mypy clean.
+
+## 2026-09-23 — Issue #194: the quickstart-import lock walked a tuple, not the quickstarts
+**Duration:** ~6 min (measured) · **Branch:** session/2026-09-23-0740-issue-194
+
+- `test_readme_quickstart_imports_resolve` said it existed so that "every reader who copy-pastes a quickstart" would not hit an `ImportError`, and then checked six strings transcribed into the test file, pinned in a comment to "lines 74 and 94". The snippets are at 95 and 115, and `docs/setup.md` has carried a third one all along, outside the corpus entirely.
+- The list was correct and all eight arms were green. The defect is the mismatch between what the test's name claims and what its body walks — a check that can only fail when someone edits the check.
+- Replaced the tuple with a discovery step over `README.md` and `docs/setup.md`, parsing each snippet with `ast`, plus an anti-vacuity arm that pins the *corpus* rather than the result. Demonstrated by running the old test against the two cases it cannot see: both leave it at 8 passed.
+
+**Why this work, this session:** the repo had no unblocked backlog, and a lock whose docstring has drifted 21 lines from the thing it points at is the cheapest possible tell.
+
+**Open questions / blockers:** none. `chunking_lab.metrics` staying dotted-path-only is deliberate and documented; this change does not touch it.
+
+**Next session:** `run_matrix.py --canonical-out` regenerates with only `wall_clock_ms` moving — that surface is stable and does not need re-sweeping.
