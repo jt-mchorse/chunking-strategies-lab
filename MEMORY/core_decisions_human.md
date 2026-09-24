@@ -294,3 +294,18 @@ Two suppressions were kept rather than removed, because the input really is deli
 **Reversibility:** Cheap.
 
 **Related issues:** #174, #165
+
+## D-016 — The wall-clock column never publishes a positive elapsed time as zero
+**Date:** 2026-09-24 · **Reversibility:** cheap · **Issues:** #196 (with #160, #180, #118)
+
+`scripts/run_matrix.py` rendered the wall-clock column as a bare `{r.wall_clock_ms:.0f}`, so any elapsed time that rounds to zero published `0` into the tracked `results/summary.md` that the README's comparison narrative reads. `_validate_wall_clock`'s own docstring already framed the harm class — `wall_clock_ms` is a *measured* number (D-009), so it is a benchmark number in the sense the no-fabricated-benchmarks rule cares about, and "a negative value renders impossible elapsed time." Zero is impossible elapsed time too. Nothing takes zero milliseconds, so the cell was never a measurement; it was always a rendering artefact, and here it is the flattering one: a strategy that takes zero milliseconds wins any "which is fastest" read of a column the README compares on.
+
+**Why the guard is on the rendered shape and not on a magnitude.** `f"{0.5:.0f}"` is `'0'`, because Python rounds half to even. A fix written `if ms < 0.5` therefore misses exactly `0.5` — the one value a reader would most expect it to catch. That neighbour was built and run and two arms went red on `0.5` alone. The shipped form renders at `.0f` and re-renders at `.3g` only if the result parses back as zero, so it cannot drift from what the formatter actually does.
+
+**Why a defaulted `0.0` renders an em dash.** D-009 made `wall_clock_ms: float = 0.0` the backward-compat default so pre-D-009 JSONs still load, which makes `0.0` this field's "not measured" sentinel rather than a measurement. `_metric_cell` in the same module exists to draw exactly that distinction, and #160 locked that an unmeasured cell is never published as a number. Same spelling, same reason. The alternative — keep printing `0` on the grounds that zero is honest for a genuine zero — fails because there is no genuine zero: the only way this field holds `0.0` is the default. An arm measures a real run and asserts it is strictly positive, so that premise is pinned rather than assumed.
+
+**Two render sites, and the second was not in the issue.** The per-strategy stdout line in `main` was also a bare `.0f`, and the comment three lines above it makes the argument itself: "stdout is a publication surface like the summary table, and a silent `0.000` here would be the same fabricated measurement." That sentence is about the surface, not about which column, so it covers the wall-clock field as much as the recall cells it was written for. A test discovers the population by AST — every read of `.wall_clock_ms` in `run_matrix.py` must be an argument to `_wall_clock_cell` — so a third site added later fails rather than shipping a collapsed cell.
+
+**Alternatives considered.** Widening the whole column to `.1f` was the smaller diff and churns every committed cell (`20` → `20.0`), taking `results/summary.md` and `docs/benchmarks.md` with it; 12 arms red. The magnitude threshold, 2 red. Leaving `0.0` as `0`, 2 red. Fixing only the summary cell, 2 red including the AST population arm. Raising on a collapsing value was rejected on scope: this is a renderer, `_validate_wall_clock` already owns the read-path rejections, and a small positive time is valid data that was being published wrongly.
+
+Ordinary values are byte-identical by construction, verified by rendering from the committed JSONs and comparing to `results/summary.md` rather than by re-running the script — which re-times the corpus on the host and moves those numbers for reasons unrelated to this change.
