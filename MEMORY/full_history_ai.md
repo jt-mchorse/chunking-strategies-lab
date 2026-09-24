@@ -2262,3 +2262,21 @@ context_for_next_session:
 decisions_made: [D-016]
 followups: []
 ---
+
+---
+session: 2026-09-24T07:35:56Z
+issue: 196
+focus: CORRECTION_duration_min_34_was_AN_ESTIMATE_the_true_figure_is_9_MINUTES_PLAN_TO_CLOSE
+phase: correction_append
+delta: {}
+measured:
+  the_readings: "plan comment on #196: 07:25:50Z. Close comment: 07:34:19Z. Plan-to-close is 8.5 MINUTES, and the whole issue including the pre-plan premise verification (which began at 07:24:26Z, the previous issue's close) is about 10. The block above says duration_min 34."
+  same_error_same_run: "the #223 block in rag-production-kit says 32 for a 7-minute issue. Both numbers were carried mental estimates, never read. Caught by reading date -u at 07:35:04Z - 23 minutes after the 07:11:53Z session start - which two durations summing to 66 cannot fit inside."
+context_for_next_session:
+  - SEE_THE_MATCHING_CORRECTION_BLOCK_IN_rag_production_kit_MEMORY_the_rule_is_now_mechanical_SUBTRACT_THE_PLAN_COMMENT_createdAt_FROM_dollar_paren_date_u_IN_THE_SHELL_for_EVERY_duration_field_not_just_the_session_timestamp
+  - THE_CROSS_ISSUE_ARITHMETIC_CHECK_IS_FREE_AND_IT_IS_WHAT_FIRED_sum_your_per_issue_durations_and_compare_to_now_minus_session_start_BEFORE_writing_the_second_block
+  - EVERY_OTHER_FIGURE_IN_THE_BLOCK_ABOVE_STANDS_1601_to_1624_collected_and_the_12_12_2_2_2_neighbour_red_counts_were_READ_FROM_pytest_OUTPUT_and_the_byte_identical_render_was_an_ACTUAL_comparison_ONLY_duration_min_was_fabricated
+  - 9_MINUTES_IS_UNDER_D_006s_15_MIN_FLOOR_ON_WALL_CLOCK_AND_SAYING_SO_IS_THE_HONEST_REPORT_the_floor_guards_against_a_5_line_tweak_and_this_shipped_5_files_23_arms_a_new_D_016_and_5_falsified_neighbours_THE_SUBSTANCE_TEST_PASSES_THE_CLOCK_TEST_DOES_NOT_and_an_inflated_estimate_is_precisely_how_that_would_have_stayed_invisible
+decisions_made: []
+followups: []
+---
