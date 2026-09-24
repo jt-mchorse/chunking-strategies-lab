@@ -453,3 +453,26 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   `notebooks/_build_notebook.py`.
 - **Design decisions** — `MEMORY/core_decisions_human.md` for prose,
   `MEMORY/core_decisions_ai.md` for the structured log.
+- **D-016 (#196).** The wall-clock column never publishes a strictly
+  positive elapsed time as `0`, and a defaulted `0.0` renders
+  `_ABSENT_CELL` rather than a number. The column was a bare
+  `{r.wall_clock_ms:.0f}`, so any elapsed time rounding to zero published
+  `0` into the tracked `results/summary.md`. `_validate_wall_clock`'s own
+  docstring already framed the class — a negative value "renders
+  impossible elapsed time" — and zero is impossible elapsed time too, so
+  the cell was never a measurement. Here the artefact *flatters*: a
+  strategy taking zero milliseconds wins any "which is fastest" read of a
+  column the README compares on, unlike the same shape in
+  `embedding-model-shootout#149` where the collapsed zero was the worst
+  value. The guard is on the rendered shape, not a magnitude threshold,
+  because `f"{0.5:.0f}"` is `'0'` — Python rounds half to even, so
+  `if ms < 0.5` misses exactly `0.5`. A defaulted `0.0` is D-009's
+  backward-compat sentinel rather than a measurement, so it takes the
+  same em dash `_metric_cell` gives an absent metric, per #160. There
+  were **two** render sites: the summary cell and the per-strategy stdout
+  line, whose neighbouring comment already argues that "stdout is a
+  publication surface like the summary table" — a test discovers the
+  population by AST rather than naming the two, so a third site fails
+  instead of shipping a collapsed cell. Ordinary values are byte-identical
+  by construction; verified by rendering from the committed JSONs, not by
+  re-running the script, which re-times the corpus on the host.

@@ -467,9 +467,18 @@ def _validate_wall_clock(value: Any) -> None:
     renders a *fabricated* ``1`` ms (bool subclasses int, so an
     ``isinstance(v, (int, float))`` check alone lets it through), a
     negative value renders impossible elapsed time, and a string reaches
-    ``f"{value:.0f}"`` in ``_render_summary`` and raises a raw
-    formatting ``ValueError`` at that unrelated call site instead of the
+    the ``f"{ms:.0f}"`` inside ``_wall_clock_cell`` — which
+    ``_render_summary`` calls — and raises a raw formatting
+    ``ValueError`` at that unrelated call site instead of the
     field-named one this loader documents.
+
+    A value of exactly ``0`` is guarded here too, but not by a raise: it
+    is the *legal* backward-compat default D-009 gave this field, so the
+    renderer publishes it as "not measured" rather than as a measured
+    zero (#196). Nothing takes zero milliseconds, so the reachable
+    corruption at this field is not only the shapes above — it is also a
+    strictly positive elapsed time small enough that a fixed-decimal
+    renderer collapses it to the same ``0``.
 
     Same field-named ``ValueError`` shape as :func:`_validate_metric_map`;
     the value axis this completes is the sibling of the container axis
