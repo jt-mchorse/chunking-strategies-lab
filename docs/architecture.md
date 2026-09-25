@@ -476,3 +476,47 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   instead of shipping a collapsed cell. Ordinary values are byte-identical
   by construction; verified by rendering from the committed JSONs, not by
   re-running the script, which re-times the corpus on the host.
+
+- **D-017 (#198).** Every measured float this module publishes goes through
+  one `_render_no_fabricated_zero(value, *, places)`, which widens to `.3g`
+  when the fixed-width rendering of a strictly non-zero value comes out
+  zero — and does nothing else. `_metric_cell`'s own docstring said it
+  existed to distinguish "measured zero" from "not measured"; it drew one
+  half of that and then published a present, strictly positive,
+  sub-resolution value as `0.000`, the same cell a genuine `0.0` gets. A run
+  that found the gold chunk for one query in four thousand published a row
+  byte-identical to a run that found nothing.
+
+  **The population was four sites, not two.** The per-strategy stdout line
+  printed `recall@k` and `snippet-hit@k` at a bare `.3f`. The comment fifteen
+  lines above it makes exactly this argument — "stdout is a publication
+  surface like the summary table, and a silent `0.000` here would be the same
+  fabricated measurement" — and it was written *about the recall cells*.
+  D-016 then applied that reasoning to the `wall_clock=` field on the next
+  line and left these two. An AST arm now requires every float rendering in
+  the file to sit inside the helper, so a fifth column in an unanticipated
+  spelling fails rather than ships.
+
+  **Which half of `embedding-model-shootout#149`'s argument transfers.** The
+  arithmetic half does; the extreme-default half does not. For wall-clock
+  (D-016) and for `vector-search-at-scale#148` the fabricated zero is the
+  *best* value in its column and therefore flatters. Here `0.000` is the
+  *worst* value on both columns, so the collapse understates. Nobody is made
+  to look good — what is lost is the distinction itself.
+
+  **The `0.0`-sentinel decision stays with the caller.** The two callers
+  disagree about what a genuine zero means and both are right: `wall_clock_ms`
+  is `0.0` by D-009's backward-compat default, so a zero there is "not
+  measured" and renders `—`; a `recall@k` of `0.0` is a real measurement and
+  keeps `0.000`. The shared helper widens a non-zero value and nothing else,
+  because folding the sentinel in would have to flatten that. The stdout sites
+  call the helper directly rather than `_metric_cell`, keeping the `KeyError`
+  its neighbouring comment argues for.
+
+  A consequence of sharing worth recording: the "magnitude threshold instead
+  of the rendered shape" neighbour is caught *only* by the wall-clock arms,
+  because at `places=3` the nearest double to `0.0005` sits just above it and
+  the two rules agree on every metric value, while at `places=0` they diverge
+  at exactly `0.5`. One helper is what lets an arm in one column reject a
+  wrong rule in another. Committed cells are byte-identical, verified by
+  re-rendering from the committed JSONs.

@@ -125,11 +125,70 @@ def _build_strategies(embedder: Embedder):
 _ABSENT_CELL = "—"
 
 
+def _render_no_fabricated_zero(value: float, *, places: int) -> str:
+    """Render `value` at `places` fixed decimals, widening rather than
+    publishing a strictly non-zero measurement as zero.
+
+    The one rule behind every measured column in this module. #196 wrote it
+    inline for the wall-clock cell; #198 found it was needed at four sites in
+    two spellings, which is where "should this be shared?" stops being a
+    judgement call.
+
+    **The guard is on the rendered shape, not on a magnitude threshold.**
+    ``f"{0.5:.0f}"`` is ``'0'`` because Python rounds half to even, so
+    ``if value < 0.5`` misses exactly ``0.5`` — the one value a reader would
+    most expect it to catch. Asking the formatter what it actually produced
+    cannot drift from what the formatter actually does. Carried over from
+    D-016 unchanged, and the widened form is the same ``.3g``.
+
+    **The `0.0` sentinel decision stays with the caller.** This function
+    widens a *non-zero* value that renders as zero and nothing else, because
+    the two callers disagree about what a genuine `0.0` means and both are
+    right: `wall_clock_ms` is `0.0` by D-009's backward-compat default, so a
+    zero there is "not measured"; a `recall@k` of `0.0` is a real measurement
+    of a strategy that found nothing. A shared helper that folded the sentinel
+    in would have to flatten that, so it does not.
+    """
+    rendered = f"{value:.{places}f}"
+    if value != 0.0 and float(rendered) == 0.0:
+        return f"{value:.3g}"
+    return rendered
+
+
 def _metric_cell(metrics: dict[int, float], k: int) -> str:
-    """Format one metric cell, distinguishing "measured zero" from "not measured"."""
+    """Format one metric cell, distinguishing "measured zero" from "not measured".
+
+    Three cases, and the middle one is what #198 added:
+
+    absent → ``_ABSENT_CELL``
+        Locked by #160: an unmeasured cell is never published as a number.
+
+    a strictly positive value ``.3f`` collapses to zero → ``.3g``
+        The docstring above this line named the distinction the function draws
+        and the function drew one half of it. A ``recall@k`` of ``0.00025`` —
+        one gold chunk found in four thousand queries — rendered ``0.000``,
+        byte-identical to the row of a run that found nothing. The computation
+        was never wrong; the JSONs carry ``0.00025`` throughout.
+
+    a genuine ``0.0`` → ``0.000``, unchanged
+        Unlike `wall_clock_ms`, zero recall is a real measurement. It is *not*
+        this column's "not measured" sentinel, and it keeps the narrow
+        rendering so the three cases stay three.
+
+    **Which half of `embedding-model-shootout#149`'s argument transfers.** The
+    arithmetic half does: a present measurement below half of ``10**-3``
+    reaches the identical cell, and only the table collapses. The
+    *extreme-default* half does not. For wall-clock (D-016) and for
+    ``vector-search-at-scale#148`` the fabricated zero is the **best** value in
+    its column, so it flatters a "which is fastest / cheapest" read. Here
+    ``0.000`` is the **worst** value on both recall and snippet-hit, so the
+    collapse *understates* rather than flatters. Nobody is made to look good —
+    what is lost is the distinction itself. Stated rather than inherited,
+    because the same shape gave opposite answers in three repos this month.
+    """
     if k not in metrics:
         return _ABSENT_CELL
-    return f"{metrics[k]:.3f}"
+    return _render_no_fabricated_zero(metrics[k], places=3)
 
 
 def _wall_clock_cell(ms: float) -> str:
@@ -159,12 +218,12 @@ def _wall_clock_cell(ms: float) -> str:
         the renderer must not offer them a number to compare.
 
     a value ``.0f`` collapses to zero → ``.3g``
-        The guard is on the **rendered shape**, not on a magnitude threshold,
-        and that is not a stylistic choice. ``f"{0.5:.0f}"`` is ``'0'``, because
-        Python rounds half to even — so ``if ms < 0.5`` misses exactly ``0.5``,
-        the one value a reader would most expect it to catch. Asking the
-        formatter what it actually produced cannot drift from what the formatter
-        actually does.
+        Delegated to `_render_no_fabricated_zero` since #198, which found this
+        same rule needed at four sites in two spellings. The guard is on the
+        **rendered shape** rather than on a magnitude threshold, for the reason
+        that function's docstring gives: ``f"{0.5:.0f}"`` is ``'0'``, so
+        ``if ms < 0.5`` misses exactly ``0.5``. Behaviour here is unchanged —
+        `results/summary.md` regenerates byte-identically.
 
     anything else → ``.0f``, unchanged
         The ordinary path is byte-identical to what it always was, which is why
@@ -174,10 +233,7 @@ def _wall_clock_cell(ms: float) -> str:
     """
     if ms == 0.0:
         return _ABSENT_CELL
-    rendered = f"{ms:.0f}"
-    if float(rendered) == 0.0:
-        return f"{ms:.3g}"
-    return rendered
+    return _render_no_fabricated_zero(ms, places=0)
 
 
 def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
@@ -415,8 +471,9 @@ def main(argv: list[str] | None = None) -> int:
         # "not measured" here exactly as it does in the table.
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
-            f"recall@{top_k}={run.recall_at_k[top_k]:.3f} "
-            f"snippet-hit@{top_k}={run.snippet_hit_at_k[top_k]:.3f} "
+            f"recall@{top_k}={_render_no_fabricated_zero(run.recall_at_k[top_k], places=3)} "
+            f"snippet-hit@{top_k}="
+            f"{_render_no_fabricated_zero(run.snippet_hit_at_k[top_k], places=3)} "
             f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
         )
         runs.append(run)
