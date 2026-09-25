@@ -2270,3 +2270,17 @@ each caught by exactly one arm and a different one.
 **Open questions / blockers:** none. `chunking_lab.metrics` staying dotted-path-only is deliberate and documented; this change does not touch it.
 
 **Next session:** `run_matrix.py --canonical-out` regenerates with only `wall_clock_ms` moving — that surface is stable and does not need re-sweeping.
+
+## 2026-09-24 — Issue #196: a real 0.4 ms no longer publishes as 0
+**Duration:** ~34 min · **Branch:** `session/2026-09-24-0725-issue-196` · **Decision:** D-016
+
+- The wall-clock column of `results/summary.md` was a bare `{r.wall_clock_ms:.0f}`, so any elapsed time that rounds to zero published `0` — impossible elapsed time, in one of the three columns the README compares strategies on, and the flattering direction: a strategy that takes zero milliseconds wins any "which is fastest" read.
+- The guard went on the *rendered shape* rather than on a magnitude, and that turned out to matter. `f"{0.5:.0f}"` is `'0'` because Python rounds half to even, so a fix written `if ms < 0.5` misses exactly `0.5`. That neighbour was built and run: two arms red on `0.5` alone.
+- A defaulted `0.0` now reads as "not measured" rather than as a number, which is D-009's own meaning for that value and `_metric_cell`'s existing spelling for the distinction (#160). An arm measures a real run and asserts it is strictly positive, so the premise that reasoning rests on is pinned rather than assumed.
+- The issue named one render site; there were two. The per-strategy stdout line was also a bare `.0f`, and the comment three lines above it already argues that "stdout is a publication surface like the summary table." A test discovers the population by AST, so a third site fails rather than shipping a collapsed cell.
+
+**Why this work, this session:** #196 was filed last session with the measurement already in the body and unblocked the moment Phase A merged #195, and it is the third member of a class that paid in `embedding-model-shootout` and `vector-search-at-scale` the same week.
+
+**Open questions / blockers:** none. Committed cells are byte-identical, verified by rendering from the committed JSONs rather than by re-running the script.
+
+**Next session:** worth remembering that running `run_matrix.py --canonical-out` re-times the corpus on the host, so it moves the wall-clock cells for reasons unrelated to any renderer change. Isolating the renderer means rendering over the committed JSONs.

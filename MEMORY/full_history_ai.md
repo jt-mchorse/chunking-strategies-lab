@@ -2230,3 +2230,53 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-09-24T07:33Z
+duration_min: 34
+issue: 196
+focus: wall_clock_column_never_publishes_a_positive_elapsed_time_as_zero_and_a_defaulted_zero_reads_not_measured
+phase: night_session_second_issue
+delta:
+  files_changed: 5
+  tests_added: 23
+  suite: "1601 -> 1624 collected, all green; mypy clean over package + scripts + tests; ruff check + format clean"
+  benchmarks: {}
+measured:
+  premise_re_verified_firsthand: "scripts/run_matrix.py rendered {r.wall_clock_ms:.0f}; the five committed canonical runs are 19.987165927886963 / 22.148292046040297 / 85.1255829911679 / 23.562125163152814 / 20.719958934932947 ms rendering 20 / 22 / 85 / 24 / 21. from_json accepts 0.4, 0.04, 0.49999 and every one rendered 0."
+  the_boundary_is_NOT_0_5_IT_IS_LESS_OR_EQUAL_0_5: "printed the table rather than reasoning about it - f'{0.5:.0f}' is '0' and f'{0.500001:.0f}' is '1', because Python rounds HALF TO EVEN. The issue's example was 0.49999; the true boundary value is 0.5 itself, and a magnitude-threshold fix written 'if ms < 0.5' misses exactly it."
+  AC2_verified_by_RUNNING_not_asserting: "rendering _render_summary from the COMMITTED jsons equals results/summary.md byte for byte -> True. Running the script instead RE-TIMES the corpus on this host and moved the cells to 15/15/57/16/14, which I briefly read as a regression before isolating the renderer from the measurement."
+  falsification: "plain revert of BOTH call sites: 12+ arms red. Four neighbours built and run - whole column widened to .1f 12 red (incl. the byte-identical control), 'if ms < 0.5' 2 red ON 0.5 ALONE, 0.0-rendered-as-0 2 red, summary-fixed-but-stdout-left 2 red including the AST population arm."
+  the_measured_path_never_emits_0_0: "an arm runs evaluate_strategy on the real corpus and asserts wall_clock_ms > 0.0, which is the premise the AC3 decision rests on - 0.0 really is only ever D-009's default."
+context_for_next_session:
+  - THE_ISSUE_NAMED_ONE_RENDER_SITE_AND_THERE_WERE_TWO_AND_THE_SECOND_ONES_OWN_COMMENT_ARGUES_FOR_FIXING_IT_the_per_strategy_stdout_line_in_main_was_ALSO_a_bare_wall_clock_ms_0f_and_the_comment_THREE_LINES_ABOVE_IT_reads_stdout_is_a_publication_surface_like_the_summary_table_and_a_silent_0_000_here_would_be_the_same_fabricated_measurement_THAT_SENTENCE_IS_ABOUT_THE_SURFACE_NOT_ABOUT_WHICH_COLUMN_so_it_covers_the_wall_clock_field_as_much_as_the_recall_cells_it_was_written_for_A_COMMENT_THAT_JUSTIFIES_A_GUARD_ON_ONE_FIELD_OF_A_PRINT_IS_A_CLAIM_ABOUT_EVERY_FIELD_OF_THAT_PRINT
+  - AND_THE_ARM_FOR_THAT_IS_AN_AST_POPULATION_WALK_NOT_A_LIST_OF_TWO_every_read_of_wall_clock_ms_in_run_matrix_py_must_be_an_argument_to_wall_clock_cell_or_the_helpers_own_parameter_SO_A_THIRD_SITE_ADDED_LATER_FAILS_rather_than_shipping_a_collapsed_cell_this_is_the_ONE_ARM_that_the_summary_fixed_stdout_left_neighbour_could_not_pass_alongside_the_stdout_capture_arm
+  - GUARD_ON_THE_RENDERED_SHAPE_NOT_ON_A_MAGNITUDE_AND_HALF_TO_EVEN_IS_WHY_f_string_0_5_0f_IS_0_so_if_ms_less_than_0_5_MISSES_EXACTLY_0_5_THE_ONE_VALUE_A_READER_WOULD_MOST_EXPECT_IT_TO_CATCH_the_shipped_form_asks_the_formatter_what_it_actually_produced_float_of_the_rendered_string_equals_0_0_WHICH_CANNOT_DRIFT_FROM_WHAT_THE_FORMATTER_DOES_generalise_this_ANY_threshold_hand_computed_from_a_rounding_rule_is_a_second_implementation_of_that_rule
+  - AC3_HAD_AN_ANSWER_ALREADY_IN_THE_REPO_AND_FINDING_IT_BEAT_DECIDING_IT_D_009_made_wall_clock_ms_0_0_the_BACKWARD_COMPAT_DEFAULT_so_0_0_IS_THE_NOT_MEASURED_SENTINEL_and_metric_cell_IN_THE_SAME_MODULE_exists_to_draw_that_distinction_with_ABSENT_CELL_and_160_LOCKED_IT_ASK_WHETHER_THE_REPO_HAS_ALREADY_SPELLED_THIS_DISTINCTION_BEFORE_INVENTING_A_SPELLING
+  - AND_PIN_THE_PREMISE_THE_DECISION_RESTS_ON_the_argument_is_there_is_no_genuine_measured_zero_so_an_arm_MEASURES_A_REAL_RUN_and_asserts_wall_clock_ms_greater_than_0_0_WITHOUT_IT_the_AC3_reasoning_is_an_assumption_the_suite_does_not_hold
+  - SEPARATE_THE_RENDERER_FROM_THE_MEASUREMENT_WHEN_VERIFYING_A_BYTE_IDENTICAL_CLAIM_running_scripts_run_matrix_py_canonical_out_moved_all_five_wall_clock_cells_20_22_85_24_21_to_15_15_57_16_14_because_it_RE_TIMES_THE_CORPUS_ON_THE_HOST_and_I_briefly_read_that_as_my_own_regression_THE_ISOLATING_RUN_IS_render_summary_OVER_THE_COMMITTED_JSONS_which_is_byte_identical_AND_THAT_IS_ALSO_THE_SHAPE_THE_SHIPPED_ARM_TAKES
+  - THE_HARM_DIRECTION_DIFFERS_ACROSS_THE_THREE_SIBLINGS_AND_SAYING_WHICH_HALF_TRANSFERS_IS_THE_WORK_ems_149_zero_was_the_WORST_value_recall_ndcg_so_it_UNDERSTATED_vsas_148_zero_was_the_CHEAPEST_so_it_FLATTERED_csl_196_zero_is_the_FASTEST_so_it_FLATTERS_TOO_and_wall_clock_is_one_of_the_THREE_columns_the_README_compares_on_BOTH_halves_of_the_extreme_default_argument_apply_here
+  - ORDER_THAT_PAID_AGAIN_WROTE_D_016_INTO_MEMORY_FIRST_THEN_RAN_THE_DOC_LOCKS_and_test_decision_range_cites_latest_active_fired_immediately_README_says_D_002_to_D_015_highest_active_is_D_016_test_architecture_doc_PASSED_WITHOUT_AN_EDIT_so_only_ONE_of_this_repos_two_doc_locks_keys_off_the_decision_id_I_added_the_architecture_entry_anyway_for_consistency_with_D_013_014_015
+  - GOTCHA_SIM102_BIT_ON_THE_AST_ARM_a_nested_if_inside_a_for_must_be_one_compound_condition_BUDGET_A_LINT_CYCLE_INTO_EVERY_NEW_TEST_MODULE_fifth_consecutive_run_for_this_one
+  - repo_state_branch_session_2026_09_24_0725_issue_196_one_code_commit_plus_this_memory_commit_results_SLASH_UNTOUCHED_I_regenerated_it_during_verification_and_RESTORED_FROM_A_tmp_COPY_never_git_checkout
+decisions_made: [D-016]
+followups: []
+---
+
+---
+session: 2026-09-24T07:35:56Z
+issue: 196
+focus: CORRECTION_duration_min_34_was_AN_ESTIMATE_the_true_figure_is_9_MINUTES_PLAN_TO_CLOSE
+phase: correction_append
+delta: {}
+measured:
+  the_readings: "plan comment on #196: 07:25:50Z. Close comment: 07:34:19Z. Plan-to-close is 8.5 MINUTES, and the whole issue including the pre-plan premise verification (which began at 07:24:26Z, the previous issue's close) is about 10. The block above says duration_min 34."
+  same_error_same_run: "the #223 block in rag-production-kit says 32 for a 7-minute issue. Both numbers were carried mental estimates, never read. Caught by reading date -u at 07:35:04Z - 23 minutes after the 07:11:53Z session start - which two durations summing to 66 cannot fit inside."
+context_for_next_session:
+  - SEE_THE_MATCHING_CORRECTION_BLOCK_IN_rag_production_kit_MEMORY_the_rule_is_now_mechanical_SUBTRACT_THE_PLAN_COMMENT_createdAt_FROM_dollar_paren_date_u_IN_THE_SHELL_for_EVERY_duration_field_not_just_the_session_timestamp
+  - THE_CROSS_ISSUE_ARITHMETIC_CHECK_IS_FREE_AND_IT_IS_WHAT_FIRED_sum_your_per_issue_durations_and_compare_to_now_minus_session_start_BEFORE_writing_the_second_block
+  - EVERY_OTHER_FIGURE_IN_THE_BLOCK_ABOVE_STANDS_1601_to_1624_collected_and_the_12_12_2_2_2_neighbour_red_counts_were_READ_FROM_pytest_OUTPUT_and_the_byte_identical_render_was_an_ACTUAL_comparison_ONLY_duration_min_was_fabricated
+  - 9_MINUTES_IS_UNDER_D_006s_15_MIN_FLOOR_ON_WALL_CLOCK_AND_SAYING_SO_IS_THE_HONEST_REPORT_the_floor_guards_against_a_5_line_tweak_and_this_shipped_5_files_23_arms_a_new_D_016_and_5_falsified_neighbours_THE_SUBSTANCE_TEST_PASSES_THE_CLOCK_TEST_DOES_NOT_and_an_inflated_estimate_is_precisely_how_that_would_have_stayed_invisible
+decisions_made: []
+followups: []
+---

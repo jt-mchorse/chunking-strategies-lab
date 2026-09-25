@@ -132,6 +132,54 @@ def _metric_cell(metrics: dict[int, float], k: int) -> str:
     return f"{metrics[k]:.3f}"
 
 
+def _wall_clock_cell(ms: float) -> str:
+    """Format the wall-clock cell so a strictly positive elapsed time is never
+    published as ``0`` (#196).
+
+    This column was a bare ``{ms:.0f}``. `_validate_wall_clock`'s own docstring
+    frames the harm class it belongs to — ``wall_clock_ms`` is a *measured*
+    elapsed time (D-009), so it is a benchmark number in exactly the sense the
+    portfolio's no-fabricated-benchmarks rule cares about, and a negative value
+    "renders impossible elapsed time". **Zero is impossible elapsed time too.**
+    Nothing takes zero milliseconds, so a ``0`` cell is never a measurement; it
+    is always a rendering artefact. And it is the *flattering* artefact here: a
+    strategy that takes zero milliseconds wins any "which is fastest" read of
+    the table, and wall-clock is one of the three columns the README compares
+    strategies on.
+
+    Three cases, and the middle one is the whole point:
+
+    ``0.0`` → ``_ABSENT_CELL``
+        D-009 made ``wall_clock_ms: float = 0.0`` the *backward-compat default*
+        so pre-D-009 JSONs still load, which makes ``0.0`` this field's "not
+        measured" sentinel rather than a measurement. `_metric_cell` above
+        exists to draw exactly that distinction, and #160 locked that an
+        unmeasured cell is never published as a number. Same spelling, same
+        reason — a reader cannot tell a defaulted zero from a measured one, so
+        the renderer must not offer them a number to compare.
+
+    a value ``.0f`` collapses to zero → ``.3g``
+        The guard is on the **rendered shape**, not on a magnitude threshold,
+        and that is not a stylistic choice. ``f"{0.5:.0f}"`` is ``'0'``, because
+        Python rounds half to even — so ``if ms < 0.5`` misses exactly ``0.5``,
+        the one value a reader would most expect it to catch. Asking the
+        formatter what it actually produced cannot drift from what the formatter
+        actually does.
+
+    anything else → ``.0f``, unchanged
+        The ordinary path is byte-identical to what it always was, which is why
+        ``results/summary.md`` regenerates unchanged (committed runs are
+        19.99–85.13 ms). Widening the whole column to ``.1f`` would have been
+        the smaller diff and would have churned every committed cell.
+    """
+    if ms == 0.0:
+        return _ABSENT_CELL
+    rendered = f"{ms:.0f}"
+    if float(rendered) == 0.0:
+        return f"{ms:.3g}"
+    return rendered
+
+
 def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     lines: list[str] = []
     lines.append("# Chunking strategies — retrieval metrics matrix")
@@ -236,7 +284,7 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
         strategy_name = re.sub(r"[\r\n]+", " ", strategy_name)
         lines.append(
             f"| {strategy_name} | {r.n_chunks_total} | "
-            f"{recall_cells} | {snippet_cells} | {r.wall_clock_ms:.0f} |"
+            f"{recall_cells} | {snippet_cells} | {_wall_clock_cell(r.wall_clock_ms)} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -355,11 +403,21 @@ def main(argv: list[str] | None = None) -> int:
         # the better failure if that invariant ever changes.
         # `test_stdout_summary_indexes_a_key_that_always_exists` pins the
         # invariant, so the direct index is provably safe rather than assumed so.
+        #
+        # The wall-clock field goes through `_wall_clock_cell` here for the
+        # reason the paragraph above already gives: "stdout is a publication
+        # surface like the summary table, and a silent `0.000` here would be the
+        # same fabricated measurement." That argument is about the *surface*, not
+        # about which column, so it covers this line's own `wall_clock=…` as
+        # much as the recall cells it was written for — and this line was still a
+        # bare `.0f`, printing `wall_clock=0ms` for a 0.4 ms run (#196). The one
+        # difference is that `0.0` prints `—` rather than `0`, which reads as
+        # "not measured" here exactly as it does in the table.
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
             f"recall@{top_k}={run.recall_at_k[top_k]:.3f} "
             f"snippet-hit@{top_k}={run.snippet_hit_at_k[top_k]:.3f} "
-            f"wall_clock={run.wall_clock_ms:.0f}ms  →  {path}"
+            f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
         )
         runs.append(run)
 
