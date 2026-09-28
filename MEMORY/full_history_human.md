@@ -2284,3 +2284,34 @@ each caught by exactly one arm and a different one.
 **Open questions / blockers:** none. Committed cells are byte-identical, verified by rendering from the committed JSONs rather than by re-running the script.
 
 **Next session:** worth remembering that running `run_matrix.py --canonical-out` re-times the corpus on the host, so it moves the wall-clock cells for reasons unrelated to any renderer change. Isolating the renderer means rendering over the committed JSONs.
+
+---
+
+### 2026-09-25 — #198: a recall of one-in-four-thousand published as "found nothing"
+
+`_metric_cell` said in its own docstring that it existed to tell a measured
+zero from an unmeasured one. It told absent from present, and then published a
+present, strictly positive, sub-resolution value as `0.000` — the same cell a
+genuine zero gets. A run that found the gold chunk for one query in four
+thousand produced a row byte-identical to a run that found none. The metrics
+and the stored JSONs were right; only the table was wrong.
+
+The issue named two sites. There were four. The per-strategy stdout line
+printed both metrics at a bare `.3f`, and the comment fifteen lines above it
+argues the rule for them by name — "stdout is a publication surface like the
+summary table, and a silent `0.000` here would be the same fabricated
+measurement." #196 applied that reasoning to the wall-clock field on the very
+next line and left these two.
+
+All four now go through one helper. The choice that took the most thought was
+what *not* to put in it: the two callers disagree about what a genuine `0.0`
+means, and both are right. A zero wall-clock is D-009's backward-compat default
+and means "not measured"; a zero recall is a real measurement. A helper that
+absorbed that decision would have flattened a correct disagreement.
+
+Six wrong neighbours were built and run. One produced an argument for the
+extraction I did not have beforehand: the "use a magnitude threshold" neighbour
+is caught *only* by the wall-clock arms, because the two rules happen to agree
+on every value the metric columns can take and diverge only at `places=0`.
+Sharing one helper is what lets a test of one column reject a wrong rule in
+another.

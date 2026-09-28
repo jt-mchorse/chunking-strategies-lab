@@ -309,3 +309,79 @@ Two suppressions were kept rather than removed, because the input really is deli
 **Alternatives considered.** Widening the whole column to `.1f` was the smaller diff and churns every committed cell (`20` → `20.0`), taking `results/summary.md` and `docs/benchmarks.md` with it; 12 arms red. The magnitude threshold, 2 red. Leaving `0.0` as `0`, 2 red. Fixing only the summary cell, 2 red including the AST population arm. Raising on a collapsing value was rejected on scope: this is a renderer, `_validate_wall_clock` already owns the read-path rejections, and a small positive time is valid data that was being published wrongly.
 
 Ordinary values are byte-identical by construction, verified by rendering from the committed JSONs and comparing to `results/summary.md` rather than by re-running the script — which re-times the corpus on the host and moves those numbers for reasons unrelated to this change.
+
+---
+
+## D-017 — one no-fabricated-zero helper for every measured float in `run_matrix.py`
+
+**Date.** 2026-09-25 · **Issue.** #198 · **Reversibility.** cheap
+
+**Decision.** `_render_no_fabricated_zero(value, *, places)` is the single
+renderer for every measured float this module publishes. It widens to `.3g`
+when the fixed-width rendering of a strictly non-zero value comes out zero, and
+does nothing else. The `0.0`-sentinel decision stays with the caller.
+
+**Why.** `_metric_cell`'s docstring says it exists to distinguish "measured
+zero" from "not measured". It drew one half of that — absent versus present —
+and then published a present, strictly positive, sub-resolution value as
+`0.000`, which is the same cell a genuine `0.0` gets. A run that found the gold
+chunk for one query in four thousand published a row byte-identical to a run
+that found nothing. The distinction the function names is exactly the one it
+lost. The metrics and the JSONs were correct throughout; only the renderer was
+not.
+
+**The population was four sites, not the two the issue named.** The
+per-strategy stdout line printed `recall@k` and `snippet-hit@k` at a bare
+`.3f`. The comment fifteen lines above it makes this exact argument — "stdout
+is a publication surface like the summary table, and a silent `0.000` here
+would be the same fabricated measurement" — and it was written *about the
+recall cells*. #196 then applied that reasoning to the `wall_clock=` field on
+the very next line and left these two behind. Four sites in two spellings in
+one module is how the fourth member of a class gets missed, which is what
+turned "should this be shared?" from a judgement call into an answer.
+
+**Which half of the `ems#149` argument transfers.** The arithmetic half does:
+a present measurement below half of `10⁻³` reaches the identical cell, and only
+the rendering collapses. The extreme-default half does not. For wall-clock
+(D-016) and for `vector-search-at-scale#148` the fabricated zero is the *best*
+value in its column, so it flatters a "which is fastest / cheapest" read. Here
+`0.000` is the *worst* value on both recall and snippet-hit, so the collapse
+**understates**. Nobody is made to look good; what is lost is the distinction
+itself. Written down rather than inherited, because this same shape produced
+opposite answers in three repos this month.
+
+**The sentinel stays with the caller, and that is the load-bearing choice.**
+The two callers disagree about what a genuine `0.0` means and both are right.
+`wall_clock_ms` is `0.0` by D-009's backward-compat default, so a zero there is
+"not measured" and renders `—`. A `recall@k` of `0.0` is a real measurement of
+a strategy that found nothing, and keeps `0.000`. A helper that folded the
+sentinel in would have to flatten that; built as a probe, seven arms red.
+
+The stdout sites call the helper directly rather than going through
+`_metric_cell`, because the neighbouring comment argues a `KeyError` naming the
+key is the better failure there than an `—`. The rule is gained without losing
+that.
+
+**An unexpected consequence of sharing.** The "magnitude threshold instead of
+the rendered shape" neighbour is caught *only* by the wall-clock arms. At
+`places=3` the nearest double to `0.0005` sits just above it, so the magnitude
+rule and the shape rule agree on every metric value; at `places=0` they diverge
+at exactly `0.5`. Sharing one helper is what lets an arm in one column reject a
+wrong rule in another.
+
+**Alternatives considered.** Each built and run, not reasoned about.
+- *Fix only `_metric_cell`* — the two sites the issue named. Rejected: 3 red.
+  It repeats #196's own omission.
+- *Route recall but not snippet-hit.* Rejected: 2 red. This is why the
+  acceptance criteria ask for separate arms — in `ems#149` the nDCG cell
+  collapsed at a value where recall survived.
+- *Widen the whole column to `.3g` unconditionally.* Rejected: 17 red,
+  including the committed-summary byte identity and the genuine-zero cells.
+- *Fold the `—` sentinel into the shared helper.* Rejected: 7 red.
+- *A magnitude threshold rather than the rendered shape.* Rejected: 3 red.
+- *Keep two bespoke spellings.* Rejected: that is how the fourth member of this
+  class got missed.
+
+**Byte identity** was verified by re-rendering from the committed result JSONs,
+not by re-running the script — `--canonical-out` re-times the corpus on the
+host and moves the wall-clock column for unrelated reasons (#196's lesson).
