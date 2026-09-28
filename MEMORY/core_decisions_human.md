@@ -385,3 +385,75 @@ wrong rule in another.
 **Byte identity** was verified by re-rendering from the committed result JSONs,
 not by re-running the script — `--canonical-out` re-times the corpus on the
 host and moves the wall-clock column for unrelated reasons (#196's lesson).
+
+## D-018 — A frozen record keeps what it validated (2026-09-28)
+
+**Decision:** Every frozen dataclass in `chunking_lab` that holds a *mutable*
+container field copies it at the end of `__post_init__`, after validation. The
+copy's depth is decided by whether the element type is proved immutable:
+`RetrievalRun.recall_at_k`, `.snippet_hit_at_k` and `.notes` take a plain
+`dict(...)` / `list(...)`; `Chunk.metadata` takes the new
+`chunking_lab.io_utils.copy_json_value`.
+
+**Why:** `frozen=True` prevents *rebinding* an attribute and says nothing about
+the object the attribute points at, so all four fields held the caller's own
+object.
+
+The consequence is sharper than "a caller can edit a frozen record", because
+`RetrievalRun.__post_init__` already validated every one of these fields and
+then stored the caller's object — which made the validation a **snapshot rather
+than an invariant**. A record constructed and accepted, then edited, produced a
+`to_json()` payload that `from_json` refuses by the very rule `__post_init__`
+had just applied: `recall_at_k[5] must be in [0, 1]; got 999.0`. `to_json` is
+what writes `results/canonical__*.json`, and #198 established those files as the
+provenance for every published number in this repo.
+
+It is also #186 one call upstream. That issue's own `_validate_notes` docstring
+says `from_json` guarded its `list(...)` and "the identical `list(...)` on the
+write path was never asked about". #186 then asked about `to_json`'s — and the
+constructor is the one nobody asked about after that.
+
+**Three shallow, one deep, and the split is the finding.** A shallow copy is
+complete exactly when the element type is proved immutable, and this class
+*proves* it: `_validate_metric_maps` admits only non-bool finite numbers, and
+`_validate_notes` only `str`. `Chunk.metadata` is `dict[str, Any]` with no
+validator at all. That is `embedding-model-shootout#133`'s triage question — "is
+the element type validated?" — deciding depth, and it answers the opposite way
+from `rag-production-kit#227`, where nothing validated.
+
+Because the premise is a **validator** rather than an annotation, the validator
+is what is locked: an arm asserts both still reject a nested container.
+
+**The order is load-bearing, and my own arm was green against the wrong one.**
+Built and ran "copy before validate": the new module gave zero red while six
+arms in `tests/test_retrieval_run_container_boundary.py` went red. The decisive
+case is silent — `notes="chunk overlap looks high"` copies as
+`list(...)` into twenty-four single-character notes, which does not raise, and
+`_validate_notes` then inspects the splatted list and passes. That is #186's
+exact harm reintroduced by the copy meant to protect it. The arm was rewritten
+to test the silent case and went from zero red to one.
+
+**Alternatives considered:**
+- *A shallow `dict(...)` on `Chunk.metadata`* — rejected, built and run, 2 red.
+- *A deep copy on all four* — rejected. It would be a guard with no harm to name
+  on three fields whose values are proved non-bool finite numbers and `str`, and
+  it would hide the finding that a validator is what makes a shallow copy
+  complete.
+- *The recursive `copy_json_value`* — rejected, built and run, 4 red.
+- *Copy before validate* — rejected, built and run, 7 red.
+- *Fix only `RetrievalRun`* — rejected. The population walk finds `Chunk`, and
+  it is the row that needs a different depth.
+
+**Cleared by name:** the five `tuple`-typed fields on frozen records
+(`QueryResult`'s two rank-order fields, `RetrievalRun.per_query`,
+`LateChunk.vector`, `ValidationReport.findings`). Each holds a scalar or a frozen
+record whose own fields are tuples. Pinned in an arm, so retyping one to a `list`
+trips the population rule rather than passing quietly.
+
+**A gotcha worth keeping:** the population walk needs `rglob`, not `glob`. A flat
+`*.py` walk over `chunking_lab` misses `strategies/` and therefore misses `Chunk`
+entirely — the one row here that needs the deep copy.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #200, #71, #186, #198
