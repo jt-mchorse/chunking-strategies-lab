@@ -520,3 +520,42 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   at exactly `0.5`. One helper is what lets an arm in one column reject a
   wrong rule in another. Committed cells are byte-identical, verified by
   re-rendering from the committed JSONs.
+
+- **D-018 (#200).** Every frozen dataclass holding a *mutable* container
+  field copies it at the end of `__post_init__`, after validation:
+  `RetrievalRun.recall_at_k`, `.snippet_hit_at_k` and `.notes` with a
+  plain `dict(...)` / `list(...)`, and `Chunk.metadata` with
+  `chunking_lab.io_utils.copy_json_value`. `frozen=True` prevents
+  *rebinding* an attribute and says nothing about the object it points
+  at, so all four held the caller's own object.
+
+  The consequence is sharper than a caller editing a frozen record,
+  because `__post_init__` already validated every one of these fields
+  and then stored the caller's object — which made the validation a
+  snapshot rather than an invariant. A record that was constructed and
+  accepted, then edited, produced a `to_json()` payload `from_json`
+  refuses by the very rule `__post_init__` had just applied. `to_json`
+  is what writes `results/canonical__*.json`, and #198 established those
+  files as the provenance for every published number here.
+
+  **Three shallow, one deep, and the split is the point.** A shallow
+  copy is complete exactly when the element type is proved immutable,
+  and this class proves it: `_validate_metric_maps` admits only non-bool
+  finite numbers and `_validate_notes` only strings. `Chunk.metadata` is
+  `dict[str, Any]` with no validator, so nothing proves it. Because that
+  premise is a *validator* rather than an annotation, the validator is
+  what is locked.
+
+  The copies go **last**, and that ordering is load-bearing rather than
+  tidy. Copying first runs `list(...)` over a string `notes` value,
+  which does not raise — it char-splats into one note per character,
+  every one a string, so the validator then inspects the splatted list
+  and passes. That is #186's harm reintroduced by the copy meant to
+  protect against it.
+
+  `copy_json_value` is iterative with an `id()`-keyed memo: a recursive
+  copy raises on a cyclic or deeply nested value, and that is not a
+  `ValueError`, which `Chunk.__post_init__`'s own comment names as the
+  class a caller catches at this boundary. A cycle is preserved rather
+  than marked — a copier is not a sanitizer. Committed artifacts are
+  byte-identical, verified by re-rendering from the committed JSONs.

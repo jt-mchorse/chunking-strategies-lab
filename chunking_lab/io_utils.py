@@ -1,4 +1,4 @@
-"""Atomic on-disk write helper.
+"""Atomic on-disk write helper, and the copy a frozen record needs for a free-form field.
 
 `scripts/run_matrix.py` writes per-strategy `RetrievalRun` JSON
 (canonical fixtures committed to `results/`) plus a markdown summary
@@ -25,6 +25,7 @@ import contextlib
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 # Cap the target basename's contribution to the temp filename. The temp name is
 # `.<base>.<random>.tmp`; the affixes add ~13-20 bytes, so prepending a full
@@ -113,3 +114,75 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
         if tmp_path is not None:
             with contextlib.suppress(FileNotFoundError):
                 tmp_path.unlink()
+
+
+def copy_json_value(value: Any) -> Any:
+    """Copy a JSON value deeply over *containers*, leaving everything else alone.
+
+    The copy a frozen record needs for a field whose **element type is not
+    proved immutable** (#200).
+
+    ``frozen=True`` prevents *rebinding* an attribute and says nothing about the
+    object the attribute points at, so a ``dict`` field on a frozen record stays
+    editable in place through any reference the caller still holds -- and
+    nothing raises, because nothing is ever rebound.
+
+    **Only `Chunk.metadata` needs this one**, and the reason the other three
+    container fields on frozen records in this package do not is the whole
+    decision (D-018). A shallow copy is complete exactly when the element type
+    is proved immutable, and ``RetrievalRun`` *proves* it:
+    ``_validate_metric_maps`` enforces non-bool finite numbers for
+    ``recall_at_k`` / ``snippet_hit_at_k``, and ``_validate_notes`` enforces
+    ``str`` for ``notes``. ``Chunk.metadata`` is ``dict[str, Any]`` with no
+    validator at all, so ``Any`` proves nothing and ``dict(...)`` would leave
+    every nested container the caller's.
+
+    **Iterative, with an ``id()``-keyed memo, and that is not a style choice.**
+    A recursive copy never terminates on a cyclic ``metadata`` and exhausts the
+    stack on a deeply nested one -- and ``RecursionError`` is not a
+    ``ValueError``. ``Chunk.__post_init__``'s own comment names that contract:
+    the boundary raises "a field-named ``ValueError``" precisely so "a caller's
+    ``except ValueError`` (the class ``check_chunk_input`` raises)" catches it.
+    A recursive copy in the same method would hand that caller an exception
+    class the comment argues against. ``rag-production-kit#227`` measured the
+    same port going eight red against that repo's totality suite.
+
+    A cycle is **preserved** rather than replaced with a marker: this is a
+    copier, not a sanitizer, so the result is isomorphic to the input and any
+    downstream serializer still sees exactly what it would have seen. The memo
+    also preserves the input's *sharing* structure -- two keys pointing at one
+    dict still point at one dict afterwards, a fresh one -- which keeps a
+    DAG-shaped value linear rather than exponential.
+
+    ``dict`` and ``list`` only. A mutable container nested inside a ``tuple``
+    stays shared; rebuilding the tuple would lose a ``namedtuple``'s class,
+    which is the measured reason ``llm-eval-harness``' D-027 drew the same line.
+    Pinned by name in ``tests/test_frozen_record_container_aliasing.py`` so it
+    reads as a decision rather than an oversight.
+    """
+    if not isinstance(value, (dict, list)):
+        return value
+    root: Any = {} if isinstance(value, dict) else []
+    memo: dict[int, Any] = {id(value): root}
+    # Every source container stays referenced while the walk runs, so CPython
+    # cannot recycle an `id` out from under `memo`.
+    keep: list[Any] = [value]
+    stack: list[tuple[Any, Any]] = [(value, root)]
+    while stack:
+        src, dst = stack.pop()
+        items = src.items() if isinstance(src, dict) else enumerate(src)
+        for key, child in items:
+            if isinstance(child, (dict, list)):
+                copied = memo.get(id(child))
+                if copied is None:
+                    copied = {} if isinstance(child, dict) else []
+                    memo[id(child)] = copied
+                    keep.append(child)
+                    stack.append((child, copied))
+            else:
+                copied = child
+            if isinstance(dst, dict):
+                dst[key] = copied
+            else:
+                dst.append(copied)
+    return root
