@@ -579,6 +579,37 @@ class RetrievalRun:
         # what produced #180, #181 and #182.
         _validate_per_query(self.per_query)
         _validate_notes(self.notes)
+        # And then *keep* what was just validated (#200, D-018).
+        #
+        # Every check above runs against the caller's own object and the record
+        # then stores that same object, so `frozen=True` -- which stops a
+        # rebind and nothing else -- left the validation a **snapshot rather
+        # than an invariant**. Measured through the public constructor:
+        #
+        #     run = RetrievalRun(..., recall_at_k=recall, notes=notes)  # passes
+        #     recall[5] = 999.0
+        #     notes.append(123)
+        #     run.to_json()["recall_at_k"]  ->  {"5": 999.0}
+        #     RetrievalRun.from_json(...)   ->  ValueError: recall_at_k[5]
+        #                                       must be in [0, 1]; got 999.0
+        #
+        # The writer emits a payload its own reader refuses, by the very rule
+        # this method just applied. `to_json` is what writes
+        # `results/canonical__*.json`, and #198 established those files as the
+        # provenance for every published number in this repo.
+        #
+        # **Shallow, and that is a decision rather than a shortcut.** A shallow
+        # copy is complete exactly when the element type is proved immutable,
+        # and the two validators above prove it for all three fields:
+        # `_validate_metric_maps` admits only non-bool finite numbers, and
+        # `_validate_notes` only `str`. `Chunk.metadata` is the row where
+        # nothing proves it -- `dict[str, Any]`, no validator -- and it takes
+        # `copy_json_value` instead. `tests/test_frozen_record_container_aliasing.py`
+        # locks that premise, because weakening either validator is what would
+        # silently turn these three lines into the defect they close.
+        object.__setattr__(self, "recall_at_k", dict(self.recall_at_k))
+        object.__setattr__(self, "snippet_hit_at_k", dict(self.snippet_hit_at_k))
+        object.__setattr__(self, "notes", list(self.notes))
 
     def to_json(self) -> dict[str, Any]:
         return {

@@ -2315,3 +2315,28 @@ is caught *only* by the wall-clock arms, because the two rules happen to agree
 on every value the metric columns can take and diverge only at `places=0`.
 Sharing one helper is what lets a test of one column reject a wrong rule in
 another.
+
+## 2026-09-28 — Issue #200: a frozen record keeps what it validated
+**Duration:** ~8 min · **Branch:** `session/2026-09-28-0802-issue-200`
+
+- All four mutable container fields on frozen records held the caller's object.
+  The sharp part is that `RetrievalRun.__post_init__` already *validates* every
+  one of them and then stored the caller's object, so the validation was a
+  snapshot rather than an invariant: a later edit made `to_json()` emit a payload
+  `from_json` refuses by the very rule the constructor had just applied.
+- Three of the four take a plain shallow copy and one takes a deep one, and the
+  split is the finding. A shallow copy is complete exactly when the element type
+  is proved immutable, and this class proves it for the three metric/notes fields.
+  `Chunk.metadata` is free-form with no validator.
+- The copies go last. Copying first char-splats a string `notes` value into one
+  note per character, every one a string, so the validator then passes — the exact
+  harm #186 closed, reintroduced by the copy meant to protect against it. My own
+  ordering arm was green against that neighbour until I rewrote it.
+
+**Why this work, this session:** it was the repo's only unblocked open issue, and
+the PR it was blocked behind merged in this session's Phase A.
+
+**Open questions / blockers:** none.
+
+**Next session:** `#144` remains the repo's only other open issue and is a
+JT-gated decision-revisit.

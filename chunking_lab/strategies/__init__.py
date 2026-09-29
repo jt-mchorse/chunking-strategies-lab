@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from .._fields import require_non_negative_int, require_str
+from ..io_utils import copy_json_value
 
 
 def check_chunk_input(text: object, source_doc_id: object) -> None:
@@ -151,6 +152,17 @@ class Chunk:
             raise ValueError(
                 f"end_offset ({self.end_offset}) must be >= start_offset ({self.start_offset})"
             )
+        # `metadata` is the one container field on a frozen record in this
+        # package that nothing above proves the element type of (#200, D-018).
+        # `dict[str, Any]` and no validator, so `Any` proves nothing and a
+        # `dict(...)` would leave everything nested inside it the caller's --
+        # while `RetrievalRun`'s three maps are shallow-copied precisely
+        # *because* `_validate_metric_maps` and `_validate_notes` do prove
+        # theirs. Deep over `dict`/`list`, iteratively: a recursive copy raises
+        # `RecursionError` on a cyclic or deep value, and that is not a
+        # `ValueError`, which is the contract the comment above says a caller
+        # catches here.
+        object.__setattr__(self, "metadata", copy_json_value(self.metadata))
 
 
 @dataclass(frozen=True)
