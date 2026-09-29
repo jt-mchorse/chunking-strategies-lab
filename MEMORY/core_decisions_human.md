@@ -457,3 +457,92 @@ entirely — the one row here that needs the deep copy.
 **Reversibility:** Cheap.
 
 **Related issues:** #200, #71, #186, #198
+
+---
+
+## D-019 — the copy rule is keyed on validation, not on the annotation (2026-09-29)
+
+**Amends D-018.** It does not supersede it: the shallow/deep depth split, the
+validate-then-copy order and the `Chunk.metadata` deep copy all stand. One clause
+changes — which fields the rule applies to.
+
+D-018 keyed its population on *"is the annotation a mutable container"*. That is
+not the property its own sentence describes:
+
+> Every check above runs against the caller's own object and the record then
+> stores that same object, so `frozen=True` — which stops a rebind and nothing
+> else — left the validation a **snapshot rather than an invariant**.
+
+The property is **"does `__post_init__` validate this field"**. Three
+`tuple`-annotated fields answered yes while the annotation-keyed rule looked
+straight past them: `RetrievalRun.per_query` and both of `QueryResult`'s
+rank-order fields.
+
+**The exclusion answered "how deep", not "whether at all."** D-018's reason for
+the five tuple fields was that each "holds a scalar or a frozen record whose own
+fields are tuples". True — and an argument about the *element* type, which is the
+same question that decided shallow-vs-deep for the other three. It settles the
+depth of a copy and says nothing about whether to make one.
+
+**And the annotation is not what makes the answer no**, because the validators
+these fields pass through document that they accept a `list`.
+`_validate_per_query`: "Accepts any sequence, because the two paths hold
+different concrete types — `from_json` reads a JSON `list`, the annotation is a
+`tuple`." A caller passing a list is using the contract the validator states.
+
+### Measured
+
+`_validate_per_query`'s docstring records, of the *unguarded* class, that
+`per_query = ('not a QueryResult',)` "constructed, to_json raw AttributeError",
+and that all four such shapes "raise the exact exception types `from_json`'s
+comments exist to convert". With the guard in place, at `4600346`:
+
+```python
+pq = [qr]; run = RetrievalRun(..., per_query=pq, ...)   # validates and passes
+pq.append("NOT A QueryResult")
+run.to_json()   # AttributeError: 'str' object has no attribute 'query_id'
+```
+
+The guard closed the construction-time case; the field it guards is the one field
+whose value it did not keep. And D-018's headline harm, on `QueryResult`:
+appending `42` and `"nope"` after a passing construction put them into
+`to_json`, and `from_json` refused by the very bool rule enforced twenty lines
+above. A third shape needs no invalid value at all — `pq.clear()` publishes
+`"per_query": []` beside `"n_queries": 1`, and nothing refuses that.
+
+### The two population arms are a pair, and `Chunk.metadata` is why
+
+A field must be copied if its annotation is a mutable container **or** if
+`__post_init__` validates it. `Chunk.metadata` satisfies only the first — nothing
+validates it, which is exactly why its copy is the deep one — and
+`RetrievalRun.per_query` satisfies only the second. Covering either condition
+alone leaves a real row exposed, and D-018 covering only the first is how three
+rows stayed exposed. `LateChunk.vector` and `ValidationReport.findings` satisfy
+neither, and that is the decision.
+
+The "is it validated" predicate had to be split **by scope, not by text**:
+"does `__post_init__` mention the field name" is satisfied by the copy line
+itself, and since this change also by a docstring that names the fields. The
+helper walks the statements, drops the leading string expression and every
+`object.__setattr__` call, and only then looks.
+
+### Two things the probes said
+
+The copy-before-validate neighbours were **0 red in the module that ships the
+copy** and 2 and 8 red across `tests/`. `tuple(5)` raises a raw `TypeError` — the
+exact class these guards exist to convert — and `tuple("ab")` splats into two
+valid doc ids, which is #188's harm restored silently. D-018's own note is that
+its arm was green against the wrong order until it was rewritten; a module that
+ships a copy should own the arm for where it sits, so one was added and both
+neighbours now go red locally.
+
+And **csl does not have `rag-production-kit`#229's tuple defect**, checked rather
+than assumed. That issue's argument was that rag's wire seam already flattens
+every tuple, making a `namedtuple`'s class unobservable. `Chunk.metadata` has no
+serialization seam in this package at all, so the class *is* observable to a
+caller and the `llm-eval-harness` D-027 reason holds here on its own terms. Same
+shape, different remedy per repo.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #202, #200, #186, #188, #71
