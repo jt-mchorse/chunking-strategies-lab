@@ -108,6 +108,21 @@ class QueryResult:
 
         Order is load-bearing, not incidental: the container check runs FIRST,
         because both checks below crash on the inputs it rejects.
+
+        And then the two fields are **kept** (#202, D-019). Every check above
+        runs against the caller's own object, and `frozen=True` stops a rebind
+        and nothing else, so without the two `object.__setattr__` lines at the
+        end the validation was a *snapshot rather than an invariant* -- D-018's
+        own words for the defect, on two of the fields it excluded. Measured:
+        `ids.append(42)` and `hits.append("nope")` after a passing construction
+        put `["d1", 42]` and `[True, "nope"]` into `RetrievalRun.to_json`, which
+        `from_json` then refuses by the very bool rule enforced twenty lines up.
+
+        `tuple(...)` is the whole depth: the elements are `str` and `bool`. It
+        also makes the stored value match the annotation, which the sequence-
+        accepting container check above deliberately does not require of the
+        *input* -- see `_validate_per_query` on why input and storage are
+        different questions.
         """
         # #188. First, because `enumerate` and `len` below raise a raw
         # `TypeError` on a non-container — out of the very method whose job is
@@ -156,6 +171,17 @@ class QueryResult:
                 f"{len(self.retrieved_doc_ids_in_rank_order)} doc id(s); they are "
                 "parallel per-rank arrays over one ranking"
             )
+        # Keep what was just validated (#202, D-019). The separating rule is
+        # "does `__post_init__` validate this field", not "is the annotation
+        # mutable" -- `LateChunk.vector` and `ValidationReport.findings` are
+        # tuple-annotated too and are validated nowhere, so there is no snapshot
+        # there to turn into an invariant.
+        object.__setattr__(
+            self, "retrieved_doc_ids_in_rank_order", tuple(self.retrieved_doc_ids_in_rank_order)
+        )
+        object.__setattr__(
+            self, "snippet_hits_in_rank_order", tuple(self.snippet_hits_in_rank_order)
+        )
 
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> QueryResult:
@@ -610,6 +636,17 @@ class RetrievalRun:
         object.__setattr__(self, "recall_at_k", dict(self.recall_at_k))
         object.__setattr__(self, "snippet_hit_at_k", dict(self.snippet_hit_at_k))
         object.__setattr__(self, "notes", list(self.notes))
+        # `per_query` is the fourth thing validated above and D-018 gave it no
+        # copy line (#202, D-019). Its exclusion was argued from the *element*
+        # type -- "a frozen record whose own fields are tuples" -- which decides
+        # how deep a copy must be and not whether to make one; the annotation is
+        # not what makes the answer no, because `_validate_per_query` documents
+        # that it accepts a `list`. So a caller using the contract the validator
+        # states got a frozen record holding their list, and
+        # `pq.append("not a QueryResult")` reproduced the raw `AttributeError`
+        # out of `to_json` that `_validate_per_query`'s own docstring measured on
+        # the unguarded class.
+        object.__setattr__(self, "per_query", tuple(self.per_query))
 
     def to_json(self) -> dict[str, Any]:
         return {
