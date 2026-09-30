@@ -43,6 +43,7 @@ from pathlib import Path
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
+from tests._query_rows import query_rows
 
 _ROOT = Path(__file__).resolve().parents[1]
 _RUN_MATRIX_PATH = _ROOT / "scripts" / "run_matrix.py"
@@ -89,7 +90,7 @@ def _run(
             "n_chunks_total": 29,
             "recall_at_k": {str(k): recall},
             "snippet_hit_at_k": {str(k): snippet},
-            "per_query": [],
+            "per_query": query_rows(4000),
             "wall_clock_ms": wall_clock_ms,
         }
     )

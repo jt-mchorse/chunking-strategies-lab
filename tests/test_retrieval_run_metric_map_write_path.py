@@ -34,6 +34,7 @@ import pytest
 
 from chunking_lab import metrics as metrics_module
 from chunking_lab.metrics import RetrievalRun
+from tests._query_rows import query_results, query_rows
 
 # --- fixtures -------------------------------------------------------------
 
@@ -45,7 +46,7 @@ _VALID: dict[str, Any] = {
     "n_chunks_total": 4,
     "recall_at_k": {1: 0.5, 3: 0.75},
     "snippet_hit_at_k": {1: 0.5, 3: 0.75},
-    "per_query": (),
+    "per_query": query_results(2),
     "wall_clock_ms": 1.5,
 }
 
@@ -246,7 +247,7 @@ def _payload_bypassing_construction(overrides: dict[str, Any]) -> dict[str, Any]
         "wall_clock_ms": fields["wall_clock_ms"],
         "recall_at_k": {str(k): v for k, v in fields["recall_at_k"].items()},
         "snippet_hit_at_k": {str(k): v for k, v in fields["snippet_hit_at_k"].items()},
-        "per_query": [],
+        "per_query": query_rows(len(fields["per_query"])),
         "notes": [],
     }
 

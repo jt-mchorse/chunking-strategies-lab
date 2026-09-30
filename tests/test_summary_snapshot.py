@@ -33,6 +33,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from chunking_lab.metrics import RetrievalRun  # noqa: E402
 from scripts.run_matrix import _render_summary  # noqa: E402
+from tests._query_rows import query_results  # noqa: E402
 
 RESULTS_DIR = _REPO_ROOT / "results"
 SUMMARY_MD = RESULTS_DIR / "summary.md"
@@ -222,7 +223,7 @@ def test_render_summary_escapes_pipe_in_strategy_name_so_columns_dont_break() ->
         n_chunks_total=10,
         recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
         snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
-        per_query=(),
+        per_query=query_results(3),
         wall_clock_ms=12.0,
     )
     md = _render_summary([run], "HashEmbedder")
@@ -255,7 +256,7 @@ def test_render_summary_collapses_newline_in_strategy_name_so_row_stays_one_line
         n_chunks_total=10,
         recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
         snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
-        per_query=(),
+        per_query=query_results(3),
         wall_clock_ms=12.0,
     )
     md = _render_summary([run], "HashEmbedder")
@@ -287,7 +288,7 @@ def test_render_summary_collapses_newline_in_embedder_name_header_so_it_stays_on
         n_chunks_total=10,
         recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
         snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
-        per_query=(),
+        per_query=query_results(3),
         wall_clock_ms=12.0,
     )
     md = _render_summary([run], run.embedder_model)
@@ -315,7 +316,7 @@ def test_render_summary_neutralizes_backtick_in_embedder_name_header_so_span_sta
         n_chunks_total=10,
         recall_at_k={1: 0.5, 3: 0.6, 5: 0.7},
         snippet_hit_at_k={1: 0.4, 3: 0.5, 5: 0.6},
-        per_query=(),
+        per_query=query_results(3),
         wall_clock_ms=12.0,
     )
     md = _render_summary([run], run.embedder_model)

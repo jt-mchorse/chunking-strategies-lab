@@ -138,7 +138,12 @@ def test_a_valid_container_still_round_trips(label: str, field: str, value: Any)
     arrives as a `list` from `from_json` and a `tuple` from the annotation, so
     both have to keep working.
     """
-    run = _run(**{field: value})
+    overrides: dict[str, Any] = {field: value}
+    if field == "per_query":
+        # The count follows the rows: D-020 (#204) refuses `n_queries` != the
+        # number of rows, and these rows are about the container, not the count.
+        overrides["n_queries"] = len(value)
+    run = _run(**overrides)
     reloaded = RetrievalRun.from_json(run.to_json())
     assert list(reloaded.notes) == list(run.notes)
     assert len(reloaded.per_query) == len(run.per_query)

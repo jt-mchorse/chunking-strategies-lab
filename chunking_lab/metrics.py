@@ -349,6 +349,39 @@ def _validate_notes(value: Any) -> None:
             raise ValueError(f"notes[{index}] must be a str, got {type(entry).__name__}")
 
 
+def _validate_query_count(n_queries: int, per_query: Sequence[Any]) -> None:
+    """``n_queries`` is the length of ``per_query``, on both paths (#204, D-020).
+
+    ``n_queries`` is the denominator behind every rate this repo publishes and
+    ``per_query`` is the evidence for it, and until #204 nothing asked whether
+    the two agree: a run stating ``n_queries=1`` over two per-query rows
+    constructed, ``to_json`` wrote it, and ``from_json`` read it back -- into
+    ``results/canonical__*.json``, which #198/D-017 made the provenance for
+    every published number.
+
+    **Equality, not ``>=``.** ``evaluate_strategy`` builds both from one query
+    list; every committed canonical file, and every version of those files in
+    git history (15), has ``n_queries == len(per_query)``; and ``to_json`` has
+    written ``per_query`` since the first commit. There is no shape -- current,
+    historical or documented -- in which fewer rows than queries is a
+    legitimate record, so a looser rule would admit only corruption.
+
+    One definition for both paths, and it needs no second call site:
+    ``from_json`` builds through ``cls(...)``, so ``__post_init__`` is where the
+    read path meets it too. A second copy is what produced #180, #181 and #182.
+
+    Runs after ``_validate_count`` and ``_validate_per_query``, so both operands
+    are already known to be a count and a sequence -- this rule compares them
+    and does not re-derive either.
+    """
+    if n_queries != len(per_query):
+        raise ValueError(
+            f"n_queries is {n_queries} but per_query has {len(per_query)} rows; "
+            f"n_queries is the denominator of every published rate and per_query "
+            f"is the evidence for it, so they must agree"
+        )
+
+
 def _validate_metric_maps(recall: dict[int, float], snippet: dict[int, float]) -> None:
     """The whole metric-map contract, in one place, for both paths (#182).
 
@@ -605,6 +638,9 @@ class RetrievalRun:
         # what produced #180, #181 and #182.
         _validate_per_query(self.per_query)
         _validate_notes(self.notes)
+        # The cross-field half (#204, D-020): each field above is valid on its
+        # own, and nothing asked whether the count and the rows agree.
+        _validate_query_count(self.n_queries, self.per_query)
         # And then *keep* what was just validated (#200, D-018).
         #
         # Every check above runs against the caller's own object and the record

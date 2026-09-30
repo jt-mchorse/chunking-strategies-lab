@@ -594,3 +594,36 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   Nothing republishes: both in-package producers already wrap in
   `tuple(...)`, which is a no-op on a tuple, and an arm asserts that
   rather than the prose claiming it.
+
+- **D-020 (#204).** `n_queries` must equal `len(per_query)`, on both
+  paths. Each was validated alone — `_validate_count` and
+  `_validate_per_query` — and nothing asked whether they agree, so a run
+  stating one query over two rows constructed, serialised, and loaded
+  back into the file kind D-017 made the provenance for every published
+  number.
+
+  **Measured before choosing the rule.** All five committed
+  `canonical__*.json` files, and all fifteen versions of them in git
+  history, have `n_queries == len(per_query)`, and `to_json` has written
+  `per_query` since the first commit. There is no current, historical or
+  documented shape with fewer rows than queries, so the rule is equality
+  rather than `>=`, and the read path is tightened as well as the write
+  path. `from_json`'s default for a *missing* `per_query` — unlike the
+  documented pre-D-009 defaults for `wall_clock_ms` and `notes` — now
+  loads only as a zero-query run.
+
+  One definition, `_validate_query_count`, called once from
+  `__post_init__` after both single-field rules (`"2" != 2`, `True == 1`
+  and `len("ab") == 2` are each why the order matters). `from_json`
+  builds through `cls(...)`, so the read path reaches the same call
+  without a second copy — an AST arm pins one call site and a spy arm
+  goes through `from_json`.
+
+  About fifteen test fixtures had modelled a run as `n_queries=N` over
+  no rows, for brevity. D-019's own arm had already named that shape as
+  a harm, so the fixtures changed and the rule did not;
+  `tests/_query_rows.py` sizes the rows to the count.
+
+  Not covered: `notebooks/_build_notebook.py` reads the canonical files
+  with a raw `json.loads` and never calls `from_json`, so no
+  `RetrievalRun` rule reaches it.

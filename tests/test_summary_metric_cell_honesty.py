@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
+from tests._query_rows import query_rows
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,7 +57,7 @@ def _payload(name: str, recall: dict[str, float], snippet: dict[str, float]) -> 
         "n_chunks_total": 100,
         "recall_at_k": recall,
         "snippet_hit_at_k": snippet,
-        "per_query": [],
+        "per_query": query_rows(10),
         "wall_clock_ms": 12.0,
         "notes": [],
     }
@@ -219,7 +220,7 @@ class TestTheStdoutSummaryIsAlsoHonest:
                 "n_chunks_total": 1,
                 "recall_at_k": {"1": 0.5, "7": 0.6},
                 "snippet_hit_at_k": {"1": 0.4, "7": 0.45},
-                "per_query": [],
+                "per_query": query_rows(1),
                 "wall_clock_ms": 1.0,
                 "notes": [],
             }
