@@ -2408,3 +2408,14 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** #205 is also open here (MEMORY conflict only).
 
 **Next session:** the mypy-with-numpy issue filed alongside.
+
+## 2026-09-30 — Issue #208: the mypy gate survives the [notebook] extra
+**Duration:** ~1 min · **Branch:** session/2026-09-30-0919-issue-208
+
+- With `[notebook]` installed, mypy followed matplotlib into numpy's 3.12-only stubs and the gate went red. Overrides now skip both, and `follow_imports_for_stubs` is required: without it the skip changed nothing. Green with and without the extra; a config arm pins the overrides.
+
+**Why this work, this session:** found while refreshing the notebook (#206); it would also have blocked #144's CI-job option.
+
+**Open questions / blockers:** #205 and #207 are open here too (MEMORY conflicts only).
+
+**Next session:** none.
