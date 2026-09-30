@@ -2350,3 +2350,24 @@ context_for_next_session:
   - OBSERVED_AND_NOT_FIXED_from_json_ACCEPTS_n_queries_1_BESIDE_TWO_per_query_ROWS_and_accepts_per_query_empty_beside_n_queries_1_A_CROSS_FIELD_INVARIANT_IS_A_DIFFERENT_CLASS_FROM_ALIASING_filed_separately_rather_than_folded_in
 followups: []
 ---
+
+---
+session: 2026-09-30T07:35Z
+issue: 204
+focus: A_COUNT_AND_ITS_EVIDENCE_WERE_EACH_VALIDATED_AND_NEVER_COMPARED_AND_THE_SUITE_HAD_MODELLED_A_RUN_AS_A_COUNT_WITH_NO_ROWS
+phase: shipped
+duration_min: 7
+delta:
+  files_changed: 15
+  tests_added: 23
+  suite: "1682 -> 1705 green"
+decisions_made: ["D-020"]
+measured: "all 5 canonical files and all 15 historical versions n_queries == len(per_query); reverts with totals (1705 each): faithful 14 red, ge 9, before-count 7, before-container 6, read-path-only 9"
+context_for_next_session:
+  - MEASURE_THE_HISTORY_BEFORE_CHOOSING_A_READ_PATH_RULE_git_log_over_results_and_git_show_each_version_took_one_command_and_it_is_what_licensed_tightening_from_json_instead_of_the_write_path_only_answer_the_issue_offered
+  - THE_SUITE_HAD_MODELLED_A_RUN_AS_n_queries_N_OVER_NO_ROWS_172_ARMS_WENT_RED_ON_CONTACT_it_was_fixture_brevity_not_a_real_shape_D_019s_OWN_ARM_NAMED_IT_A_HARM_so_the_fixtures_changed_tests_query_rows_py
+  - A_SOURCE_LOCK_MATCHED_MY_OWN_DOCSTRING_EXAMPLE_per_query_equals_a_b_IN_A_DOCSTRING_TRIPPED_D_019s_producers_pass_a_tuple_arm_PHRASE_EXAMPLES_IN_PROSE_NOT_AS_CODE_NEAR_A_TEXT_KEYED_LOCK
+  - THE_SPY_ARM_COUNTED_TWO_CALLS_BECAUSE_MY_PAYLOAD_HELPER_CONSTRUCTS_A_RUN_build_the_input_BEFORE_installing_the_spy
+  - NOT_COVERED_notebooks_build_notebook_py_reads_canonical_files_with_RAW_json_loads_so_NO_RetrievalRun_rule_reaches_it_and_recall_at_k_vs_per_query_evidence_is_a_derived_value_invariant_BOTH_RECORDED_NEITHER_FILED_YET
+followups: []
+---
