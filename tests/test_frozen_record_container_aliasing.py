@@ -55,7 +55,7 @@ from typing import Any
 import pytest
 
 from chunking_lab.io_utils import copy_json_value
-from chunking_lab.metrics import RetrievalRun, _validate_metric_maps, _validate_notes
+from chunking_lab.metrics import QueryResult, RetrievalRun, _validate_metric_maps, _validate_notes
 from chunking_lab.strategies import Chunk
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -305,6 +305,166 @@ def test_a_mutable_container_inside_a_tuple_stays_shared() -> None:
 
 
 # --------------------------------------------------------------------------
+# The three validated tuple fields (#202, D-019)
+# --------------------------------------------------------------------------
+
+
+def _query_result(**overrides: Any) -> QueryResult:
+    kwargs: dict[str, Any] = {
+        "query_id": "q1",
+        "expected_doc": "d1",
+        "expected_snippet": "s",
+        "retrieved_doc_ids_in_rank_order": ("d1",),
+        "snippet_hits_in_rank_order": (True,),
+    }
+    kwargs.update(overrides)
+    return QueryResult(**kwargs)
+
+
+def test_per_query_is_not_the_callers_object() -> None:
+    """The fourth thing `RetrievalRun.__post_init__` validates, and D-018's miss.
+
+    A caller passing a `list` is not violating a contract — `_validate_per_query`
+    documents that it "accepts any sequence, because the two paths hold different
+    concrete types". D-018's exclusion was argued from the *element* type, which
+    decides how deep a copy must be and not whether to make one.
+    """
+    supplied = [_query_result()]
+    run = _run(n_queries=1, per_query=supplied)
+    assert run.per_query is not supplied
+    assert isinstance(run.per_query, tuple)
+    supplied.append(_query_result(query_id="q2"))
+    assert len(run.per_query) == 1
+
+
+@pytest.mark.parametrize("field", ["retrieved_doc_ids_in_rank_order", "snippet_hits_in_rank_order"])
+def test_a_rank_order_field_is_not_the_callers_object(field: str) -> None:
+    """The other two fields whose `__post_init__` validates and then stored.
+
+    Both go through the same `_is_sequence_container` check `per_query` does, so
+    a `list` is accepted here for the same documented reason.
+    """
+    supplied: list[Any] = ["d1"] if field == "retrieved_doc_ids_in_rank_order" else [True]
+    other = ["d1"] if field != "retrieved_doc_ids_in_rank_order" else [True]
+    result = _query_result(
+        **{
+            field: supplied,
+            (
+                "snippet_hits_in_rank_order"
+                if field == "retrieved_doc_ids_in_rank_order"
+                else "retrieved_doc_ids_in_rank_order"
+            ): other,
+        }
+    )
+    assert getattr(result, field) is not supplied
+    assert isinstance(getattr(result, field), tuple)
+
+
+def test_the_guards_own_measured_failure_is_no_longer_one_append_away() -> None:
+    """`_validate_per_query`'s docstring is the repro, and it still worked.
+
+    That docstring records, of the *unguarded* class::
+
+        per_query = ('not a QueryResult',)  constructed, to_json raw AttributeError
+
+    and says all four such shapes "raise the exact exception types `from_json`'s
+    comments exist to convert". The guard closed the construction-time case. The
+    field it guards was the one field whose value it did not keep, so at
+    `4600346` the same `AttributeError` came back out of `to_json` after one
+    `append`.
+    """
+    supplied: list[Any] = [_query_result()]
+    run = _run(n_queries=1, per_query=supplied)
+    supplied.append("NOT A QueryResult")
+    payload = run.to_json()  # must not raise AttributeError
+    assert len(payload["per_query"]) == 1
+
+
+def test_a_post_construction_edit_of_a_rank_order_field_cannot_make_to_json_unreadable() -> None:
+    """D-018's headline harm, on `QueryResult`'s two fields.
+
+    "The writer emits a payload its own reader refuses, by the very rule
+    `__post_init__` just applied." Measured at `4600346`: appending `"nope"` to
+    the flags list put `[True, "nope"]` into `to_json`, and `from_json` raised
+    `ValueError: snippet_hits_in_rank_order[1] must be a bool` — the rule
+    enforced twenty lines above the field it did not keep.
+    """
+    ids: list[Any] = ["d1"]
+    hits: list[Any] = [True]
+    result = _query_result(retrieved_doc_ids_in_rank_order=ids, snippet_hits_in_rank_order=hits)
+    ids.append(42)
+    hits.append("nope")
+    payload = _run(n_queries=1, per_query=(result,)).to_json()
+    assert payload["per_query"][0]["retrieved_doc_ids_in_rank_order"] == ["d1"]
+    assert payload["per_query"][0]["snippet_hits_in_rank_order"] == [True]
+    # The round trip the harm broke.
+    RetrievalRun.from_json(payload)
+
+
+def test_clearing_the_supplied_list_no_longer_empties_the_record() -> None:
+    """The shape that needs no invalid value at all.
+
+    `pq.clear()` after a passing construction published `"per_query": []` beside
+    `"n_queries": 1`, into the file `#198`/D-017 established as the provenance
+    for every number this repo publishes. Nothing refuses that payload, which is
+    what made it worth measuring separately from the type-error shapes.
+    """
+    supplied = [_query_result()]
+    run = _run(n_queries=1, per_query=supplied)
+    supplied.clear()
+    assert len(run.to_json()["per_query"]) == 1
+
+
+def test_the_three_new_copies_run_after_their_checks() -> None:
+    """Order is load-bearing here for the same reason D-018 measured for `notes`.
+
+    A copy placed *before* its check hands the validator the coerced value
+    instead of the caller's, and the coercion is not neutral. `tuple(5)` raises a
+    raw `TypeError: 'int' object is not iterable` out of `__post_init__` — the
+    exact exception class `_validate_per_query` and the rank-order container
+    check exist to convert into this module's loud `ValueError`. And `tuple("ab")`
+    splats into `('a', 'b')`, two perfectly valid doc ids, which is #188's harm
+    restored silently rather than loudly.
+
+    Both orders are also rejected repo-wide (the copy-before-validate neighbours
+    went 2 and 8 red across `tests/`), but a module that ships a copy should own
+    the arm for where it sits — D-018's own note is that its arm was green
+    against the wrong order until it was rewritten to test the silent case.
+    """
+    for bad in (5, None):
+        with pytest.raises(ValueError, match="per_query must be a sequence"):
+            _run(per_query=bad)
+        with pytest.raises(ValueError, match="must be a sequence of per-rank values"):
+            _query_result(retrieved_doc_ids_in_rank_order=bad, snippet_hits_in_rank_order=())
+    # The silent one: a `str` is a sequence, and three characters would agree in
+    # length with three real flags.
+    with pytest.raises(ValueError, match="must be a sequence of per-rank values"):
+        _query_result(
+            retrieved_doc_ids_in_rank_order="abc", snippet_hits_in_rank_order=(True, True, True)
+        )
+
+
+def test_the_in_package_producers_already_passed_a_tuple_so_nothing_republishes() -> None:
+    """`tuple(...)` is a no-op on a tuple, and that is why the artifacts do not move.
+
+    `metrics.py`'s two `per_query=` sites both wrap in `tuple(...)` already —
+    `from_json` at the read path and `evaluate_strategy` at the write path. The
+    committed `results/` files are pinned elsewhere; this arm states *why* they
+    are unaffected, so the claim is checked rather than asserted in prose.
+    """
+    source = (_PACKAGE / "metrics.py").read_text(encoding="utf-8")
+    call_sites = [line for line in source.splitlines() if "per_query=" in line]
+    assert call_sites, "no per_query= call site found in metrics.py"
+    assert all("tuple(" in line for line in call_sites), (
+        f"an in-package producer no longer passes a tuple: {call_sites}. "
+        f"`tuple(...)` on a tuple returns the same object, which is the whole "
+        f"reason D-019 changes no published byte."
+    )
+    original = (_query_result(),)
+    assert _run(n_queries=1, per_query=original).per_query is original
+
+
+# --------------------------------------------------------------------------
 # The population
 # --------------------------------------------------------------------------
 
@@ -397,28 +557,131 @@ def test_the_population_arm_found_the_four_rows() -> None:
     }, f"the walk found {sorted(found)}; #200 triaged exactly four frozen rows"
 
 
-def test_the_immutable_container_rows_are_cleared_by_name() -> None:
-    """`tuple`-typed fields on frozen records, recorded as a result.
+_ANY_CONTAINER = _MUTABLE_CONTAINERS + ("tuple", "Sequence", "frozenset")
 
-    Every one holds either a scalar or a frozen record whose own fields are
-    tuples, so there is nothing a caller can edit in place. Named here so the
-    next `portfolio-ops#71`-style sweep reads a decision, and so that retyping
-    one of them to a `list` trips the arm above rather than passing quietly.
+
+def _is_container(annotation: str) -> bool:
+    return annotation.split("[", 1)[0].split(".")[-1] in _ANY_CONTAINER
+
+
+def _post_init_parts(module: str, cls: str) -> tuple[str, str]:
+    """`(checking_source, setattr_source)` for one class's `__post_init__`.
+
+    Split by **scope**, not by text: the copy statements are identified as
+    `object.__setattr__` calls and the docstring as the leading string
+    expression, then removed. A text-keyed split would find every field name in
+    the copy line it is trying to look past — and, since D-019, in a docstring
+    that names the fields too.
     """
-    tuple_rows = {
-        f"{cls}.{name}"
-        for _, cls, frozen, fields in _dataclasses_in_package()
-        if frozen
-        for name, ann in fields
-        if ann.split("[", 1)[0].split(".")[-1] == "tuple"
-    }
-    assert tuple_rows == {
+    tree = ast.parse((_ROOT / module).read_text(encoding="utf-8"))
+    body = next(n.body for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == cls)
+    post_init = next(
+        (n for n in body if isinstance(n, ast.FunctionDef) and n.name == "__post_init__"), None
+    )
+    if post_init is None:
+        return "", ""
+    checking: list[str] = []
+    setattrs: list[str] = []
+    for index, stmt in enumerate(post_init.body):
+        if index == 0 and isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+            continue  # the docstring
+        text = ast.unparse(stmt)
+        if text.startswith("object.__setattr__"):
+            setattrs.append(text)
+        else:
+            checking.append(text)
+    return "\n".join(checking), "\n".join(setattrs)
+
+
+def test_every_validated_container_field_is_also_kept() -> None:
+    """The rule D-018 should have used, derived rather than listed (#202, D-019).
+
+    D-018 keyed its population on *"is the annotation a mutable container"*. That
+    is not the property its own sentence describes — "every check above runs
+    against the caller's own object and the record then stores that same object,
+    so the validation was a **snapshot rather than an invariant**". The property
+    is **"does `__post_init__` validate this field"**, and three `tuple`-annotated
+    fields answered yes while the annotation-keyed rule looked past them.
+
+    An annotation is a hint. `_validate_per_query` and the rank-order container
+    check both accept any sequence *by design and in writing*, so a `tuple`
+    annotation says nothing about what is actually stored — which is precisely
+    why keying on it missed. Keyed on validation, the line falls in the right
+    place with no list to maintain: `LateChunk.vector` and
+    `ValidationReport.findings` are tuple-annotated and validated nowhere, so
+    there is no snapshot there to turn into an invariant.
+    """
+    offenders = []
+    for module, cls, frozen, fields in _dataclasses_in_package():
+        if not frozen:
+            continue
+        checking, setattrs = _post_init_parts(module, cls)
+        if not checking:
+            continue
+        for name, annotation in fields:
+            if not _is_container(annotation):
+                continue
+            if name not in checking:
+                continue
+            if f"object.__setattr__(self, {name!r}" not in setattrs:
+                offenders.append(f"{module}:{cls}.{name} ({annotation})")
+    assert not offenders, (
+        f"these frozen records validate a container field and then store the "
+        f"caller's object: {offenders}. `frozen=True` stops a rebind and nothing "
+        f"else, so the check is a snapshot rather than an invariant (#202)."
+    )
+
+
+def test_the_validated_and_unvalidated_container_fields_are_both_named() -> None:
+    """A pass over an empty set is not a pass, and the split is the finding.
+
+    Both halves are pinned by value: the validated set is what the arm above
+    walks, and the unvalidated set is what it deliberately does not. Adding a
+    validator to one of the bottom two moves it across on its own and the arm
+    above will then require a copy — which is the behaviour a hand-written list
+    of exclusions cannot have.
+
+    **The two population arms are a pair, and neither is a superset.** A field
+    must be copied if its annotation is a mutable container *or* if
+    `__post_init__` validates it. `Chunk.metadata` satisfies only the first
+    (nothing validates it, which is why its copy is the deep one) and
+    `RetrievalRun.per_query` satisfies only the second — so covering either
+    condition alone leaves a real row exposed, and D-018 covering only the first
+    is how three rows stayed exposed.
+    """
+    validated: set[str] = set()
+    unvalidated: set[str] = set()
+    for module, cls, frozen, fields in _dataclasses_in_package():
+        if not frozen:
+            continue
+        checking, _ = _post_init_parts(module, cls)
+        for name, annotation in fields:
+            if not _is_container(annotation):
+                continue
+            (validated if name in checking else unvalidated).add(f"{cls}.{name}")
+    assert validated == {
+        "RetrievalRun.recall_at_k",
+        "RetrievalRun.snippet_hit_at_k",
+        "RetrievalRun.notes",
+        "RetrievalRun.per_query",
         "QueryResult.retrieved_doc_ids_in_rank_order",
         "QueryResult.snippet_hits_in_rank_order",
-        "RetrievalRun.per_query",
+    }, f"the validated container fields are now {sorted(validated)}"
+    assert unvalidated == {
+        "Chunk.metadata",
         "LateChunk.vector",
         "ValidationReport.findings",
     }, (
-        f"the frozen tuple-typed fields are now {sorted(tuple_rows)}. A new one "
-        f"needs the same check; a retyped one needs a copy."
+        f"the unvalidated container fields are now {sorted(unvalidated)}. If one "
+        f"gained a validator it needs a copy too; if one was added, decide it "
+        f"rather than widening this literal."
     )
+    # `Chunk.metadata` is the reason the two arms are a *pair* rather than one
+    # rule. It is validated nowhere -- `dict[str, Any]`, which is exactly why its
+    # copy has to be deep -- so this arm does not reach it, and the
+    # mutable-annotation arm above does. Neither is a superset of the other, and
+    # the two fields left in `unvalidated` below it are caught by neither, which
+    # is the decision.
+    assert "Chunk.metadata" not in validated
+    chunk_setattrs = _post_init_parts("chunking_lab/strategies/__init__.py", "Chunk")[1]
+    assert "object.__setattr__(self, 'metadata'" in chunk_setattrs

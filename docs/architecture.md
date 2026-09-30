@@ -559,3 +559,38 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   class a caller catches at this boundary. A cycle is preserved rather
   than marked — a copier is not a sanitizer. Committed artifacts are
   byte-identical, verified by re-rendering from the committed JSONs.
+
+- **D-019 (#202), amending D-018.** The rule that decides *which* fields
+  get that copy is keyed on **validation**, not on the annotation. D-018
+  asked "is the annotation a mutable container", which is not the
+  property its own sentence describes — "every check above runs against
+  the caller's own object and the record then stores that same object".
+  Three `tuple`-annotated fields answered yes to the real question and
+  were looked straight past: `RetrievalRun.per_query` and both of
+  `QueryResult`'s rank-order fields.
+
+  D-018's exclusion argued from the *element* type — each tuple field
+  "holds a scalar or a frozen record whose own fields are tuples". True,
+  and it settles how deep a copy must be rather than whether to make
+  one. The annotation is not what makes the answer no either, because
+  `_validate_per_query` documents that it "accepts any sequence, because
+  the two paths hold different concrete types": a caller passing a
+  `list` is using the contract the validator states.
+
+  Measured at `4600346`: `pq.append("not a QueryResult")` after a
+  passing construction brought back the raw `AttributeError` out of
+  `to_json` that `_validate_per_query`'s own docstring records for the
+  *unguarded* class. And appending `42` / `"nope"` to `QueryResult`'s
+  rank-order lists produced a payload `from_json` refuses by the bool
+  rule enforced twenty lines above the field it did not keep.
+
+  **The two population arms are a pair, and neither is a superset.** A
+  field is copied if its annotation is a mutable container **or** if
+  `__post_init__` validates it. `Chunk.metadata` satisfies only the
+  first — nothing validates it, which is why its copy is the deep one —
+  and `per_query` only the second. `LateChunk.vector` and
+  `ValidationReport.findings` satisfy neither, and that is the decision.
+
+  Nothing republishes: both in-package producers already wrap in
+  `tuple(...)`, which is a no-op on a tuple, and an arm asserts that
+  rather than the prose claiming it.

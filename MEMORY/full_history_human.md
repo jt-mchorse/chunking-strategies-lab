@@ -2340,3 +2340,47 @@ the PR it was blocked behind merged in this session's Phase A.
 
 **Next session:** `#144` remains the repo's only other open issue and is a
 JT-gated decision-revisit.
+
+## 2026-09-29 — #202: the copy rule was keyed on the annotation (~7 min)
+
+Third issue in this run found by reading the scope the last fix wrote down, and
+the sharpest form of it so far: **D-018 keyed its population on a property its own
+sentence does not name.**
+
+Its rationale reads "every check above runs against the caller's own object and
+the record then stores that same object, so the validation was a snapshot rather
+than an invariant". The population it then walked was *"is the annotation a
+mutable container"*. Those are different properties, and three `tuple`-annotated
+fields — `RetrievalRun.per_query` and both of `QueryResult`'s rank-order fields —
+answered yes to the real one and were looked straight past.
+
+An annotation is a hint, and `_validate_per_query`'s own docstring says so out
+loud: "accepts any sequence, because the two paths hold different concrete types —
+`from_json` reads a JSON `list`, the annotation is a `tuple`". A caller passing a
+list was using the contract the validator states. D-018's exclusion argued from
+the *element* type ("each holds a scalar or a frozen record whose own fields are
+tuples") — true, and an answer to *how deep*, not to *whether at all*.
+
+Measured: `pq.append("not a QueryResult")` after a passing construction brought
+back the raw `AttributeError` out of `to_json` that `_validate_per_query`'s
+docstring records for the **unguarded** class. The guard closed the
+construction-time case, and the field it guards was the one field whose value it
+did not keep. And appending `42` / `"nope"` to `QueryResult`'s lists produced a
+payload `from_json` refuses by the bool rule enforced twenty lines above.
+
+Three one-line copies, symmetric with D-018's three. The interesting part is the
+population rule: a field is copied if its annotation is a mutable container **or**
+if `__post_init__` validates it, and the two are a **pair with neither a
+superset** — `Chunk.metadata` satisfies only the first (nothing validates it,
+which is why its copy is the deep one) and `per_query` only the second.
+
+Two probe lessons. The copy-before-validate neighbours were **0 red in the module
+that ships the copy** and 2 and 8 red across `tests/` — D-018's own note is that
+its arm was green against the wrong order, so a local arm was added and both now
+go red here too. And csl was **checked, not assumed**, against
+`rag-production-kit`#229 from earlier in the same run: that repo's tuple fix
+turned on its wire seam already flattening tuples, and `Chunk.metadata` has no
+serialization seam here at all, so the imported `llm-eval-harness` D-027 reason
+holds on its own terms. Same shape, different remedy per repo.
+
+Recorded as D-019, amending D-018.
