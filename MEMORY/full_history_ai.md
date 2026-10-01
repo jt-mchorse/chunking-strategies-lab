@@ -2389,3 +2389,22 @@ context_for_next_session:
   - WITH_notebook_EXTRA_INSTALLED_THE_MYPY_GATE_FAILS_ON_NUMPYS_STUBS_python_version_3_11_vs_a_3_12_type_statement_PRE_EXISTING_filed_separately
 followups: []
 ---
+
+---
+session: 2026-09-30T09:20Z
+issue: 208
+focus: THE_MYPY_GATE_FAILED_WHENEVER_THE_NOTEBOOK_EXTRA_WAS_INSTALLED_AND_FOLLOW_IMPORTS_SKIP_ALONE_DID_NOTHING_FOR_STUBS
+phase: shipped
+duration_min: 1   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1682 green in both a base and a [notebook] venv; mypy clean over 60 files in both"
+decisions_made: []
+measured: "before: [notebook] venv 2 failed (numpy .pyi 'type' statement); follow_imports=skip alone: same error; + follow_imports_for_stubs: green"
+context_for_next_session:
+  - FOLLOW_IMPORTS_SKIP_DOES_NOT_APPLY_TO_PYI_STUBS_WITHOUT_follow_imports_for_stubs_TRUE_measured
+  - UNBLOCKS_144s_SEPARATE_NOTEBOOK_CI_JOB_OPTION_if_JT_picks_it
+  - BRANCH_NOTE_205_207_ALSO_OPEN_MEMORY_conflicts_only
+followups: []
+---

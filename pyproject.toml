@@ -129,6 +129,20 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "matplotlib.*"
 ignore_missing_imports = true
+# ...and when `[notebook]` IS installed, don't follow it (#208). matplotlib's
+# stubs import numpy, whose stubs use Python 3.12's `type` statement; with
+# `python_version = "3.11"` mypy stopped on that syntax error before checking
+# this package, so the README's own notebook path turned `test_mypy_clean` red.
+# Nothing here type-checks against either library's API.
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+follow_imports = "skip"
+# numpy ships `.pyi` stubs, and `follow_imports` does not apply to stubs unless
+# this is set -- without it the skip above was a no-op (measured: same error).
+follow_imports_for_stubs = true
 
 [tool.ruff]
 # ruff 0.16.1 extended `ruff format` to Python code blocks inside Markdown.
