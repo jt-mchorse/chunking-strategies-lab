@@ -54,6 +54,22 @@ _LOAD_CELL = dedent(
     RESULTS_DIR = REPO_ROOT / "results"
 
 
+    def _wall_label(ms: float) -> str:
+        """A wall-clock value as `run_matrix._wall_clock_cell` publishes it (#210, D-016).
+
+        `0.0` is D-009's "not measured" default for a pre-D-009 JSON, so it is
+        the em dash, never `0ms` -- zero is impossible elapsed time, and the
+        flattering artefact: it wins any "which is fastest" read. A positive
+        value that `.0f` collapses to zero gets `.3g` instead.
+        """
+        if ms == 0.0:
+            return "—"
+        rendered = f"{ms:.0f}"
+        if float(rendered) == 0.0:
+            rendered = f"{ms:.3g}"
+        return f"{rendered}ms"
+
+
     def _stamp_rank(stamp: str) -> tuple[int, str]:
         """Recency key so a fresh run beats the committed `canonical` baseline.
 
@@ -95,9 +111,9 @@ _LOAD_CELL = dedent(
         kmax = max(int(k) for k in r["recall_at_k"])
         recall_top = float(r["recall_at_k"][str(kmax)])
         snippet_top = float(r["snippet_hit_at_k"][str(kmax)])
-        wall = r.get("wall_clock_ms", 0.0)
+        wall = _wall_label(float(r.get("wall_clock_ms", 0.0)))
         print(
-            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall:.0f}ms"
+            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall}"
         )
     '''
 )
@@ -116,16 +132,21 @@ _RECALL_CELL = dedent(
 
     # Derive k values from the loaded runs instead of hardcoding 1/3/5, so a
     # non-default `--ks` (a supported run_matrix.py flag) renders the k's it
-    # actually produced rather than crashing on a missing key. Mirrors
-    # run_matrix.py's `sorted(runs[0].recall_at_k)`. Equals [1, 3, 5] on default.
-    ks = sorted(int(k) for k in runs[0]["recall_at_k"]) if runs else [1, 3, 5]
+    # actually produced rather than crashing on a missing key (#82). The UNION
+    # across runs, as run_matrix.py's summary has taken since #160: the loader
+    # picks the newest file per strategy, so one fresh `--ks 1,10` run sits
+    # beside four canonical `--ks 1,3,5` files, and `runs[0]`'s keys indexed
+    # into the others raised KeyError (#210). Equals [1, 3, 5] on default.
+    ks = sorted({int(k) for r in runs for k in r["recall_at_k"]}) if runs else [1, 3, 5]
     strategies = [r["strategy_name"] for r in runs]
     x = np.arange(len(strategies))
     width = 0.25
 
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     for i, k in enumerate(ks):
-        vals = [float(r["recall_at_k"][str(k)]) for r in runs]
+        # A k this run did not measure is NaN, which draws no bar: absent, never
+        # a fabricated 0 (the #160 rule for a missing cell).
+        vals = [float(r["recall_at_k"].get(str(k), np.nan)) for r in runs]
         # Center the grouped bars around each tick for any len(ks); == (i - 1) for
         # the default 3 k's, so the canonical chart is unchanged.
         ax.bar(x + (i - (len(ks) - 1) / 2) * width, vals, width, label=f"recall@{k}")
@@ -155,7 +176,7 @@ _SNIPPET_CELL = dedent(
     """\
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     for i, k in enumerate(ks):
-        vals = [float(r["snippet_hit_at_k"][str(k)]) for r in runs]
+        vals = [float(r["snippet_hit_at_k"].get(str(k), np.nan)) for r in runs]
         ax.bar(x + (i - (len(ks) - 1) / 2) * width, vals, width, label=f"snippet-hit@{k}")
     ax.set_xticks(x)
     ax.set_xticklabels(strategies, rotation=12)
@@ -185,7 +206,9 @@ _LATENCY_CELL = dedent(
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     ax.bar(strategies, latencies, color="#1f77b4")
     for xi, val in enumerate(latencies):
-        ax.text(xi, val, f"{val:.0f}ms", ha="center", va="bottom", fontsize=9)
+        # `_wall_label` from the load cell: a defaulted 0.0 is labelled "—"
+        # rather than "0ms" (#210, D-016).
+        ax.text(xi, val, _wall_label(val), ha="center", va="bottom", fontsize=9)
     ax.set_ylabel("Wall-clock (ms)")
     ax.set_title(f"Latency by strategy · embedder={embedder} · n_queries={n_queries}")
     ax.set_xticklabels(strategies, rotation=12)
