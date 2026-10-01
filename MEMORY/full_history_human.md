@@ -2419,3 +2419,14 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** #205 and #207 are open here too (MEMORY conflicts only).
 
 **Next session:** none.
+
+## 2026-10-01 — Issue #216: a lone surrogate in any query field is refused
+**Duration:** ~7 min · **Branch:** session/2026-10-01-0910-issue-surrogate
+
+- A `\ud800` in a query file validated clean. In `expected_snippet` it silently zeroed snippet-hit, because a surrogate can never appear in a strict-UTF-8 document. In `question` it crashed the run. One new rule now refuses lone surrogates in all four fields, `question` included, and both the loader and the validator apply it. This is separate from the invisible-character rule, whose `question` exemption is for RTL marks. 24 tests; three revert probes red.
+
+**Why this work, this session:** found by this run's second hunt wave.
+
+**Open questions / blockers:** none. Merge after the other csl PRs from this run (they all append to MEMORY).
+
+**Next session:** RetrievalRun's derived-value invariant (D-020's explicitly open half).
