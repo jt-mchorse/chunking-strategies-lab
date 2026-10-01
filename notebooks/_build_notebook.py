@@ -24,7 +24,10 @@ def _markdown(text: str) -> nbformat.NotebookNode:
 
 
 def _code(source: str) -> nbformat.NotebookNode:
-    return nbformat.v4.new_code_cell(source)
+    # No trailing newline: ruff >= 0.16 formats notebook cells and strips it, so
+    # a rebuilt notebook carrying one failed CI's `ruff format --check` while
+    # the snapshot lock (which rstrips) stayed green.
+    return nbformat.v4.new_code_cell(source.rstrip("\n"))
 
 
 _INTRO = dedent(
