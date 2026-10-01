@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import contextlib
 import os
-import tempfile
+import secrets
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -33,8 +34,8 @@ from typing import Any
 # and the write fails with `OSError: [Errno 63] File name too long` — even though
 # a plain `Path.write_text` of that same target succeeds (sibling of
 # rag-production-kit#128 and mcp-server-cookbook#96). The base in the temp name
-# is cosmetic (`ls`-ability); uniqueness comes from `NamedTemporaryFile`'s random
-# component, so truncating it is safe. Budget is in BYTES (NAME_MAX is a byte
+# is cosmetic (`ls`-ability); uniqueness comes from the random component
+# `_open_temp` adds, so truncating it is safe. Budget is in BYTES (NAME_MAX is a byte
 # limit) and we trim on a char boundary so multibyte names are never split
 # mid-codepoint.
 _MAX_TEMP_BASE_BYTES = 200
@@ -83,6 +84,33 @@ def _cap_base_for_temp(base: str) -> str:
     return out
 
 
+# Retries for a temp-name collision. Eight hex chars is 2**32 names per
+# base, so a single collision is already vanishingly rare.
+_TEMP_NAME_ATTEMPTS = 100
+
+
+def _open_temp(target: Path) -> tuple[int, Path]:
+    """Create `.<base>.<random>.tmp` beside *target*, honouring the umask.
+
+    `tempfile.NamedTemporaryFile` / `mkstemp` always create **0600**, whatever
+    the umask, and `os.replace` carries that mode onto the target, so every
+    file this helper wrote was owner-only and an overwrite demoted an existing
+    0644 file to 0600 -- which the `Path.write_text` it replaced never did
+    (#212, portfolio-ops#81). Creating with `0o666` lets the *kernel* apply the
+    umask. Reading the umask instead (`os.umask(0); os.umask(old)`) would set a
+    process-wide umask of 0 for every other thread in between.
+    """
+    base = _cap_base_for_temp(target.name)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    for _ in range(_TEMP_NAME_ATTEMPTS):
+        candidate = target.parent / f".{base}.{secrets.token_hex(4)}.tmp"
+        try:
+            return os.open(candidate, flags, 0o666), candidate
+        except FileExistsError:
+            continue
+    raise FileExistsError(f"no usable temporary name beside {target}")
+
+
 def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> None:
     """Write *text* to *path* atomically.
 
@@ -96,18 +124,16 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding=encoding,
-            dir=target.parent,
-            prefix=f".{_cap_base_for_temp(target.name)}.",
-            suffix=".tmp",
-            delete=False,
-        ) as tmp:
-            tmp_path = Path(tmp.name)
+        fd, tmp_path = _open_temp(target)
+        with os.fdopen(fd, "w", encoding=encoding) as tmp:
             tmp.write(text)
             tmp.flush()
             os.fsync(tmp.fileno())
+        # An overwrite keeps the existing file's mode, as `write_text` did:
+        # without this the rename would swap a 0644 target for a temp created
+        # at `0o666 & ~umask` (#212). A missing target is the new-file case.
+        with contextlib.suppress(FileNotFoundError):
+            os.chmod(tmp_path, stat.S_IMODE(os.stat(target).st_mode))
         os.replace(tmp_path, target)
         tmp_path = None
     finally:
