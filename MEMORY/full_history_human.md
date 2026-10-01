@@ -2384,3 +2384,16 @@ serialization seam here at all, so the imported `llm-eval-harness` D-027 reason
 holds on its own terms. Same shape, different remedy per repo.
 
 Recorded as D-019, amending D-018.
+
+## 2026-09-30 — Issue #204: n_queries must equal len(per_query) (D-020)
+**Duration:** ~7 min · **Branch:** session/2026-09-30-0728-issue-204
+
+- `RetrievalRun` now refuses a run whose `n_queries` disagrees with its `per_query` rows, on both the constructor and `from_json`, through one validator. Every committed canonical file, in every version in git history, already satisfied equality, which is what allowed tightening the read path too.
+- About fifteen test fixtures had modelled a run as a count with no rows; they now size their rows via `tests/_query_rows.py`.
+- Five revert probes (the faithful revert plus four neighbours) are all red.
+
+**Why this work, this session:** it was the last non-gated item in this repo's backlog, and it had been waiting only on #203 merging.
+
+**Open questions / blockers:** none. Two things are recorded as not covered: the notebook builder reads the canonical files with raw `json.loads`, and whether `recall_at_k` agrees with the per-query evidence is a different class.
+
+**Next session:** csl's remaining open issue is #144 (decision-revisit, JT-gated).

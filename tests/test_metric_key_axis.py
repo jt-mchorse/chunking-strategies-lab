@@ -45,6 +45,7 @@ from typing import Any
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
+from tests._query_rows import query_rows
 
 # Built from a codepoint. U+0665 ARABIC-INDIC DIGIT FIVE: `int()` accepts it as
 # 5, and `str(5)` can never produce it.
@@ -57,7 +58,7 @@ _BASE: dict[str, Any] = {
     "n_queries": 2,
     "n_chunks_total": 10,
     "wall_clock_ms": 1.0,
-    "per_query": [],
+    "per_query": query_rows(2),
     "notes": [],
 }
 

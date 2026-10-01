@@ -57,6 +57,7 @@ import pytest
 from chunking_lab.io_utils import copy_json_value
 from chunking_lab.metrics import QueryResult, RetrievalRun, _validate_metric_maps, _validate_notes
 from chunking_lab.strategies import Chunk
+from tests._query_rows import query_results
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PACKAGE = _ROOT / "chunking_lab"
@@ -71,7 +72,8 @@ def _run(**overrides: Any) -> RetrievalRun:
         "n_chunks_total": 1,
         "recall_at_k": {5: 1.0},
         "snippet_hit_at_k": {5: 1.0},
-        "per_query": (),
+        # One row for `n_queries=1`: D-020 (#204) refuses a count with no rows.
+        "per_query": query_results(1),
         "wall_clock_ms": 1.0,
         "notes": ["ok"],
     }

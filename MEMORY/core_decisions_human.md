@@ -546,3 +546,26 @@ shape, different remedy per repo.
 **Reversibility:** Cheap.
 
 **Related issues:** #202, #200, #186, #188, #71
+
+## D-020 — `n_queries` equals `len(per_query)`, on both paths (2026-09-30)
+**Decision:** `RetrievalRun` refuses a run whose `n_queries` differs from the number of `per_query` rows, through one validator (`_validate_query_count`) called once from `__post_init__`, which `from_json` reaches by building through `cls(...)`.
+
+**Why:** `n_queries` is the denominator of every rate this repo publishes and `per_query` is the evidence for it. Each was validated alone on both paths and nothing compared them, so a run stating one query over two rows constructed, serialised and loaded back into the file kind D-017 made the provenance for every published number.
+
+The issue asked whether the read path could be tightened or only the write path. That was measured, not argued: all five committed canonical files, and all fifteen versions of them in git history, have `n_queries == len(per_query)`, and `to_json` has written `per_query` since the first commit. No shape — current, historical or documented — has fewer rows than queries, so the rule is equality, on both paths. `from_json`'s default for a missing `per_query` now loads only as a zero-query run.
+
+The check runs after the two single-field rules, and each ordering is measured: `"2" != 2` and `True == 1` (7 red if it runs before `_validate_count`), `len("ab") == 2` (6 red before `_validate_per_query`).
+
+About fifteen test fixtures had modelled a run as a count over no rows, for brevity; 172 arms went red on contact. D-019's own arm had already named that shape as a harm, so the fixtures changed and the rule did not. `tests/_query_rows.py` sizes rows to the count.
+
+Not covered, and recorded: the notebook builder reads the canonical files with raw `json.loads` and never calls `from_json`; whether `recall_at_k` agrees with the per-query evidence is a derived-value invariant.
+
+**Alternatives considered:**
+- `n_queries >= len(per_query)` — rejected, built and run, 9 red: it admits only shapes nothing produces.
+- Allow an empty `per_query` as a "summary-only" run — rejected: no producer makes one, and D-019 named it a harm.
+- Read path only — rejected, built and run, 9 red.
+- Write path only with a lenient reader — rejected: the history has no shape to be lenient for.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #204, #202, #198, #186, #180, #181, #182

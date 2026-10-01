@@ -633,7 +633,9 @@ def _synthetic_run(with_per_query: bool = True) -> RetrievalRun:
         strategy_name="fixed-size",
         embedder_model="hash-cosmic",
         dataset_version="v0",
-        n_queries=2,
+        # Derived, not a literal: `with_per_query=False` used to build
+        # `n_queries=2` over no rows, which D-020 refuses (#204).
+        n_queries=len(per_query),
         n_chunks_total=42,
         recall_at_k={1: 0.5, 3: 1.0, 5: 1.0},
         snippet_hit_at_k={1: 0.5, 3: 0.5, 5: 0.5},
@@ -679,8 +681,9 @@ def test_retrieval_run_from_json_round_trips_with_populated_per_query() -> None:
 
 
 def test_retrieval_run_from_json_round_trips_empty_per_query() -> None:
-    """A run with no per-query rows (e.g., the snapshot test path) must
-    round-trip cleanly — `per_query` collapses to an empty tuple."""
+    """A run with no per-query rows must round-trip cleanly — `per_query`
+    collapses to an empty tuple. Since D-020 (#204) that run has
+    `n_queries == 0`: a non-zero count over no rows is refused."""
     run = _synthetic_run(with_per_query=False)
     rebuilt = RetrievalRun.from_json(run.to_json())
     assert rebuilt == run
