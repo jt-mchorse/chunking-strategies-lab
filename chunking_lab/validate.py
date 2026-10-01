@@ -64,7 +64,11 @@ from typing import Any
 
 from chunking_lab._fields import require_non_negative_int
 from chunking_lab.io_utils import atomic_write_text
-from chunking_lab.queries import MATCHED_FIELDS, invisible_char_reason
+from chunking_lab.queries import (
+    MATCHED_FIELDS,
+    invisible_char_reason,
+    unencodable_char_reason,
+)
 
 REQUIRED_FIELDS: tuple[str, ...] = ("id", "question", "expected_doc", "expected_snippet")
 
@@ -331,6 +335,16 @@ def _validate_row(obj: dict[str, Any], line_no: int) -> list[ValidationFinding]:
                         code=f"invisible_char_{field}",
                     )
                 )
+        # A lone surrogate, in every field (#216) -- the loader refuses it too.
+        unencodable = unencodable_char_reason(f"field {field!r}", value)
+        if unencodable is not None:
+            findings.append(
+                ValidationFinding(
+                    line_no=line_no,
+                    reason=unencodable,
+                    code=f"unencodable_char_{field}",
+                )
+            )
     return findings
 
 

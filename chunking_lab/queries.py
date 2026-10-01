@@ -121,6 +121,28 @@ def invisible_char_reason(field_name: str, value: str) -> str | None:
     )
 
 
+def unencodable_char_reason(field_name: str, value: str) -> str | None:
+    """Reason string for a lone surrogate (category ``Cs``), or None (#216).
+
+    Separate from the invisible-character rule on purpose, and applied to every
+    field, ``question`` included. ``\\ud800`` is valid JSON escape syntax, so a
+    row carrying one loads; but it is not a character, it cannot be encoded as
+    UTF-8, and documents are read as strict UTF-8 -- so in a matched field it can
+    never match (snippet-hit@k silently 0.000, #162's harm through a third
+    category), and in ``question`` the embedder's UTF-8 encode raised
+    ``UnicodeEncodeError`` and killed the run. ``question``'s exemption from
+    :func:`_is_invisible` is about legitimate RTL marks; no surrogate is one.
+    """
+    for i, ch in enumerate(value):
+        if unicodedata.category(ch) == "Cs":
+            return (
+                f"{field_name} contains the lone surrogate U+{ord(ch):04X} at index {i}; "
+                "it is not a character and cannot be encoded as UTF-8, so it can never "
+                "match a document and crashes the embedder"
+            )
+    return None
+
+
 @dataclass(frozen=True)
 class Query:
     """One question + golden-answer record."""
@@ -172,6 +194,10 @@ class Query:
                 reason = invisible_char_reason(name, value)
                 if reason is not None:
                     raise ValueError(reason)
+            # Every field, `question` included (#216).
+            unencodable = unencodable_char_reason(name, value)
+            if unencodable is not None:
+                raise ValueError(unencodable)
 
 
 def _require_str(value: object, name: str) -> str:
