@@ -2419,3 +2419,14 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** #205 and #207 are open here too (MEMORY conflicts only).
 
 **Next session:** none.
+
+## 2026-10-01 — Issue #212: atomic writes created every file owner-only
+**Duration:** ~6 min · **Branch:** session/2026-10-01-0848-issue-212
+
+- `atomic_write_text` built its temp file with `NamedTemporaryFile`, which always creates mode 0600 whatever the umask, and the rename carried that onto the target. Every report and canonical fixture it wrote was owner-only, and overwriting an existing 0644 file quietly demoted it to 0600. The temp file is now created with mode 0666 so the kernel applies the umask, and on an overwrite it takes the existing file's mode before the rename. Tests cover three umasks and four existing modes through the helper and `validate --out`.
+
+**Why this work, this session:** part of the portfolio-wide sweep in portfolio-ops#81.
+
+**Open questions / blockers:** none.
+
+**Next session:** none.

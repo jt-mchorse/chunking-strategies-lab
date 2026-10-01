@@ -2408,3 +2408,23 @@ context_for_next_session:
   - BRANCH_NOTE_205_207_ALSO_OPEN_MEMORY_conflicts_only
 followups: []
 ---
+
+---
+session: 2026-10-01T08:53Z
+issue: 212
+focus: ATOMIC_WRITE_TEXT_CREATED_EVERY_FILE_0600_AND_AN_OVERWRITE_DEMOTED_0644_TO_0600
+phase: shipped
+duration_min: 6   # computed from the plan comment timestamp (08:48Z) and date -u
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "1722 passed (was 1707); ruff check, ruff format --check and mypy clean"
+decisions_made: []
+measured: "umask 022 on main: new file 0o600, overwrite of 0o644 -> 0o600. After: 0o644 and 0o644. Revert probes: main's io_utils.py 10 red of 1722; fix with the chmod-on-overwrite line removed 6 red of 1722."
+context_for_next_session:
+  - NamedTemporaryFile_AND_mkstemp_ALWAYS_CREATE_0600_os_replace_CARRIES_THE_MODE_the_temp_is_now_os_open_O_EXCL_0o666_so_the_kernel_applies_the_umask
+  - NEVER_READ_THE_UMASK_VIA_os_umask_0_IT_SETS_A_PROCESS_WIDE_UMASK_OF_0_FOR_OTHER_THREADS
+  - AN_UNKNOWN_encoding_ARGUMENT_STILL_RAISES_LookupError_WITH_NO_TEMP_LEFT_AND_NO_FD_LEAKED_measured_os_fdopen_closes_the_fd_on_failure
+  - THE_REAL_CALLER_ARM_RUNS_validate_main_IN_PROCESS_a_subprocess_would_not_see_the_tests_umask_change_reliably
+followups: ["portfolio-ops#81"]
+---
