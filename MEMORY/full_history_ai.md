@@ -2371,3 +2371,21 @@ context_for_next_session:
   - NOT_COVERED_notebooks_build_notebook_py_reads_canonical_files_with_RAW_json_loads_so_NO_RetrievalRun_rule_reaches_it_and_recall_at_k_vs_per_query_evidence_is_a_derived_value_invariant_BOTH_RECORDED_NEITHER_FILED_YET
 followups: []
 ---
+
+---
+session: 2026-09-30T09:19Z
+issue: 206
+focus: THE_COMMITTED_NOTEBOOK_PUBLISHED_A_SEMANTIC_ROW_THE_RESULTS_NO_LONGER_CONTAIN_THE_DRIFT_144_PREDICTED
+phase: shipped
+duration_min: 1   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "1682 green (base venv); notebook tests 22 passed with [notebook]"
+decisions_made: []
+measured: "every notebook strategy row == results/canonical__*.json after re-execution; before: semantic 84/0.833/0.167 vs 86/0.750/0.000"
+context_for_next_session:
+  - 144_PREDICTED_SILENT_NOTEBOOK_DRIFT_AND_IT_HAD_HAPPENED_since_08_03_evidence_posted_on_144_the_CI_lock_stays_JT_gated
+  - WITH_notebook_EXTRA_INSTALLED_THE_MYPY_GATE_FAILS_ON_NUMPYS_STUBS_python_version_3_11_vs_a_3_12_type_statement_PRE_EXISTING_filed_separately
+followups: []
+---

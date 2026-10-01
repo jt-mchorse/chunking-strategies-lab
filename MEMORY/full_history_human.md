@@ -2397,3 +2397,14 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** none. Two things are recorded as not covered: the notebook builder reads the canonical files with raw `json.loads`, and whether `recall_at_k` agrees with the per-query evidence is a different class.
 
 **Next session:** csl's remaining open issue is #144 (decision-revisit, JT-gated).
+
+## 2026-09-30 — Issue #206: the committed notebook matches the committed results again
+**Duration:** ~1 min · **Branch:** session/2026-09-30-0917-issue-206
+
+- `notebooks/comparison.ipynb` still published the pre-#141 semantic row (84 chunks, recall@5 0.833). Re-executed with the README's own command; every row now equals the canonical JSON. No CI change (#144 is JT's call; the drift is posted there as evidence).
+
+**Why this work, this session:** found by the fresh-clone Quickstart audit.
+
+**Open questions / blockers:** #205 is also open here (MEMORY conflict only).
+
+**Next session:** the mypy-with-numpy issue filed alongside.
