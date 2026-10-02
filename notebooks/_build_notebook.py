@@ -101,10 +101,27 @@ _LOAD_CELL = dedent(
         return [latest_by_strategy[n] for n in canonical if n in latest_by_strategy]
 
 
+    def _one_or_mixed(values: list) -> str:
+        """The single value every run shares, or `MIXED (a, b)` when they differ (#221).
+
+        The loader keeps the newest file per strategy, so one fresh `--embedder
+        minilm` run can sit beside four canonical HashEmbedder files (#211's
+        population). Titling the charts with `runs[0]`'s value then labelled
+        every bar with an embedder that produced only one of them.
+        """
+        distinct = sorted({str(v) for v in values})
+        if not distinct:
+            return "?"
+        return distinct[0] if len(distinct) == 1 else f"MIXED ({', '.join(distinct)})"
+
+
     runs = _load_latest_per_strategy(RESULTS_DIR)
-    embedder = runs[0]["embedder_model"] if runs else "?"
-    n_queries = runs[0]["n_queries"] if runs else 0
+    embedder = _one_or_mixed([r["embedder_model"] for r in runs])
+    n_queries = _one_or_mixed([r["n_queries"] for r in runs])
+    mixed = embedder.startswith("MIXED") or n_queries.startswith("MIXED")
     print(f"Loaded {len(runs)} strategy runs · embedder={embedder} · n_queries={n_queries}")
+    if mixed:
+        print("  WARNING: these runs are not comparable as one chart; per-run values below.")
     for r in runs:
         name = r["strategy_name"]
         n_chunks = r["n_chunks_total"]
@@ -115,8 +132,9 @@ _LOAD_CELL = dedent(
         recall_top = float(r["recall_at_k"][str(kmax)])
         snippet_top = float(r["snippet_hit_at_k"][str(kmax)])
         wall = _wall_label(float(r.get("wall_clock_ms", 0.0)))
+        per_run = f"  embedder={r['embedder_model']}  n_queries={r['n_queries']}" if mixed else ""
         print(
-            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall}"
+            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall}{per_run}"
         )
     '''
 )
