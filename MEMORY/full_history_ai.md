@@ -2447,3 +2447,21 @@ context_for_next_session:
   - THE_REAL_CALLER_ARM_RUNS_validate_main_IN_PROCESS_a_subprocess_would_not_see_the_tests_umask_change_reliably
 followups: ["portfolio-ops#81"]
 ---
+
+---
+session: 2026-10-01T08:58Z
+issue: 214
+focus: AN_EMPTY_CORPUS_SET_WAS_REPORTED_AS_TWELVE_ROW_FINDINGS_INSTEAD_OF_THE_LOADERS_REFUSAL
+phase: shipped
+duration_min: 4   # issue filed ~4 min before this block, from date -u
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1707 -> 1714 green"
+decisions_made: []
+measured: "d11fcb3: --corpus-dir data/corpus/01_hnsw.md and an empty dir -> 12 expected_doc_not_found findings, exit 1; load_corpus on both -> FileNotFoundError. Revert probe (old validate.py): 6 failed of 1714."
+context_for_next_session:
+  - THE_98_COMMENT_SAID_MIRROR_LOAD_CORPUS_ENUMERATION_EXACTLY_and_mirrored_the_enumeration_but_not_the_refusal_after_it_A_MIRRORS_X_CLAIM_COVERS_X_WHOLE_SEAM
+  - csl_second_hunt_also_found_RetrievalRun_derived_value_invariant_D_020_open_half_and_lone_surrogates_in_query_fields
+followups: []
+---

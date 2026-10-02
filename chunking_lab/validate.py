@@ -152,6 +152,14 @@ def validate_queries(
         # three — exactly the "typo'd doc reference that invalidates recall" this
         # check exists to catch (#98).
         corpus_docs = {p.name for p in corpus_root.glob("*.md") if p.is_file()}
+        # And mirror its refusal (#214): `load_corpus` raises on a corpus with no
+        # documents -- a file passed as the directory, an empty directory, one
+        # holding no `*.md` -- while this went on to report every row as
+        # `expected_doc_not_found` at exit 1, the first one telling the operator
+        # that `01_hnsw.md` is not a corpus document under `.../01_hnsw.md`. It is
+        # an I/O-shaped error (exit 2), and the loader already says so.
+        if not corpus_docs:
+            raise FileNotFoundError(f"no markdown documents in: {corpus_root}")
 
     findings: list[ValidationFinding] = []
     seen_ids: dict[str, int] = {}

@@ -2442,3 +2442,14 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** none.
 
 **Next session:** none.
+
+## 2026-10-01 — Issue #214: validate refuses a corpus dir with no documents, as the loader does
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0905-issue-corpusdir
+
+- When `--corpus-dir` was a file, an empty directory, or a directory with no markdown, `validate` reported every row as a missing document and exited 1, as if the queries were wrong. `load_corpus` refuses the same paths outright. `validate` now raises the same error with the same wording, and the CLI exits 2. 7 tests; revert probe red (6 failed).
+
+**Why this work, this session:** found by this run's second hunt wave in a priority-tier repo.
+
+**Open questions / blockers:** none.
+
+**Next session:** lone surrogates in query fields, and the RetrievalRun derived-value invariant (D-020's open half).
