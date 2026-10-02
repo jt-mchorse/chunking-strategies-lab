@@ -2484,3 +2484,20 @@ context_for_next_session:
   - MERGE_ORDER_211_213_215_THEN_THIS_all_append_MEMORY
 followups: []
 ---
+
+---
+session: 2026-10-02T09:45Z
+issue: 221
+focus: THE_NOTEBOOK_TITLED_EVERY_CHART_WITH_runs_0s_EMBEDDER_211s_SIBLING_IN_THE_SAME_CELL
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 3
+  suite: "1767 -> 1770 green; ruff, ruff format, mypy clean"
+decisions_made: []
+measured: "main, canonical files + one fixed-size JSON with embedder_model=MiniLM: every title read embedder=MiniLM over 4 HashEmbedder bars. Revert to runs[0]: 2 of 3 red (the homogeneous control stays green by design). Regenerated + nbconvert-executed notebook: only cell 1 source differs; load-cell output text identical on canonical files."
+context_for_next_session:
+  - I_OVERWROTE_211S_EXISTING_tests_test_notebook_mixed_runs_py_WITH_A_NEW_FILE_OF_THE_SAME_NAME_suite_fell_1767_to_1756_and_git_status_said_M_not_QUESTION_MARKS_restored_via_git_show_HEAD_path_redirect_CHECK_A_NEW_TEST_FILENAME_IS_FREE_BEFORE_WRITING
+  - CHOSE_A_MIXED_LABEL_OVER_REFUSING_TO_CHART_ems_168_refuses_incomparable_rows_a_notebook_that_raises_is_less_useful_REVISIT_IF_JT_PREFERS_REFUSAL
+followups: []
+---

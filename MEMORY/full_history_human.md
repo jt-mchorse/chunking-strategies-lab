@@ -2464,3 +2464,16 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** none. Merge after the other csl PRs from this run (they all append to MEMORY).
 
 **Next session:** RetrievalRun's derived-value invariant (D-020's explicitly open half).
+
+## 2026-10-02 — notebook titles no longer borrow the first run's embedder (#221)
+
+#211 fixed the notebook's `k` values for a fresh single-strategy run sitting
+beside the committed files, but the same cell still took the embedder and query
+count from the first run. Fixed-size always loads first, so one fresh MiniLM
+fixed-size run put "embedder=MiniLM" in the title of every chart, above four
+bars that came from HashEmbedder. The titles now show the shared value, or
+`MIXED (...)` when runs disagree, and the load cell prints a warning with each
+run's values. I chose a label rather than refusing to draw the chart. The
+committed notebook was regenerated, and its output on the committed results is
+unchanged. While writing the tests I briefly overwrote #211's test file, which
+had the same name. I caught it because the test count dropped, and restored it.
