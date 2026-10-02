@@ -2420,6 +2420,18 @@ Recorded as D-019, amending D-018.
 
 **Next session:** none.
 
+## 2026-10-01 — Issue #210: the comparison notebook gets the two run_matrix fixes it missed
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0805-issue-210
+
+- The notebook's chart cells took `ks` from the first run only, so a fresh `--ks 1,10` run next to the canonical `1,3,5` files crashed both charts with `KeyError`. They now take the union of `ks` across runs, the rule `run_matrix` has used since #160, and a k a run lacks draws no bar.
+- A pre-D-009 run without `wall_clock_ms` printed and labelled as `0ms`. It now shows `—`, following D-016, and a parity test keeps `_wall_label` in step with `run_matrix._wall_clock_cell`. The notebook was rebuilt and re-executed. 14 new arms; five revert probes all red.
+
+**Why this work, this session:** a priority-tier repo with no open actionable issue; the hunt found both defects and they were reproduced before filing.
+
+**Open questions / blockers:** none.
+
+**Next session:** consider extending the D-016/D-017 AST lock to scan the notebook builder too.
+
 ## 2026-10-01 — Issue #212: atomic writes created every file owner-only
 **Duration:** ~6 min · **Branch:** session/2026-10-01-0848-issue-212
 
