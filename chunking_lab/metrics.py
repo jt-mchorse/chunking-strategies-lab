@@ -571,6 +571,61 @@ def _validate_count(name: str, value: Any) -> None:
     require_non_negative_int(name, value)
 
 
+def _validate_metrics_match_evidence(
+    n_queries: int,
+    per_query: Sequence[QueryResult],
+    recall_at_k: dict[int, float],
+    snippet_hit_at_k: dict[int, float],
+) -> None:
+    """Each published rate is what its own ``per_query`` rows give (#218, D-021).
+
+    D-020 tied ``n_queries`` to ``len(per_query)`` and named this half "a
+    DERIVED VALUE invariant, A DIFFERENT CLASS" without filing it. Nothing tied
+    the rates to the rows: ``recall_at_k={1: 1.0}`` beside a row whose expected
+    doc was never retrieved constructed, serialised, loaded back and rendered
+    into the summary table -- as did a zero-query run claiming recall 1.0, and
+    ``0.37`` over one query, which no ``hits / 1`` can produce.
+
+    The check recomputes with ``evaluate_strategy``'s own arithmetic --
+    ``hits / n if n else 0.0`` over the same ``[:k]`` slices -- and compares
+    with ``==``, not a tolerance. Both sides are one IEEE division of the same
+    two integers, so the producer's value is reproduced bit for bit, and a JSON
+    round trip preserves a float exactly; a difference of any size is a payload
+    that did not come from these rows. A tolerance would admit exactly the
+    near-miss rates (``0.37`` beside ``1/3``) this exists to refuse. All five
+    committed ``results/canonical__*.json`` files satisfy it exactly, and
+    ``tests/test_metrics_match_evidence.py`` pins that.
+
+    Because the formula is the producer's, a zero-query run with ``0.0`` rates
+    stays legal and #192's question is not reopened.
+
+    Runs after ``_validate_query_count``, so ``n_queries`` is already the row
+    count, and after ``_validate_per_query``, so every row is a ``QueryResult``.
+    """
+    n = n_queries
+    for name, metric, hit in (
+        (
+            "recall_at_k",
+            recall_at_k,
+            lambda q, k: q.expected_doc in q.retrieved_doc_ids_in_rank_order[:k],
+        ),
+        (
+            "snippet_hit_at_k",
+            snippet_hit_at_k,
+            lambda q, k: any(q.snippet_hits_in_rank_order[:k]),
+        ),
+    ):
+        for k, value in metric.items():
+            hits = sum(1 for q in per_query if hit(q, k))
+            expected = hits / n if n else 0.0
+            if value != expected:
+                raise ValueError(
+                    f"{name}[{k}] is {value!r} but its per_query rows give "
+                    f"{hits}/{n} = {expected!r}; a published rate must be the one "
+                    "its own evidence produces"
+                )
+
+
 @dataclass(frozen=True)
 class RetrievalRun:
     """Aggregate output of `evaluate_strategy`.
@@ -641,6 +696,11 @@ class RetrievalRun:
         # The cross-field half (#204, D-020): each field above is valid on its
         # own, and nothing asked whether the count and the rows agree.
         _validate_query_count(self.n_queries, self.per_query)
+        # And the derived-value half D-020 named and left (#218, D-021): the
+        # count agrees with the rows, and now so does every rate.
+        _validate_metrics_match_evidence(
+            self.n_queries, self.per_query, self.recall_at_k, self.snippet_hit_at_k
+        )
         # And then *keep* what was just validated (#200, D-018).
         #
         # Every check above runs against the caller's own object and the record

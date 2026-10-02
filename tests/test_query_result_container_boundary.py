@@ -68,15 +68,15 @@ def _query_result(**overrides: Any) -> QueryResult:
     return QueryResult(**base)
 
 
-def _run(qr: QueryResult) -> RetrievalRun:
+def _run(qr: QueryResult, rate: float = 1.0) -> RetrievalRun:
     return RetrievalRun(
         strategy_name="s",
         embedder_model="e",
         dataset_version="v",
         n_queries=1,
         n_chunks_total=1,
-        recall_at_k={1: 1.0},
-        snippet_hit_at_k={1: 1.0},
+        recall_at_k={1: rate},
+        snippet_hit_at_k={1: rate},
         per_query=(qr,),
     )
 
@@ -173,7 +173,10 @@ def test_a_non_container_is_refused_loudly(
 @pytest.mark.parametrize(("label", "overrides"), ACCEPT, ids=[r[0] for r in ACCEPT])
 def test_a_real_container_still_round_trips_by_value(label: str, overrides: dict[str, Any]) -> None:
     qr = _query_result(**overrides)
-    back = RetrievalRun.from_json(_run(qr).to_json()).per_query[0]
+    # An empty ranking is a miss at k=1, and since D-021 (#218) the run has to
+    # publish the rate its one row gives.
+    rate = 1.0 if qr.retrieved_doc_ids_in_rank_order else 0.0
+    back = RetrievalRun.from_json(_run(qr, rate).to_json()).per_query[0]
     # By VALUE. `to_json` writes `list(...)` and `from_json` reads `tuple(...)`,
     # so the assertion is against the tuple form of what went in.
     assert back.retrieved_doc_ids_in_rank_order == tuple(qr.retrieved_doc_ids_in_rank_order), label

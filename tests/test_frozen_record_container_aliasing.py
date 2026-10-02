@@ -57,7 +57,7 @@ import pytest
 from chunking_lab.io_utils import copy_json_value
 from chunking_lab.metrics import QueryResult, RetrievalRun, _validate_metric_maps, _validate_notes
 from chunking_lab.strategies import Chunk
-from tests._query_rows import query_results
+from tests._query_rows import evidence
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PACKAGE = _ROOT / "chunking_lab"
@@ -72,8 +72,10 @@ def _run(**overrides: Any) -> RetrievalRun:
         "n_chunks_total": 1,
         "recall_at_k": {5: 1.0},
         "snippet_hit_at_k": {5: 1.0},
-        # One row for `n_queries=1`: D-020 (#204) refuses a count with no rows.
-        "per_query": query_results(1),
+        # One row for `n_queries=1`: D-020 (#204) refuses a count with no rows,
+        # and it is a hit at k=5 on both maps, because D-021 (#218) refuses a
+        # rate its rows do not give.
+        "per_query": evidence({5: 1.0}, {5: 1.0}, 1),
         "wall_clock_ms": 1.0,
         "notes": ["ok"],
     }

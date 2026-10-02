@@ -2464,3 +2464,24 @@ Recorded as D-019, amending D-018.
 **Open questions / blockers:** none. Merge after the other csl PRs from this run (they all append to MEMORY).
 
 **Next session:** RetrievalRun's derived-value invariant (D-020's explicitly open half).
+
+## 2026-10-02 — every published rate is what its own rows give (#218, D-021)
+
+D-020 tied `n_queries` to the per-query rows and named the other half without
+filing it: nothing checked that the rates matched the rows. A run could publish
+recall@1 = 1.0 beside a row that missed, claim 1.0 over zero queries, or claim
+0.37 over a single query. All three constructed, round-tripped and rendered
+into the summary table. `RetrievalRun` now recomputes each rate with
+`evaluate_strategy`'s own arithmetic and refuses any rate that differs, using
+`==`. Both sides are the same integer division, so there is nothing for a
+tolerance to absorb. `math.isclose` was tried and accepted a value one ULP away
+from 1/3. All five canonical files, and all seven historical versions of them,
+pass unchanged.
+
+Most of the work was in the tests. 175 fixtures in 12 files published rates
+their rows didn't give. A new builder in `tests/_query_rows.py` takes the rates
+and produces rows that give them, at the smallest query count that can. It
+refuses, at the fixture, any rate no rows can produce. Four fixture values were
+of that kind and changed; each change has a comment at its site. 20 new tests;
+removing the rule turns 10 of them red, and the tolerance and wrong-order
+neighbours each turn one red.
