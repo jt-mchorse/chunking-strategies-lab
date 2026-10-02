@@ -48,7 +48,7 @@ from typing import Any  # noqa: E402
 
 from chunking_lab.metrics import RetrievalRun  # noqa: E402
 from scripts.run_matrix import _render_summary  # noqa: E402
-from tests._query_rows import query_results  # noqa: E402
+from tests._query_rows import evidence  # noqa: E402
 
 
 def _payload(**overrides: object) -> dict:
@@ -61,7 +61,7 @@ def _payload(**overrides: object) -> dict:
         n_chunks_total=42,
         recall_at_k={1: 0.5, 3: 1.0},
         snippet_hit_at_k={1: 0.0, 3: 0.5},
-        per_query=query_results(2),
+        per_query=evidence({1: 0.5, 3: 1.0}, {1: 0.0, 3: 0.5}, 2),
         wall_clock_ms=19.9,
     ).to_json()
     base.update(overrides)
@@ -84,7 +84,7 @@ def _unvalidated(**overrides: object) -> Any:
         n_chunks_total=42,
         recall_at_k={1: 0.5, 3: 1.0},
         snippet_hit_at_k={1: 0.0, 3: 0.5},
-        per_query=query_results(2),
+        per_query=evidence({1: 0.5, 3: 1.0}, {1: 0.0, 3: 0.5}, 2),
         wall_clock_ms=19.9,
     )
     return SimpleNamespace(**{**good.__dict__, **overrides})
@@ -209,8 +209,18 @@ def test_from_json_accepts_valid_wall_clock(good: object) -> None:
 
 
 def test_from_json_accepts_zero_counts() -> None:
-    # Zero queries means zero rows (D-020, #204).
-    run = RetrievalRun.from_json(_payload(n_queries=0, n_chunks_total=0, per_query=[]))
+    # Zero queries means zero rows (D-020, #204), and every rate is the
+    # producer's `0.0` for them (D-021, #218).
+    zero = {"1": 0.0, "3": 0.0}
+    run = RetrievalRun.from_json(
+        _payload(
+            n_queries=0,
+            n_chunks_total=0,
+            per_query=[],
+            recall_at_k=zero,
+            snippet_hit_at_k=zero,
+        )
+    )
     assert (run.n_queries, run.n_chunks_total) == (0, 0)
 
 

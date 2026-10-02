@@ -45,7 +45,7 @@ from typing import Any
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
-from tests._query_rows import query_rows
+from tests._query_rows import evidence_rows, query_rows
 
 # Built from a codepoint. U+0665 ARABIC-INDIC DIGIT FIVE: `int()` accepts it as
 # 5, and `str(5)` can never produce it.
@@ -67,6 +67,18 @@ def _payload(recall: dict[str, Any], snippet: dict[str, Any] | None = None) -> d
     p = dict(_BASE)
     p["recall_at_k"] = recall
     p["snippet_hit_at_k"] = recall if snippet is None else snippet
+    # Rows that produce well-formed rates (D-021, #218). The arms that send a
+    # malformed key or value are refused by the key/value rules, which run
+    # before the rate rule, so their rows are never read and stay the default.
+    try:
+        rows = evidence_rows(
+            {int(k): v for k, v in p["recall_at_k"].items()},
+            {int(k): v for k, v in p["snippet_hit_at_k"].items()},
+        )
+    except (TypeError, ValueError, AttributeError):
+        rows = None
+    if rows is not None:
+        p["per_query"], p["n_queries"] = rows, len(rows)
     # Round-trip through JSON so the test exercises the shape a real file has.
     return dict(json.loads(json.dumps(p)))
 
@@ -188,15 +200,17 @@ def test_the_range_rule_is_shared_not_restated() -> None:
         # that used to sit on them were dead the moment `tests/` entered the
         # gate under `warn_unused_ignores` (#174).
         metrics.validate_ks = lambda ks: None
-        run = _load({"0": 0.9})
+        # `0.0`: `[:0]` holds nothing, so that is the only rate rows give at
+        # k=0, and D-021's rate rule (#218) would refuse anything else.
+        run = _load({"0": 0.0})
     finally:
         metrics.validate_ks = original
-    assert dict(run.recall_at_k) == {0: 0.9}, (
+    assert dict(run.recall_at_k) == {0: 0.0}, (
         "the reader did not go through validate_ks; the rule is restated somewhere"
     )
     # And with the real rule back in place it is refused again.
     with pytest.raises(ValueError, match="positive"):
-        _load({"0": 0.9})
+        _load({"0": 0.0})
 
 
 # ----------------------------------------------------------------------
