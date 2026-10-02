@@ -2420,6 +2420,40 @@ Recorded as D-019, amending D-018.
 
 **Next session:** none.
 
+## 2026-10-01 — Issue #210: the comparison notebook gets the two run_matrix fixes it missed
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0805-issue-210
+
+- The notebook's chart cells took `ks` from the first run only, so a fresh `--ks 1,10` run next to the canonical `1,3,5` files crashed both charts with `KeyError`. They now take the union of `ks` across runs, the rule `run_matrix` has used since #160, and a k a run lacks draws no bar.
+- A pre-D-009 run without `wall_clock_ms` printed and labelled as `0ms`. It now shows `—`, following D-016, and a parity test keeps `_wall_label` in step with `run_matrix._wall_clock_cell`. The notebook was rebuilt and re-executed. 14 new arms; five revert probes all red.
+
+**Why this work, this session:** a priority-tier repo with no open actionable issue; the hunt found both defects and they were reproduced before filing.
+
+**Open questions / blockers:** none.
+
+**Next session:** consider extending the D-016/D-017 AST lock to scan the notebook builder too.
+
+## 2026-10-01 — Issue #212: atomic writes created every file owner-only
+**Duration:** ~6 min · **Branch:** session/2026-10-01-0848-issue-212
+
+- `atomic_write_text` built its temp file with `NamedTemporaryFile`, which always creates mode 0600 whatever the umask, and the rename carried that onto the target. Every report and canonical fixture it wrote was owner-only, and overwriting an existing 0644 file quietly demoted it to 0600. The temp file is now created with mode 0666 so the kernel applies the umask, and on an overwrite it takes the existing file's mode before the rename. Tests cover three umasks and four existing modes through the helper and `validate --out`.
+
+**Why this work, this session:** part of the portfolio-wide sweep in portfolio-ops#81.
+
+**Open questions / blockers:** none.
+
+**Next session:** none.
+
+## 2026-10-01 — Issue #214: validate refuses a corpus dir with no documents, as the loader does
+**Duration:** ~4 min · **Branch:** session/2026-10-01-0905-issue-corpusdir
+
+- When `--corpus-dir` was a file, an empty directory, or a directory with no markdown, `validate` reported every row as a missing document and exited 1, as if the queries were wrong. `load_corpus` refuses the same paths outright. `validate` now raises the same error with the same wording, and the CLI exits 2. 7 tests; revert probe red (6 failed).
+
+**Why this work, this session:** found by this run's second hunt wave in a priority-tier repo.
+
+**Open questions / blockers:** none.
+
+**Next session:** lone surrogates in query fields, and the RetrievalRun derived-value invariant (D-020's open half).
+
 ## 2026-10-01 — Issue #216: a lone surrogate in any query field is refused
 **Duration:** ~7 min · **Branch:** session/2026-10-01-0910-issue-surrogate
 
