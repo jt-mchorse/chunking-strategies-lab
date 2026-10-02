@@ -569,3 +569,27 @@ Not covered, and recorded: the notebook builder reads the canonical files with r
 **Reversibility:** Cheap.
 
 **Related issues:** #204, #202, #198, #186, #180, #181, #182
+
+## D-021 — every published rate is what its own rows give (2026-10-02)
+
+**Decision:** `RetrievalRun` refuses a `recall_at_k` or `snippet_hit_at_k` entry that its own `per_query` rows don't produce. `_validate_metrics_match_evidence` recomputes each rate with `evaluate_strategy`'s arithmetic (`hits / n if n else 0.0`, over the same `[:k]` slices) and compares with `==`. It runs once, from `__post_init__`, after D-020's count check, so `from_json` gets it too.
+
+**Why:** D-020 tied the count to the rows and named this half without filing it. Recall@1 = 1.0 beside a row that missed, a zero-query run claiming 1.0, and 0.37 over one query all constructed, round-tripped and rendered into the summary table — the file kind D-017 makes the source of every published number.
+
+The comparison is `==`, not a tolerance. Both sides are one division of the same two integers, so the producer's value comes back bit for bit, and JSON keeps floats exactly. A tolerance would let through exactly the near-miss values this check exists to refuse; `math.isclose` was built and run and admitted a value one ULP away from 1/3.
+
+The rule moves no committed number. All five canonical files, and all seven distinct versions of them in git history, load under it, and `git diff results/` is empty. A zero-query run with 0.0 rates is still legal, so #192's question stays closed.
+
+The cost was in the tests, not in the rule. 175 tests in 12 files went red, and every one was a fixture that published rates its own rows didn't give — the same shape D-020 ran into at 172. `tests/_query_rows.py` now has `evidence` and `evidence_rows`, which build rows for requested rates and refuse, at the fixture, a rate no rows can produce. Four fixture values had to change because no rows can produce them, and each is commented where it changed. `1e-9` left the `from_json` boundary table because it needs a billion queries; it is now tested directly against the formatter.
+
+Not covered: the notebook builder still reads the canonical files with raw `json.loads`, as D-020 recorded, so this rule doesn't reach it either.
+
+**Alternatives considered:**
+- A `math.isclose` tolerance — rejected, built and run, 1 red.
+- Check rates before the count — rejected, built and run, 1 red: the count is the more basic defect, so its message should win.
+- Derive the rates from the rows and drop the fields — rejected: the two maps are the published schema.
+- Migrate fixtures by recomputing rates from their own rows — rejected: that restates the rule inside the fixture. The builder goes the other way: rates in, rows out.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #218, #204, #198, #192
