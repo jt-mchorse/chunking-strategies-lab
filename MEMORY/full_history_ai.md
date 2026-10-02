@@ -2465,3 +2465,22 @@ context_for_next_session:
   - csl_second_hunt_also_found_RetrievalRun_derived_value_invariant_D_020_open_half_and_lone_surrogates_in_query_fields
 followups: []
 ---
+
+---
+session: 2026-10-01T09:00Z
+issue: 216
+focus: A_LONE_SURROGATE_IS_CATEGORY_Cs_AND_THE_INVISIBLE_RULE_COVERED_Cf_AND_Cc
+phase: shipped
+duration_min: 7   # issue filed ~7 min before this block, from date -u
+delta:
+  files_changed: 3
+  tests_added: 24
+  suite: "1707 -> 1731 green"
+decisions_made: []
+measured: "d11fcb3: validate on a row with \\ud800 in expected_snippet or question -> ok, findings=0; evaluate_strategy -> snippet_hit 5: 1.0 -> 0.0, and UnicodeEncodeError for question. Revert probes, control 1731: Query check removed 20 red, validate check removed 5, matched-fields-only neighbour 5 (the question rows)."
+context_for_next_session:
+  - COUNT_THE_SET_THE_INVISIBLE_RULE_NAMED_TWO_CATEGORIES_Cf_AND_Cc_AND_A_THIRD_Cs_HAS_THE_SAME_HARM_PLUS_A_CRASH_IN_THE_EXEMPTED_FIELD
+  - THE_QUESTION_EXEMPTION_HAS_A_TRUE_REASON_RTL_MARKS_WHICH_COVERS_Cf_NOT_Cs_a_true_reason_for_an_over_broad_exclusion
+  - MERGE_ORDER_211_213_215_THEN_THIS_all_append_MEMORY
+followups: []
+---
