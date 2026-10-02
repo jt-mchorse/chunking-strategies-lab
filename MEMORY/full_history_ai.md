@@ -2408,3 +2408,22 @@ context_for_next_session:
   - BRANCH_NOTE_205_207_ALSO_OPEN_MEMORY_conflicts_only
 followups: []
 ---
+
+---
+session: 2026-10-01T08:04Z
+issue: 210
+focus: TWO_run_matrix_FIXES_160_AND_D_016_NEVER_REACHED_THE_NOTEBOOK_BUILDER
+phase: shipped
+duration_min: 4   # 08:00 plan -> 08:04 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 14
+  suite: "1707 -> 1721 green"
+decisions_made: []
+measured: "repro on d11fcb3 by exec-ing the cell sources: mixed --ks 1,10 + canonical 1,3,5 -> _RECALL_CELL KeyError '10'; legacy JSON without wall_clock_ms -> 'wall=0ms'. Revert probes over the two notebook test modules, control 25: ks from runs[0] 2 red, missing k as 0.0 1, load cell old wall 1, latency old label 1, no .3g branch 3. Notebook rebuilt + re-executed; load cell text output byte-identical."
+context_for_next_session:
+  - THE_STALE_COMMENT_POINTED_AT_THE_MISSED_SITE_the_chart_cell_said_Mirrors_run_matrix_sorted_runs_0_recall_at_k_and_run_matrix_had_STOPPED_doing_that_in_160_A_MIRRORS_X_COMMENT_IS_A_SURVEY_RE_READ_X
+  - A_SECOND_PUBLICATION_SURFACE_FOR_THE_SAME_DATA_INHERITS_NO_FIX_AUTOMATICALLY_the_D_016_D_017_AST_lock_scans_run_matrix_only_EXTENDING_IT_TO_THE_BUILDER_NOT_DONE_HERE_the_parity_test_covers_the_wall_label_instead
+  - MISSING_K_IS_NaN_SO_MATPLOTLIB_DRAWS_NO_BAR_a_0_0_default_would_be_a_fabricated_zero_bar_the_neighbour_probe_proves_the_arm_sees_it
+followups: []
+---
