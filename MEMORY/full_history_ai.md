@@ -2410,6 +2410,45 @@ followups: []
 ---
 
 ---
+session: 2026-10-01T08:04Z
+issue: 210
+focus: TWO_run_matrix_FIXES_160_AND_D_016_NEVER_REACHED_THE_NOTEBOOK_BUILDER
+phase: shipped
+duration_min: 4   # 08:00 plan -> 08:04 close, from date -u
+delta:
+  files_changed: 3
+  tests_added: 14
+  suite: "1707 -> 1721 green"
+decisions_made: []
+measured: "repro on d11fcb3 by exec-ing the cell sources: mixed --ks 1,10 + canonical 1,3,5 -> _RECALL_CELL KeyError '10'; legacy JSON without wall_clock_ms -> 'wall=0ms'. Revert probes over the two notebook test modules, control 25: ks from runs[0] 2 red, missing k as 0.0 1, load cell old wall 1, latency old label 1, no .3g branch 3. Notebook rebuilt + re-executed; load cell text output byte-identical."
+context_for_next_session:
+  - THE_STALE_COMMENT_POINTED_AT_THE_MISSED_SITE_the_chart_cell_said_Mirrors_run_matrix_sorted_runs_0_recall_at_k_and_run_matrix_had_STOPPED_doing_that_in_160_A_MIRRORS_X_COMMENT_IS_A_SURVEY_RE_READ_X
+  - A_SECOND_PUBLICATION_SURFACE_FOR_THE_SAME_DATA_INHERITS_NO_FIX_AUTOMATICALLY_the_D_016_D_017_AST_lock_scans_run_matrix_only_EXTENDING_IT_TO_THE_BUILDER_NOT_DONE_HERE_the_parity_test_covers_the_wall_label_instead
+  - MISSING_K_IS_NaN_SO_MATPLOTLIB_DRAWS_NO_BAR_a_0_0_default_would_be_a_fabricated_zero_bar_the_neighbour_probe_proves_the_arm_sees_it
+followups: []
+---
+
+---
+session: 2026-10-01T08:53Z
+issue: 212
+focus: ATOMIC_WRITE_TEXT_CREATED_EVERY_FILE_0600_AND_AN_OVERWRITE_DEMOTED_0644_TO_0600
+phase: shipped
+duration_min: 6   # computed from the plan comment timestamp (08:48Z) and date -u
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "1722 passed (was 1707); ruff check, ruff format --check and mypy clean"
+decisions_made: []
+measured: "umask 022 on main: new file 0o600, overwrite of 0o644 -> 0o600. After: 0o644 and 0o644. Revert probes: main's io_utils.py 10 red of 1722; fix with the chmod-on-overwrite line removed 6 red of 1722."
+context_for_next_session:
+  - NamedTemporaryFile_AND_mkstemp_ALWAYS_CREATE_0600_os_replace_CARRIES_THE_MODE_the_temp_is_now_os_open_O_EXCL_0o666_so_the_kernel_applies_the_umask
+  - NEVER_READ_THE_UMASK_VIA_os_umask_0_IT_SETS_A_PROCESS_WIDE_UMASK_OF_0_FOR_OTHER_THREADS
+  - AN_UNKNOWN_encoding_ARGUMENT_STILL_RAISES_LookupError_WITH_NO_TEMP_LEFT_AND_NO_FD_LEAKED_measured_os_fdopen_closes_the_fd_on_failure
+  - THE_REAL_CALLER_ARM_RUNS_validate_main_IN_PROCESS_a_subprocess_would_not_see_the_tests_umask_change_reliably
+followups: ["portfolio-ops#81"]
+---
+
+---
 session: 2026-10-01T08:58Z
 issue: 214
 focus: AN_EMPTY_CORPUS_SET_WAS_REPORTED_AS_TWELVE_ROW_FINDINGS_INSTEAD_OF_THE_LOADERS_REFUSAL
