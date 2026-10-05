@@ -2499,3 +2499,16 @@ using the same guard file. A test that writes a tracked file fails that
 session, a test that deletes one fails it, and a test that writes only under
 `tmp_path` passes. Checked here by running a throwaway test that appended to
 `README.md`: the session failed and named the file.
+
+## 2026-10-02 — notebook titles no longer borrow the first run's embedder (#221)
+
+#211 fixed the notebook's `k` values for a fresh single-strategy run sitting
+beside the committed files, but the same cell still took the embedder and query
+count from the first run. Fixed-size always loads first, so one fresh MiniLM
+fixed-size run put "embedder=MiniLM" in the title of every chart, above four
+bars that came from HashEmbedder. The titles now show the shared value, or
+`MIXED (...)` when runs disagree, and the load cell prints a warning with each
+run's values. I chose a label rather than refusing to draw the chart. The
+committed notebook was regenerated, and its output on the committed results is
+unchanged. While writing the tests I briefly overwrote #211's test file, which
+had the same name. I caught it because the test count dropped, and restored it.
