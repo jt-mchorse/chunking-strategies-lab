@@ -252,3 +252,70 @@ def test_full_text_coverage_is_preserved_across_a_fence() -> None:
 )
 def test_fenced_spans_counts(body: str, expected: int) -> None:
     assert len(_fenced_spans(body + "\n")) == expected
+
+
+# (id, document lines, expected section titles). A backtick fence's info string
+# may not contain a backtick (CommonMark §4.5, #223); a tilde fence's may. The
+# expected titles are the headings CommonMark's reference parser finds
+# (markdown-it-py, commonmark preset), checked when this table was written.
+_INFO_STRING_CASES = [
+    ("control", ["# A", "alpha", "", "# B", "beta", "", "# C", "gamma"], ["A", "B", "C"]),
+    (
+        "inline-code-span-line",
+        [
+            "# A",
+            BACKTICK + "x" + BACKTICK + " is inline code",
+            "",
+            "# B",
+            "beta",
+            "",
+            "# C",
+            "gamma",
+        ],
+        ["A", "B", "C"],
+    ),
+    (
+        "backtick-in-info",
+        ["# A", BACKTICK + "py`x", "", "# B", "beta", "", "# C", "gamma"],
+        ["A", "B", "C"],
+    ),
+    (
+        "longer-run-backtick-in-info",
+        ["# A", "````a`b", "", "# B", "beta", "", "# C", "gamma"],
+        ["A", "B", "C"],
+    ),
+    (
+        "info-without-backtick-still-opens",
+        ["# A", BACKTICK + "python", "# comment", BACKTICK, "# B", "beta"],
+        ["A", "B"],
+    ),
+    (
+        "code-span-line-inside-an-open-fence-is-content",
+        [
+            "# A",
+            BACKTICK + "python",
+            BACKTICK + "x" + BACKTICK,
+            "# comment",
+            BACKTICK,
+            "# B",
+            "beta",
+        ],
+        ["A", "B"],
+    ),
+    (
+        "tilde-info-may-contain-a-backtick",
+        ["# A", TILDE + "py`x", "# not a heading", TILDE, "# B", "beta"],
+        ["A", "B"],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("lines", "titles"),
+    [(lines, titles) for _, lines, titles in _INFO_STRING_CASES],
+    ids=[case_id for case_id, _, _ in _INFO_STRING_CASES],
+)
+def test_a_backtick_in_a_backtick_info_string_is_not_a_fence(
+    lines: list[str], titles: list[str]
+) -> None:
+    assert _titles(StructureAwareStrategy().chunk(_doc(*lines))) == titles
