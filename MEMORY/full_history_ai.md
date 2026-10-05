@@ -2543,8 +2543,8 @@ followups: []
 ---
 
 ---
-session: 2026-10-05T08:05Z
-duration_min: 20
+session: 2026-10-05T07:33Z
+duration_min: 3   # first repro -> close comment, from the command log and the comment timestamps
 issue: 223
 focus: A_BACKTICK_FENCE_OPENER_WHOSE_INFO_STRING_HELD_A_BACKTICK_OPENED_A_PHANTOM_FENCE_TO_END_OF_TEXT_156S_HARM_THROUGH_THE_INFO_STRING_RULE
 phase: shipped
