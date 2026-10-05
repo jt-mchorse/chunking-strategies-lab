@@ -2465,6 +2465,41 @@ Recorded as D-019, amending D-018.
 
 **Next session:** RetrievalRun's derived-value invariant (D-020's explicitly open half).
 
+## 2026-10-02 — every published rate is what its own rows give (#218, D-021)
+
+D-020 tied `n_queries` to the per-query rows and named the other half without
+filing it: nothing checked that the rates matched the rows. A run could publish
+recall@1 = 1.0 beside a row that missed, claim 1.0 over zero queries, or claim
+0.37 over a single query. All three constructed, round-tripped and rendered
+into the summary table. `RetrievalRun` now recomputes each rate with
+`evaluate_strategy`'s own arithmetic and refuses any rate that differs, using
+`==`. Both sides are the same integer division, so there is nothing for a
+tolerance to absorb. `math.isclose` was tried and accepted a value one ULP away
+from 1/3. All five canonical files, and all seven historical versions of them,
+pass unchanged.
+
+Most of the work was in the tests. 175 fixtures in 12 files published rates
+their rows didn't give. A new builder in `tests/_query_rows.py` takes the rates
+and produces rows that give them, at the smallest query count that can. It
+refuses, at the fixture, any rate no rows can produce. Four fixture values were
+of that kind and changed; each change has a comment at its site. 20 new tests;
+removing the rule turns 10 of them red, and the tolerance and wrong-order
+neighbours each turn one red.
+
+## 2026-10-02 — the test session fails if any test rewrites a committed file (portfolio-ops#79)
+
+Ported from python-async-llm-pipelines#115, where a test overwrote a committed
+artifact on every CI run. The overwrite only happened on Linux, so nobody
+noticed. `tests/_committed_files_guard.py` records a hash of every git-tracked
+file when the session starts and fails the session if any changed or
+disappeared. It covers every tracked file, not only `docs/`, because committed
+outputs live in different places in each repo and no current test writes any of
+them. A self-test runs a real inner pytest session in a throwaway git repo
+using the same guard file. A test that writes a tracked file fails that
+session, a test that deletes one fails it, and a test that writes only under
+`tmp_path` passes. Checked here by running a throwaway test that appended to
+`README.md`: the session failed and named the file.
+
 ## 2026-10-02 — notebook titles no longer borrow the first run's embedder (#221)
 
 #211 fixed the notebook's `k` values for a fresh single-strategy run sitting
