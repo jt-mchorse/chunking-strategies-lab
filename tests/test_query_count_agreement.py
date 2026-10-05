@@ -50,8 +50,12 @@ def _run(**overrides: Any) -> RetrievalRun:
         "dataset_version": "v1",
         "n_queries": 2,
         "n_chunks_total": 3,
-        "recall_at_k": {5: 0.5},
-        "snippet_hit_at_k": {5: 0.5},
+        # 0.0: `query_results` rows retrieve nothing, and since D-021 (#218) a
+        # rate must be what the rows give. Every arm here varies the count and
+        # the row count, so a rate the rows produce at ANY size keeps the
+        # rate rule out of the way of the one under test.
+        "recall_at_k": {5: 0.0},
+        "snippet_hit_at_k": {5: 0.0},
         "per_query": query_results(2),
         "wall_clock_ms": 1.0,
         "notes": [],

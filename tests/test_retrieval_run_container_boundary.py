@@ -143,6 +143,10 @@ def test_a_valid_container_still_round_trips(label: str, field: str, value: Any)
         # The count follows the rows: D-020 (#204) refuses `n_queries` != the
         # number of rows, and these rows are about the container, not the count.
         overrides["n_queries"] = len(value)
+        if not value:
+            # No rows give no hits, so every rate is the producer's `0.0`
+            # (D-021, #218); `{1: 1.0}` over zero queries is now refused.
+            overrides["recall_at_k"] = overrides["snippet_hit_at_k"] = {1: 0.0}
     run = _run(**overrides)
     reloaded = RetrievalRun.from_json(run.to_json())
     assert list(reloaded.notes) == list(run.notes)
