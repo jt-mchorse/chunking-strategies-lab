@@ -26,6 +26,7 @@ the twelve rows are the corpus it is checked over.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 from typing import Any
@@ -34,7 +35,7 @@ import pytest
 
 from chunking_lab import metrics as metrics_module
 from chunking_lab.metrics import RetrievalRun
-from tests._query_rows import query_results, query_rows
+from tests._query_rows import evidence, query_rows
 
 # --- fixtures -------------------------------------------------------------
 
@@ -42,17 +43,28 @@ _VALID: dict[str, Any] = {
     "strategy_name": "fixed",
     "embedder_model": "hash-64",
     "dataset_version": "v1",
-    "n_queries": 2,
+    # Four rows, not two: `0.75` is 3 of 4, and since D-021 (#218) the rows
+    # have to produce every rate.
+    "n_queries": 4,
     "n_chunks_total": 4,
     "recall_at_k": {1: 0.5, 3: 0.75},
     "snippet_hit_at_k": {1: 0.5, 3: 0.75},
-    "per_query": query_results(2),
+    "per_query": evidence({1: 0.5, 3: 0.75}, {1: 0.5, 3: 0.75}, 4),
     "wall_clock_ms": 1.5,
 }
 
 
 def _run(**overrides: Any) -> RetrievalRun:
-    return RetrievalRun(**{**_VALID, **overrides})
+    kwargs = {**_VALID, **overrides}
+    if "per_query" not in overrides:
+        # Rows that produce the requested rates (D-021, #218). A malformed map
+        # is refused by the map rules, which run first, so its rows are never
+        # read and stay the default.
+        with contextlib.suppress(TypeError, ValueError, AttributeError):
+            kwargs["per_query"] = evidence(
+                kwargs["recall_at_k"], kwargs["snippet_hit_at_k"], kwargs["n_queries"]
+            )
+    return RetrievalRun(**kwargs)
 
 
 #: (case id, constructor overrides). Every row is a shape that constructed,
@@ -136,7 +148,9 @@ def test_a_valid_run_still_constructs_and_round_trips() -> None:
     ("case", "overrides"),
     [
         ("empty-maps", {"recall_at_k": {}, "snippet_hit_at_k": {}}),
-        ("int-valued-proportions", {"recall_at_k": {1: 1, 3: 0}, "snippet_hit_at_k": {1: 0, 3: 1}}),
+        # Rising in k: `{1: 1, 3: 0}` was here, and no rows produce a rate that
+        # FALLS as k grows, because the `[:k]` slices nest (D-021, #218).
+        ("int-valued-proportions", {"recall_at_k": {1: 0, 3: 1}, "snippet_hit_at_k": {1: 0, 3: 1}}),
         ("boundary-zero-and-one", {"recall_at_k": {1: 0.0}, "snippet_hit_at_k": {1: 1.0}}),
         ("large-k", {"recall_at_k": {1000: 0.5}, "snippet_hit_at_k": {1000: 0.5}}),
     ],

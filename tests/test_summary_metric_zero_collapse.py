@@ -43,7 +43,7 @@ from pathlib import Path
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
-from tests._query_rows import query_rows
+from tests._query_rows import evidence_rows, smallest_n
 
 _ROOT = Path(__file__).resolve().parents[1]
 _RUN_MATRIX_PATH = _ROOT / "scripts" / "run_matrix.py"
@@ -80,17 +80,23 @@ def _run(
     canonical 12-query corpus (D-002) is not the only `n_queries` it takes — a
     recall of `0.00025` is one hit in four thousand queries, which is the shape
     of an externally produced sweep rather than of this repo's own fixture.
+
+    Since D-021 (#218) the loader also requires each rate to be what the rows
+    give, so the query count is the smallest one at which both rates are
+    `hits / n` exactly — four thousand for `0.00025`, as above — and the rows
+    are built to produce them.
     """
+    n = smallest_n({k: recall}, {k: snippet})
     return RetrievalRun.from_json(
         {
             "strategy_name": name,
             "embedder_model": "hash",
             "dataset_version": "v0",
-            "n_queries": 4000,
+            "n_queries": n,
             "n_chunks_total": 29,
             "recall_at_k": {str(k): recall},
             "snippet_hit_at_k": {str(k): snippet},
-            "per_query": query_rows(4000),
+            "per_query": evidence_rows({k: recall}, {k: snippet}, n),
             "wall_clock_ms": wall_clock_ms,
         }
     )
@@ -122,9 +128,13 @@ def _render(run: RetrievalRun) -> str:
 # the rendered shape rather than on a magnitude threshold. A `if v < 0.0005`
 # rule would be wrong here in the opposite direction from the `0.5` case that
 # motivated it, and neither is a case anyone would have guessed right.
+#
+# `1e-9` is not in this table any more: it is one hit in a billion queries, and
+# since D-021 (#218) the loader only accepts a rate its rows produce, so no
+# record this suite can build carries it. The renderer still has to widen it,
+# and `test_a_rate_no_buildable_record_carries_still_widens` holds that.
 _BOUNDARY = (
     (0.0, "0.000"),
-    (1e-9, "1e-09"),
     (0.00025, "0.00025"),
     (0.0004, "0.0004"),
     (0.00049, "0.00049"),
@@ -155,6 +165,15 @@ def test_the_published_snippet_hit_cell_across_the_boundary(value: float, expect
     """
     cells = _row_cells(_render(_run(recall=0.5, snippet=value)))
     assert cells[3] == expected, cells
+
+
+def test_a_rate_no_buildable_record_carries_still_widens() -> None:
+    """`1e-9`, at the formatter, since the read path cannot carry it (D-021).
+
+    It used to be a `_BOUNDARY` row built through `from_json`. Dropping it there
+    without this arm would have taken the widest case out of the suite.
+    """
+    assert run_matrix._metric_cell({5: 1e-9}, 5) == "1e-09"
 
 
 def test_a_sub_resolution_row_is_not_byte_identical_to_a_zero_row() -> None:

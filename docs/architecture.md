@@ -627,3 +627,25 @@ results. It writes to a `<dest>.tmp` sibling in the same directory,
   Not covered: `notebooks/_build_notebook.py` reads the canonical files
   with a raw `json.loads` and never calls `from_json`, so no
   `RetrievalRun` rule reaches it.
+
+- **D-021 (#218).** Every published rate must be what its own rows
+  give. D-020 tied the count to the rows and named this half as a
+  different class; `recall_at_k={1: 1.0}` beside a row that missed, a
+  zero-query run claiming `1.0`, and `0.37` over one query all
+  constructed, round-tripped and rendered.
+  `_validate_metrics_match_evidence` recomputes each rate with
+  `evaluate_strategy`'s arithmetic — `hits / n if n else 0.0`, over the
+  same `[:k]` slices — and compares with `==`. Both sides are one
+  division of the same two integers, so a tolerance would only admit the
+  near misses the check exists to refuse (`math.isclose` accepts a value
+  one ULP from 1/3, which no three rows produce). It runs after
+  `_validate_query_count`, from `__post_init__`, so `from_json` meets it
+  too.
+
+  All five committed canonical files, and all seven distinct versions of
+  them in git history, satisfy it exactly, so `results/` is unchanged. A
+  zero-query run with `0.0` rates stays legal. 175 fixtures published
+  rates their rows did not give; `tests/_query_rows.py` now builds rows
+  *for* requested rates (`evidence`, `evidence_rows`) and refuses, at the
+  fixture, a rate no rows produce. The notebook gap D-020 records applies
+  here too.

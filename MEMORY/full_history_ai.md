@@ -2486,6 +2486,28 @@ followups: []
 ---
 
 ---
+session: 2026-10-02T07:36Z
+issue: 218
+focus: EVERY_PUBLISHED_RATE_IS_WHAT_ITS_OWN_per_query_ROWS_GIVE_D_021_AND_175_FIXTURES_THAT_PUBLISHED_RATES_THEIR_ROWS_DID_NOT_GIVE
+phase: shipped
+duration_min: 9   # plan comment 07:27:30Z -> date -u 07:36Z
+delta:
+  files_changed: 17
+  tests_added: 20
+  suite: "1766 -> 1786 green after migrating 175 red-on-contact arms in 12 files; ruff, ruff format, mypy clean"
+decisions_made: [D-021]
+measured: "revert probe ONE SUBPROCESS PER ID, 20 ids counted: baseline 0, rule removed 10 red, math.isclose neighbour 1 red, rate-before-count 1 red. All 5 canonical files and all 7 distinct historical blob versions load under the rule; git diff results/ empty."
+context_for_next_session:
+  - THE_BUILDER_GOES_RATES_IN_ROWS_OUT_tests_query_rows_evidence_and_evidence_rows_pick_the_SMALLEST_n_that_represents_every_rate_via_Fraction_limit_denominator_and_lcm_and_REFUSE_AT_THE_FIXTURE_a_rate_that_is_not_hits_over_n_or_FALLS_as_k_grows
+  - DO_NOT_MIGRATE_A_FIXTURE_BY_RECOMPUTING_ITS_RATES_FROM_ITS_ROWS_that_restates_the_rule_in_the_test_and_a_wrong_rule_then_agrees_with_itself
+  - FOUR_FIXTURE_VALUES_WERE_UNPRODUCIBLE_AND_CHANGED_int_valued_proportions_fell_in_k_the_validate_ks_patch_arm_used_0_9_AT_k_0_test_metrics_synthetic_run_had_both_rows_at_rank_1_under_recall_at_1_0_5_and_1e_9_needs_a_billion_queries_SO_IT_MOVED_TO_A_metric_cell_ARM
+  - TWO_FIXTURE_HELPERS_FALL_BACK_TO_THE_OLD_ROWS_WHEN_THE_MAP_IS_MALFORMED_test_metric_key_axis_payload_and_test_retrieval_run_metric_map_write_path_run_because_THOSE_ARMS_ARE_REFUSED_BY_EARLIER_RULES_and_their_rows_are_never_read
+  - THE_NOTEBOOK_STILL_READS_CANONICAL_FILES_WITH_RAW_json_loads_SO_NO_RetrievalRun_RULE_REACHES_IT_d_020_and_d_021_both_say_so_an_issue_for_it_would_be_a_new_class
+  - DOC_LOCKS_FIRED_AS_DESIGNED_AFTER_WRITING_D_021_INTO_MEMORY_FIRST_test_every_active_decision_referenced_and_test_decision_range_cites_latest_active
+followups: []
+---
+
+---
 session: 2026-10-02T07:55Z
 issue: "portfolio-ops#79"
 focus: PORT_THE_TESTS_MAY_NOT_REWRITE_A_COMMITTED_FILE_SESSION_GUARD_WIDENED_FROM_docs_TO_EVERY_GIT_TRACKED_FILE

@@ -25,11 +25,12 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from chunking_lab.metrics import RetrievalRun
-from tests._query_rows import query_rows
+from tests._query_rows import evidence_rows
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,18 +50,27 @@ run_matrix = _load_run_matrix()
 
 
 def _payload(name: str, recall: dict[str, float], snippet: dict[str, float]) -> dict:
+    # Rows that produce these rates, at the smallest query count that can
+    # (D-021, #218): `0.45` and `0.88` are not tenths, so this is not 10.
+    rows = _rows_for(recall, snippet)
     return {
         "strategy_name": name,
         "embedder_model": "hash",
         "dataset_version": "v0",
-        "n_queries": 10,
+        "n_queries": len(rows),
         "n_chunks_total": 100,
         "recall_at_k": recall,
         "snippet_hit_at_k": snippet,
-        "per_query": query_rows(10),
+        "per_query": rows,
         "wall_clock_ms": 12.0,
         "notes": [],
     }
+
+
+def _rows_for(recall: dict[str, float], snippet: dict[str, float]) -> list[dict[str, Any]]:
+    return evidence_rows(
+        {int(k): v for k, v in recall.items()}, {int(k): v for k, v in snippet.items()}
+    )
 
 
 def _data_rows(rendered: str) -> list[str]:
@@ -216,11 +226,11 @@ class TestTheStdoutSummaryIsAlsoHonest:
                 "strategy_name": "fixed",
                 "embedder_model": "hash",
                 "dataset_version": "v0",
-                "n_queries": 1,
+                "n_queries": 20,
                 "n_chunks_total": 1,
                 "recall_at_k": {"1": 0.5, "7": 0.6},
                 "snippet_hit_at_k": {"1": 0.4, "7": 0.45},
-                "per_query": query_rows(1),
+                "per_query": _rows_for({"1": 0.5, "7": 0.6}, {"1": 0.4, "7": 0.45}),
                 "wall_clock_ms": 1.0,
                 "notes": [],
             }

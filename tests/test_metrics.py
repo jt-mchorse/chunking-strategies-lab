@@ -608,6 +608,7 @@ def test_late_chunking_mismatch_error_names_d011() -> None:
 # ----------------------------------------------------------------------
 
 from chunking_lab.metrics import QueryResult  # noqa: E402
+from tests._query_rows import evidence_rows  # noqa: E402
 
 
 def _synthetic_run(with_per_query: bool = True) -> RetrievalRun:
@@ -625,8 +626,10 @@ def _synthetic_run(with_per_query: bool = True) -> RetrievalRun:
                 query_id="q2",
                 expected_doc="bears.md",
                 expected_snippet="hibernate",
-                retrieved_doc_ids_in_rank_order=("bears.md",),
-                snippet_hits_in_rank_order=(False,),
+                # Rank 2, not 1: the run publishes recall@1 = 0.5, and since
+                # D-021 (#218) the rows have to produce that (1 of 2 at k=1).
+                retrieved_doc_ids_in_rank_order=("carbon.md", "bears.md"),
+                snippet_hits_in_rank_order=(False, False),
             ),
         )
     return RetrievalRun(
@@ -637,8 +640,9 @@ def _synthetic_run(with_per_query: bool = True) -> RetrievalRun:
         # `n_queries=2` over no rows, which D-020 refuses (#204).
         n_queries=len(per_query),
         n_chunks_total=42,
-        recall_at_k={1: 0.5, 3: 1.0, 5: 1.0},
-        snippet_hit_at_k={1: 0.5, 3: 0.5, 5: 0.5},
+        # Zero rows produce zero rates (D-021, #218) -- `hits / n if n else 0.0`.
+        recall_at_k={1: 0.5, 3: 1.0, 5: 1.0} if per_query else {1: 0.0, 3: 0.0, 5: 0.0},
+        snippet_hit_at_k={1: 0.5, 3: 0.5, 5: 0.5} if per_query else {1: 0.0, 3: 0.0, 5: 0.0},
         per_query=per_query,
         wall_clock_ms=12.5,
         notes=["embedder=hash-cosmic"],
@@ -774,9 +778,12 @@ def test_retrieval_run_from_json_rejects_non_numeric_metric_value() -> None:
 
 def test_retrieval_run_from_json_accepts_inclusive_zero_and_one_boundaries() -> None:
     # The [0, 1] check is inclusive: a perfect (1.0) or zero (0.0) metric is valid.
+    # Rows that produce both ends, since a rate must be its rows' (D-021, #218).
     payload = _synthetic_run(with_per_query=False).to_json()
     payload["recall_at_k"] = {"1": 0.0, "3": 1.0}
     payload["snippet_hit_at_k"] = {"1": 0.0, "3": 1.0}
+    payload["per_query"] = evidence_rows({1: 0.0, 3: 1.0}, {1: 0.0, 3: 1.0}, 2)
+    payload["n_queries"] = 2
     run = RetrievalRun.from_json(payload)
     assert run.recall_at_k == {1: 0.0, 3: 1.0}
     assert run.snippet_hit_at_k == {1: 0.0, 3: 1.0}
