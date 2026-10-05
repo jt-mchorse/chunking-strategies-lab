@@ -2512,3 +2512,11 @@ run's values. I chose a label rather than refusing to draw the chart. The
 committed notebook was regenerated, and its output on the committed results is
 unchanged. While writing the tests I briefly overwrote #211's test file, which
 had the same name. I caught it because the test count dropped, and restored it.
+
+## 2026-10-05 — a near-perfect recall no longer prints as perfect (#226)
+
+The results table rounds rates to three decimals, and an earlier fix stopped
+tiny rates from showing as `0.000`. At the top end, a run that missed one query
+in 2,001 still printed `1.000`, identical to a perfect run. That's the same
+gap fixed tonight in the embedding shootout. Rates now widen until they don't
+read as a perfect score. The committed results don't change.
