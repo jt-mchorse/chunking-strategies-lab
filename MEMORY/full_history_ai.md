@@ -2543,6 +2543,25 @@ followups: []
 ---
 
 ---
+session: 2026-10-05T07:33Z
+duration_min: 3   # first repro -> close comment, from the command log and the comment timestamps
+issue: 223
+focus: A_BACKTICK_FENCE_OPENER_WHOSE_INFO_STRING_HELD_A_BACKTICK_OPENED_A_PHANTOM_FENCE_TO_END_OF_TEXT_156S_HARM_THROUGH_THE_INFO_STRING_RULE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 7
+  suite: "1795 -> 1802 green; ruff clean"
+decisions_made: []
+measured: "main: '```x``` is inline' and '```py`x' each collapsed a 3-section doc to 1 chunk; tilde '~~~py`x' already correct. 7-row table agrees with markdown-it-py commonmark preset row for row (throwaway venv, not a dependency). Revert 3 red; both-characters neighbour 1 red (the tilde row)."
+context_for_next_session:
+  - THE_FENCE_RULES_NOW_FOLLOW_COMMONMARK_ON_INDENT_156_CLOSER_LENGTH_AND_CHAR_152_AND_INFO_STRING_223_indented_code_blocks_REMAIN_DELIBERATELY_UNHANDLED_per_the_docstring_D_002
+  - THE_INFO_STRING_RULE_IS_PER_FENCE_CHARACTER_a_tilde_info_may_hold_a_backtick
+  - copy_json_value_TURNS_DICT_SUBCLASSES_INTO_PLAIN_dict_WHILE_ITS_DOCSTRING_SAYS_ISOMORPHIC_filed_separately_as_a_decision_revisit_because_it_touches_D_018_D_019
+followups: []
+---
+
+---
 session: 2026-10-05T08:34Z
 duration_min: 3   # computed: started 08:31Z -> 08:34Z
 issue: 226
