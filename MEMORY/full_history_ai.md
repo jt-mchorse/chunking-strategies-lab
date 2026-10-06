@@ -2560,3 +2560,23 @@ context_for_next_session:
   - copy_json_value_TURNS_DICT_SUBCLASSES_INTO_PLAIN_dict_WHILE_ITS_DOCSTRING_SAYS_ISOMORPHIC_filed_separately_as_a_decision_revisit_because_it_touches_D_018_D_019
 followups: []
 ---
+
+---
+session: 2026-10-05T08:34Z
+duration_min: 3   # computed: started 08:31Z -> 08:34Z
+issue: 226
+branch: session/2026-10-05-0832-issue-226
+focus: RUN_MATRIX_RATES_WIDENED_ONLY_AT_ZERO_0_9995_RENDERED_1_000_THE_BEST_VALUE_IN_THE_TABLE_AND_THE_STDOUT_LINE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 11
+  suite: "1795 -> 1806 green; ruff clean; --canonical-out regenerated no rate cell (wall-clock noise only, not committed)"
+decisions_made: []
+measured: "2000/2001 rendered '1.000' on main, now '0.9995'. Probes: top-end rule removed 4 red, stdout line reverted 1 red (source-level lock)"
+context_for_next_session:
+  - SAME_GAP_AS_ems_178_FOUND_BY_A_SWEEP_FOR_VERDICTS_AT_MORE_THAN_ONE_BOUNDARY_both_repos_docstrings_argued_only_the_zero_end
+  - THE_REPOS_OWN_LOCKS_CAUGHT_THE_FIRST_DRAFT_module_identity_import_scripts_run_matrix_mypy_and_198s_one_helper_lock
+  - CANONICAL_REGEN_MOVES_WALL_CLOCK_ONLY_restore_from_a_cp_copy_do_not_commit_timing_noise
+followups: []
+---

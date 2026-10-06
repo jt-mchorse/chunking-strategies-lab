@@ -2523,3 +2523,11 @@ line is ordinary text. The structure-aware chunker now follows that rule for
 backtick fences only; tilde fences may still carry any label. A seven-case
 table pins the behaviour, and every case matches what the CommonMark reference
 parser does.
+
+## 2026-10-05 — a near-perfect recall no longer prints as perfect (#226)
+
+The results table rounds rates to three decimals, and an earlier fix stopped
+tiny rates from showing as `0.000`. At the top end, a run that missed one query
+in 2,001 still printed `1.000`, identical to a perfect run. That's the same
+gap fixed tonight in the embedding shootout. Rates now widen until they don't
+read as a perfect score. The committed results don't change.

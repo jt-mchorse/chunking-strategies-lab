@@ -188,7 +188,30 @@ def _metric_cell(metrics: dict[int, float], k: int) -> str:
     """
     if k not in metrics:
         return _ABSENT_CELL
-    return _render_no_fabricated_zero(metrics[k], places=3)
+    return _render_rate(metrics[k])
+
+
+def _render_rate(value: float) -> str:
+    """A recall / snippet-hit rate: never a fabricated zero, never a fabricated one.
+
+    The docstring above argues only the zero end, where `0.000` is the worst
+    value and the collapse understates. `1.000` is the BEST value, and `.3f`
+    rounds up into it: one miss in 2001 queries (0.9995) printed `1.000`,
+    byte-identical to a perfect row (#226; embedding-model-shootout#178 is the
+    same gap). Widen a non-1.0 rate until it no longer reads as 1.0; a genuine
+    1.0 keeps `1.000`. Wall-clock has no top end at 1.0 and keeps the shared
+    helper as it was.
+    """
+    rendered = _render_no_fabricated_zero(value, places=3)
+    if value != 1.0 and float(rendered) == 1.0:
+        for places in range(4, 18):
+            # Through the one helper, as every float this module renders is
+            # (#198's lock); for a value this close to 1 it is plain `.Nf`.
+            wide = _render_no_fabricated_zero(value, places=places)
+            if float(wide) != 1.0:
+                return wide
+        return repr(value)
+    return rendered
 
 
 def _wall_clock_cell(ms: float) -> str:
@@ -471,9 +494,9 @@ def main(argv: list[str] | None = None) -> int:
         # "not measured" here exactly as it does in the table.
         print(
             f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
-            f"recall@{top_k}={_render_no_fabricated_zero(run.recall_at_k[top_k], places=3)} "
+            f"recall@{top_k}={_render_rate(run.recall_at_k[top_k])} "
             f"snippet-hit@{top_k}="
-            f"{_render_no_fabricated_zero(run.snippet_hit_at_k[top_k], places=3)} "
+            f"{_render_rate(run.snippet_hit_at_k[top_k])} "
             f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
         )
         runs.append(run)
