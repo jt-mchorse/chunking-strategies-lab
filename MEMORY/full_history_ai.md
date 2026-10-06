@@ -2580,3 +2580,23 @@ context_for_next_session:
   - CANONICAL_REGEN_MOVES_WALL_CLOCK_ONLY_restore_from_a_cp_copy_do_not_commit_timing_noise
 followups: []
 ---
+
+---
+session: 2026-10-06T08:52Z
+duration_min: 1   # computed: plan comment 08:51:41Z -> 08:52Z (date -u); measured from ~08:49Z after a hunt agent's report
+issue: 230
+branch: session/2026-10-06-0851-issue-230
+focus: notebook_TAKEAWAYS_CONTRADICTED_THE_COMMITTED_RUN_semantic_embeds_115_sentences_to_decide_boundaries_and_snippet_hit_equals_recall_at_k1_for_two_strategies
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1813 -> 1818 passed; ruff, format clean; notebook diff is 2 markdown lines, no outputs touched"
+decisions_made: []
+measured: "per strategy chunk() embeds: fixed 0, recursive 0, semantic 115 (19.8 ms vs 11.8 ms to embed its 86 chunks), late 34, structure 0; 12 of 12 snippets unique to their expected doc. Revert probe: the 2 prose arms red, the 3 property arms green."
+context_for_next_session:
+  - A_MARKDOWN_ONLY_NOTEBOOK_CHANGE_CAN_EDIT_THE_IPYNB_CELL_DIRECTLY_the_snapshot_lock_compares_sources_only_and_markdown_has_no_outputs_NO_jupyter_execute_needed
+  - QUOTE_DETERMINISTIC_COUNTS_NOT_MILLISECONDS_IN_PROSE_THAT_A_TEST_DERIVES
+  - OPEN_SIBLING_the_notebook_LOAD_CELL_still_renders_0_9995_as_1_000_the_226_fix_did_not_reach_it
+followups: []
+---
