@@ -2531,3 +2531,12 @@ tiny rates from showing as `0.000`. At the top end, a run that missed one query
 in 2,001 still printed `1.000`, identical to a perfect run. That's the same
 gap fixed tonight in the embedding shootout. Rates now widen until they don't
 read as a perfect score. The committed results don't change.
+
+## 2026-10-06 — the demo says which embedder the committed results used (#228)
+
+The demo script, its comments and the README all said the committed results
+summary held real MiniLM embedding numbers. It holds numbers from the
+lightweight test embedder, and its own header says they are not a quality
+comparison; no MiniLM numbers have been committed yet. The demo now reads the
+embedder name from the summary file and says real numbers are still pending,
+so it will stay accurate once someone runs the real embedder.
