@@ -2512,3 +2512,14 @@ run's values. I chose a label rather than refusing to draw the chart. The
 committed notebook was regenerated, and its output on the committed results is
 unchanged. While writing the tests I briefly overwrote #211's test file, which
 had the same name. I caught it because the test count dropped, and restored it.
+
+## 2026-10-05 — inline code at the start of a line no longer swallows the rest of the document (#223)
+
+A markdown line beginning with inline code, like ```` ```x``` is inline ````,
+was treated as the start of a code block. Nothing ever closed it, so every
+heading after it was ignored and a three-section document became one chunk.
+CommonMark says a backtick fence's label can't contain a backtick, so such a
+line is ordinary text. The structure-aware chunker now follows that rule for
+backtick fences only; tilde fences may still carry any label. A seven-case
+table pins the behaviour, and every case matches what the CommonMark reference
+parser does.

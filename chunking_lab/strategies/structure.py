@@ -90,6 +90,10 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     retrieval signal. This computes the fenced regions once so `chunk` can drop
     any heading match that starts inside one.
 
+    A backtick run whose info string contains a backtick is not an opener
+    (CommonMark §4.5, #223); inside an open fence such a line is content, and
+    it cannot close the fence either, because a closer carries no info string.
+
     An unclosed fence extends to end-of-text. That is the conservative
     direction: the strategy under-splits rather than inventing headings out of
     code, which is the failure this fixes.
@@ -106,6 +110,14 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     for m in _FENCE_RE.finditer(text):
         fence = m.group("fence")
         if open_at is None:
+            # CommonMark §4.5: a BACKTICK fence's info string may not contain a
+            # backtick, so ```` ```x``` is inline ```` is a paragraph that opens
+            # with a code span, not a fence (#223). Read as an opener, nothing
+            # ever closed it and the phantom span ran to end-of-text, erasing
+            # every later heading -- #156's harm through the info-string rule
+            # instead of the indent rule. Tilde fences may carry any info string.
+            if fence[0] == "`" and "`" in m.group("info"):
+                continue
             open_at = m.start()
             open_char = fence[0]
             open_len = len(fence)
