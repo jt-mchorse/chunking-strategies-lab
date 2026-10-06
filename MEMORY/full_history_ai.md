@@ -2580,3 +2580,22 @@ context_for_next_session:
   - CANONICAL_REGEN_MOVES_WALL_CLOCK_ONLY_restore_from_a_cp_copy_do_not_commit_timing_noise
 followups: []
 ---
+
+---
+session: 2026-10-06T08:54Z
+duration_min: 1   # computed: plan comment 08:53:43Z -> 08:54Z (date -u)
+issue: 232
+branch: session/2026-10-06-0853-issue-232
+focus: notebook_LOAD_CELL_KEPT_A_BARE_3f_FOR_RATES_after_226_and_198_fixed_run_matrix_only_now_rate_label_mirrors_render_rate
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 13
+  suite: "1813 -> 1826 passed; ruff, format clean (notebook included)"
+decisions_made: []
+measured: "parity table of 11 values vs run_matrix._render_rate; the committed cell output re-produced byte for byte by executing the new cell on the committed results. Neighbour probe (1.0 end only): exactly the 0.0004 and 1e-9 arms red."
+context_for_next_session:
+  - A_CODE_CELL_CHANGE_NEED_NOT_RE_EXECUTE_THE_NOTEBOOK_IF_A_TEST_PROVES_THE_COMMITTED_OUTPUT_IS_WHAT_THE_NEW_CELL_PRINTS
+  - MERGE_ORDER_229_231_233_231_and_233_edit_different_cells_of_the_same_two_files
+followups: []
+---

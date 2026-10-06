@@ -2531,3 +2531,12 @@ tiny rates from showing as `0.000`. At the top end, a run that missed one query
 in 2,001 still printed `1.000`, identical to a perfect run. That's the same
 gap fixed tonight in the embedding shootout. Rates now widen until they don't
 read as a perfect score. The committed results don't change.
+
+## 2026-10-06 — the notebook renders rates like the matrix script (#232)
+
+The matrix script stopped printing near-perfect rates as `1.000` and tiny ones
+as `0.000` in #226 and #198, but the comparison notebook's summary cell kept
+the old fixed three-decimal format. The cell now uses a copy of the script's
+renderer, a test checks the two agree across a table of values, and another
+test re-runs the cell on the committed results to confirm its saved output is
+unchanged.
