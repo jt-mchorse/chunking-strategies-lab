@@ -19,8 +19,12 @@ from typing import Any
 
 import pytest
 
-from notebooks import _build_notebook
 from scripts.run_matrix import _render_rate
+
+# The builder imports `nbformat`, which CI does not install (D-009): these arms
+# compile cells out of it, so they run where the notebook tests run.
+pytest.importorskip("nbformat")
+from notebooks import _build_notebook  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
