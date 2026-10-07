@@ -2540,3 +2540,14 @@ lightweight test embedder, and its own header says they are not a quality
 comparison; no MiniLM numbers have been committed yet. The demo now reads the
 embedder name from the summary file and says real numbers are still pending,
 so it will stay accurate once someone runs the real embedder.
+
+## 2026-10-06 — the notebook's takeaways match its numbers (#230)
+
+Two of the comparison notebook's conclusions contradicted the run they
+summarise. One said the embedding step, not the chunking decision, is what
+makes semantic chunking slow; in fact the semantic strategy embeds every
+sentence just to decide where to cut (115 embedding calls, more than its 86
+chunks). The other said snippet-hit is far below recall "always", yet two
+strategies score the same on both at k=1. Both bullets now state what the
+numbers show, and tests check the quoted figures against the code and the
+committed results.
