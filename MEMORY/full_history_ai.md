@@ -2656,5 +2656,19 @@ measured: "main: 9 shapes load via from_json; strategy_name=None then AttributeE
 context_for_next_session:
   - A_PARITY_REASON_IS_MET_BY_RAISING_BOTH_SIDES_the_scope_paragraph_said_dont_be_stricter_than_the_sibling_and_both_were_wrong_together
   - MY_FIRST_THREE_PROBES_WERE_WRONG_from_json_TAKES_A_DICT_NOT_A_PATH_OR_TEXT_and_every_shape_reported_ValueError_FOR_THE_SAME_UNRELATED_REASON_A_PROBE_WHOSE_CONTROL_FAILS_IS_NOT_A_PROBE
+session: 2026-10-07T07:58Z
+duration_min: 3
+issue: 236
+branch: session/2026-10-07-csl-separators
+focus: RecursiveStrategy_separators_A_BARE_STRING_SPLIT_INTO_CHARACTERS_AND_NON_STR_ELEMENTS_WERE_ACCEPTED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 13
+  suite: "1846 passed (junitxml); ruff, format clean"
+decisions_made: []
+measured: "main 11 of 13 red; copy-before-check neighbour 4 red."
+context_for_next_session:
+  - THE_BARE_STRING_ON_A_LIST_LENS_AGAIN_check_shape_BEFORE_any_tuple_or_list_copy
 followups: []
 ---
