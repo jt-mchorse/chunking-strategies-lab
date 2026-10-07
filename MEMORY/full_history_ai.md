@@ -2670,5 +2670,20 @@ decisions_made: []
 measured: "main 11 of 13 red; copy-before-check neighbour 4 red."
 context_for_next_session:
   - THE_BARE_STRING_ON_A_LIST_LENS_AGAIN_check_shape_BEFORE_any_tuple_or_list_copy
+session: 2026-10-07T08:36Z
+duration_min: 7
+issue: 238
+branch: session/2026-10-07-csl-notebook-dataset
+focus: THE_NOTEBOOK_MIXED_WARNING_IGNORED_dataset_version
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 2
+  suite: "1835 passed (junitxml); ruff check + format (incl. ipynb) clean"
+decisions_made: []
+measured: "revert: main 1/2 red (control green); homogeneous outputs byte-identical after re-execute except a temp kernel path."
+context_for_next_session:
+  - GOTCHA_csl_NOTEBOOK_BUILDER_TEXT_MUST_BE_RUFF_FORMATTED_or_ruff_format_rewrites_the_ipynb_and_the_source_snapshot_lock_fails_wrap_long_f_strings_in_the_builder
+  - GOTCHA_TESTS_THAT_EXEC_ONE_NOTEBOOK_CELL_BUILD_THEIR_OWN_NAMESPACE_a_new_name_the_load_cell_sets_must_be_added_there
 followups: []
 ---
