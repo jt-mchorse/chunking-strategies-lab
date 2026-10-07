@@ -73,6 +73,27 @@ _LOAD_CELL = dedent(
         return f"{rendered}ms"
 
 
+    def _rate_label(value: float) -> str:
+        """A recall / snippet-hit rate as `run_matrix._render_rate` publishes it (#232).
+
+        Never a fabricated zero (#198) and never a fabricated one (#226): a
+        non-zero rate that `.3f` rounds to `0.000`, or a non-1.0 rate it rounds
+        to `1.000`, is widened until it no longer reads as the extreme. This
+        cell printed both rates with a bare `.3f`, so one miss in 2001 queries
+        printed `1.000`, byte-identical to a perfect run.
+        """
+        rendered = f"{value:.3f}"
+        if value != 0.0 and float(rendered) == 0.0:
+            return f"{value:.3g}"
+        if value != 1.0 and float(rendered) == 1.0:
+            for places in range(4, 18):
+                wide = f"{value:.{places}f}"
+                if float(wide) != 1.0:
+                    return wide
+            return repr(value)
+        return rendered
+
+
     def _stamp_rank(stamp: str) -> tuple[int, str]:
         """Recency key so a fresh run beats the committed `canonical` baseline.
 
@@ -134,7 +155,7 @@ _LOAD_CELL = dedent(
         wall = _wall_label(float(r.get("wall_clock_ms", 0.0)))
         per_run = f"  embedder={r['embedder_model']}  n_queries={r['n_queries']}" if mixed else ""
         print(
-            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={recall_top:.3f}  snippet-hit@{kmax}={snippet_top:.3f}  wall={wall}{per_run}"
+            f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={_rate_label(recall_top)}  snippet-hit@{kmax}={_rate_label(snippet_top)}  wall={wall}{per_run}"
         )
     '''
 )

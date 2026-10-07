@@ -2551,3 +2551,12 @@ chunks). The other said snippet-hit is far below recall "always", yet two
 strategies score the same on both at k=1. Both bullets now state what the
 numbers show, and tests check the quoted figures against the code and the
 committed results.
+
+## 2026-10-06 — the notebook renders rates like the matrix script (#232)
+
+The matrix script stopped printing near-perfect rates as `1.000` and tiny ones
+as `0.000` in #226 and #198, but the comparison notebook's summary cell kept
+the old fixed three-decimal format. The cell now uses a copy of the script's
+renderer, a test checks the two agree across a table of values, and another
+test re-runs the cell on the committed results to confirm its saved output is
+unchanged.
