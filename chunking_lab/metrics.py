@@ -38,7 +38,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._fields import require_non_negative_finite_number, require_non_negative_int
+from ._fields import (
+    require_non_negative_finite_number,
+    require_non_negative_int,
+    require_str,
+)
 from .corpus import Document
 from .embedder import Embedder
 from .queries import Query
@@ -79,13 +83,15 @@ class QueryResult:
         rather than assumed — `test_from_json_states_no_rule_of_its_own` pins
         that `from_json` carries no copy of these checks.
 
-        Scope, deliberately: the plain `str` fields and the `str` elements of
-        `retrieved_doc_ids_in_rank_order` stay unchecked, because
-        `RetrievalRun.__post_init__` does not type-check `strategy_name`
-        either. Making this one class stricter than its sibling for no stated
-        reason is how a module's bar becomes unknowable.
+        Scope, as first written: the plain `str` fields and the `str` elements
+        of `retrieved_doc_ids_in_rank_order` stayed unchecked, because
+        `RetrievalRun.__post_init__` did not type-check `strategy_name` either,
+        and making one class stricter than its sibling for no stated reason is
+        how a module's bar becomes unknowable. #234 kept the parity and raised
+        it: both classes now check their text fields, after a `null`
+        `strategy_name` was measured loading cleanly and crashing the renderer.
 
-        That reason is about `str` *fields* and `str` *elements*; it says
+        That reason was about `str` *fields* and `str` *elements*; it said
         nothing about whether the **container** is a `str`, and #188 closed
         that. #187 had drawn the identical line one class down — it left
         `strategy_name` alone and guarded `notes` and `per_query` — so this is
@@ -140,6 +146,17 @@ class QueryResult:
                     "silently splats into one entry per character or per byte, "
                     "and `RetrievalRun.to_json` writes `list(...)` of this field"
                 )
+        # The text fields and the id elements (#234). Left out on purpose until
+        # then, for parity with `RetrievalRun`, which did not check its text
+        # fields either -- and a parity reason is met just as well by checking
+        # both. `Chunk` already applied `require_str` to its three (#180).
+        # After the container check, because iterating a non-container is the
+        # raw `TypeError` that check exists to pre-empt.
+        require_str("query_id", self.query_id)
+        require_str("expected_doc", self.expected_doc)
+        require_str("expected_snippet", self.expected_snippet)
+        for i, doc_id in enumerate(self.retrieved_doc_ids_in_rank_order):
+            require_str(f"retrieved_doc_ids_in_rank_order[{i}]", doc_id)
         # `bool` first and on its own axis: `isinstance(1, int)` is True and so
         # is `isinstance(True, int)`, so an `int` check accepts exactly the
         # value this rejects. `any()` and `sum()` treat `1` and `True`
@@ -651,6 +668,13 @@ class RetrievalRun:
     notes: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # The text fields (#234). None was ever checked, so a results file with
+        # `"strategy_name": null` loaded through `from_json` and then crashed
+        # `run_matrix._render_summary` with an `AttributeError` -- out of the
+        # documented `KeyError`/`ValueError` contract, one step later.
+        require_str("strategy_name", self.strategy_name)
+        require_str("embedder_model", self.embedder_model)
+        require_str("dataset_version", self.dataset_version)
         # The write-side half of `_validate_count` (#180). `from_json`'s
         # docstring already states the rule -- "`n_queries` / `n_chunks_total`
         # must be non-bool, non-negative ints" -- and applying it only on read
