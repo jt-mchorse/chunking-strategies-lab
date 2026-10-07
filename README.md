@@ -225,10 +225,14 @@ the 60-second GIF/video over the script's stdout; CI runs it with
 `CAPTURE_PACE_SECONDS=0` (and pins the surface outputs in
 `tests/test_capture_demo_smoke.py`) so the demo can't bitrot.
 
-The capture uses `HashEmbedder` for tempo and hermeticity — cross-
-strategy quality claims stay in the canonical `results/summary.md` and
-[`notebooks/comparison.ipynb`](notebooks/comparison.ipynb), produced by
-the operator with `--embedder minilm` after `pip install -e .[sbert]`.
+The capture uses `HashEmbedder` for tempo and hermeticity, and so does
+the committed `results/summary.md` (its header says which embedder made
+it, and that a HashEmbedder run is not a quality comparison). Real
+cross-strategy numbers come from the operator running
+`python scripts/run_matrix.py --embedder minilm` after
+`pip install -e .[sbert]` (D-002, D-003); none is committed yet, and the
+demo banner prints the committed summary's embedder rather than assuming
+one (#228).
 
 [#17]: https://github.com/jt-mchorse/chunking-strategies-lab/issues/17
 

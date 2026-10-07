@@ -2580,3 +2580,23 @@ context_for_next_session:
   - CANONICAL_REGEN_MOVES_WALL_CLOCK_ONLY_restore_from_a_cp_copy_do_not_commit_timing_noise
 followups: []
 ---
+
+---
+session: 2026-10-06T08:24Z
+duration_min: 2   # computed: plan comment 08:22:52Z -> 08:24Z (date -u); verified from ~08:21Z after a hunt agent's report
+issue: 228
+branch: session/2026-10-06-0822-issue-228
+focus: capture_banner_AND_README_SAID_results_summary_md_HOLDS_OPERATOR_RUN_MiniLM_NUMBERS_IT_IS_HashEmbedder_AND_SAYS_IT_IS_NOT_A_QUALITY_COMPARISON
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 2
+  suite: "1815 passed; ruff, format clean"
+decisions_made: []
+measured: "results/summary.md _embedder_ HashEmbedder, all 5 canonical JSONs HashEmbedder, no MiniLM numbers committed. Revert probe: both arms red."
+context_for_next_session:
+  - THE_BANNER_NOW_READS_THE_EMBEDDER_FROM_THE_FILE_A_MiniLM_REGEN_KEEPS_IT_RIGHT_and_the_prose_arm_skips_when_the_summary_is_not_HashEmbedder
+  - A_MiniLM_RUN_WRITES_model_name_NOT_THE_WORD_MiniLM_key_conditions_on_HashEmbedder
+  - FOLLOWUP_FILED_notebook_takeaways_contradicted_by_committed_numbers_and_the_load_cell_rounding_sibling_of_226
+followups: []
+---
