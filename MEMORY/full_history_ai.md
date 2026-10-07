@@ -2582,6 +2582,46 @@ followups: []
 ---
 
 ---
+session: 2026-10-06T08:24Z
+duration_min: 2   # computed: plan comment 08:22:52Z -> 08:24Z (date -u); verified from ~08:21Z after a hunt agent's report
+issue: 228
+branch: session/2026-10-06-0822-issue-228
+focus: capture_banner_AND_README_SAID_results_summary_md_HOLDS_OPERATOR_RUN_MiniLM_NUMBERS_IT_IS_HashEmbedder_AND_SAYS_IT_IS_NOT_A_QUALITY_COMPARISON
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 2
+  suite: "1815 passed; ruff, format clean"
+decisions_made: []
+measured: "results/summary.md _embedder_ HashEmbedder, all 5 canonical JSONs HashEmbedder, no MiniLM numbers committed. Revert probe: both arms red."
+context_for_next_session:
+  - THE_BANNER_NOW_READS_THE_EMBEDDER_FROM_THE_FILE_A_MiniLM_REGEN_KEEPS_IT_RIGHT_and_the_prose_arm_skips_when_the_summary_is_not_HashEmbedder
+  - A_MiniLM_RUN_WRITES_model_name_NOT_THE_WORD_MiniLM_key_conditions_on_HashEmbedder
+  - FOLLOWUP_FILED_notebook_takeaways_contradicted_by_committed_numbers_and_the_load_cell_rounding_sibling_of_226
+followups: []
+---
+
+---
+session: 2026-10-06T08:52Z
+duration_min: 1   # computed: plan comment 08:51:41Z -> 08:52Z (date -u); measured from ~08:49Z after a hunt agent's report
+issue: 230
+branch: session/2026-10-06-0851-issue-230
+focus: notebook_TAKEAWAYS_CONTRADICTED_THE_COMMITTED_RUN_semantic_embeds_115_sentences_to_decide_boundaries_and_snippet_hit_equals_recall_at_k1_for_two_strategies
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 5
+  suite: "1813 -> 1818 passed; ruff, format clean; notebook diff is 2 markdown lines, no outputs touched"
+decisions_made: []
+measured: "per strategy chunk() embeds: fixed 0, recursive 0, semantic 115 (19.8 ms vs 11.8 ms to embed its 86 chunks), late 34, structure 0; 12 of 12 snippets unique to their expected doc. Revert probe: the 2 prose arms red, the 3 property arms green."
+context_for_next_session:
+  - A_MARKDOWN_ONLY_NOTEBOOK_CHANGE_CAN_EDIT_THE_IPYNB_CELL_DIRECTLY_the_snapshot_lock_compares_sources_only_and_markdown_has_no_outputs_NO_jupyter_execute_needed
+  - QUOTE_DETERMINISTIC_COUNTS_NOT_MILLISECONDS_IN_PROSE_THAT_A_TEST_DERIVES
+  - OPEN_SIBLING_the_notebook_LOAD_CELL_still_renders_0_9995_as_1_000_the_226_fix_did_not_reach_it
+followups: []
+---
+
+---
 session: 2026-10-06T08:54Z
 duration_min: 1   # computed: plan comment 08:53:43Z -> 08:54Z (date -u)
 issue: 232

@@ -22,13 +22,16 @@
 # network, no committed artifacts touched (everything writes under a
 # per-run tempdir).
 #
-# Why HashEmbedder (not MiniLM): the headline cross-strategy claims live
-# in the canonical `results/summary.md` and the notebook's takeaways
-# section, both grounded in operator-run MiniLM numbers. The capture's
-# job is to show the *runner* — that the five strategies all wire to
-# the same Protocol and produce the same output shape — not to
-# re-publish quality claims. The banner says so explicitly so a viewer
-# doesn't read HashEmbedder recall as a strategy comparison.
+# Why HashEmbedder (not MiniLM): the capture's job is to show the
+# *runner* — that the five strategies all wire to the same Protocol and
+# produce the same output shape — not to publish quality claims. Real
+# cross-strategy numbers come from an operator run with
+# `--embedder minilm` (D-002, D-003), and none is committed yet: the
+# committed `results/summary.md` is a HashEmbedder run and says itself
+# that it is not a quality comparison. This header and the banner used to
+# say that file held operator-run MiniLM numbers (#228). The banner now
+# reads the embedder from the file, so a MiniLM regeneration makes it
+# right without an edit here.
 #
 # Variables:
 #   CAPTURE_PACE_SECONDS  pause between sections (default 2 for
@@ -77,7 +80,13 @@ fi
 
 banner "chunking-strategies-lab · 60-second demo"
 printf 'two surfaces · HashEmbedder (dep-free) · pinned corpus + queries\n'
-printf 'cross-strategy quality claims live in canonical results/summary.md (MiniLM).\n'
+# What the committed summary actually holds, read from its own header (#228).
+SUMMARY_EMBEDDER="$(sed -n 's/^_embedder_: `\([^`]*\)`.*/\1/p' "$REPO_ROOT/results/summary.md")"
+printf 'committed results/summary.md: %s\n' "${SUMMARY_EMBEDDER:-unknown embedder}"
+if [ "$SUMMARY_EMBEDDER" = "HashEmbedder" ]; then
+  printf '  (a runner check, not a quality comparison; real-embedder numbers are pending\n'
+  printf '   the operator'"'"'s `run_matrix.py --embedder minilm` run)\n'
+fi
 pace
 
 banner "1/2 · matrix run · five strategies, same Protocol, same corpus + queries"
