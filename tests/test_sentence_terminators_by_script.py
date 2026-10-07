@@ -45,7 +45,11 @@ def test_the_hindi_text_chunks_on_sentences_not_mid_word() -> None:
         HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0, max_chunk_chars=60
     )
     chunks = strategy.chunk(SCRIPTS["hindi"])
-    assert [c.text.strip() for c in chunks] == ["राम घर गया।", "सीता बाजार गई।", "नया उत्पाद अगले महीने आएगा।"]
+    assert [c.text.strip() for c in chunks] == [
+        "राम घर गया।",
+        "सीता बाजार गई।",
+        "नया उत्पाद अगले महीने आएगा।",
+    ]
     assert not any(c.metadata.get("size_capped") for c in chunks)
 
 
