@@ -2685,5 +2685,19 @@ measured: "revert: main 1/2 red (control green); homogeneous outputs byte-identi
 context_for_next_session:
   - GOTCHA_csl_NOTEBOOK_BUILDER_TEXT_MUST_BE_RUFF_FORMATTED_or_ruff_format_rewrites_the_ipynb_and_the_source_snapshot_lock_fails_wrap_long_f_strings_in_the_builder
   - GOTCHA_TESTS_THAT_EXEC_ONE_NOTEBOOK_CELL_BUILD_THEIR_OWN_NAMESPACE_a_new_name_the_load_cell_sets_must_be_added_there
+session: 2026-10-07T08:57Z
+duration_min: 5
+issue: 240
+branch: session/2026-10-07-csl-terminators
+focus: THE_SEMANTIC_SPLITTER_MISSED_DANDA_URDU_ETHIOPIC_ARMENIAN_TERMINATORS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 33
+  suite: "1866 passed (junitxml); ruff, format clean"
+decisions_made: []
+measured: "main: Hindi/Urdu/Amharic/Armenian 1 sentence each; Hindi chunks size_capped mid-word. Fix: 3 each. Revert: main 7 red."
+context_for_next_session:
+  - A_HAND_LISTED_CHARACTER_SET_SHOULD_BE_PARAMETRISED_OVER_ITSELF_IN_A_TEST_and_documented_as_a_subset_of_the_unicode_property_it_samples
 followups: []
 ---

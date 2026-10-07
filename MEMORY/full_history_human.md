@@ -2581,3 +2581,10 @@ The comparison notebook already warned when the runs it charts used different
 embedders or query counts. It now also warns when they used different dataset
 versions, which otherwise put results from two corpora side by side as if they
 were comparable.
+## 2026-10-07 — the semantic chunker recognises more scripts' full stops (#240)
+
+The semantic chunker only knew English, Chinese/Japanese and Arabic sentence
+endings, so Hindi, Urdu, Amharic and Armenian documents were treated as one
+giant sentence and fell back to fixed-size cuts mid-word. It now recognises the
+sentence terminators of those scripts (and Myanmar and Khmer), with a test for
+every one.
