@@ -218,7 +218,13 @@ def test_chart_cells_handle_non_default_ks():
     from notebooks import _build_notebook  # noqa: PLC0415
 
     runs = _non_default_ks_runs()
-    ns: dict = {"runs": runs, "plt": plt, "embedder": "HashEmbedder", "n_queries": 4}
+    ns: dict = {
+        "runs": runs,
+        "plt": plt,
+        "embedder": "HashEmbedder",
+        "n_queries": 4,
+        "dataset_note": "",  # set by the load cell (#238)
+    }
     # Each chart cell must run without KeyError on the --ks 2,4 payload.
     exec(_build_notebook._RECALL_CELL, ns)  # noqa: S102  (defines ks, x, width, strategies)
     exec(_build_notebook._SNIPPET_CELL, ns)  # noqa: S102  (reuses ns from recall cell)

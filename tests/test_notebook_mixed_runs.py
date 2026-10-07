@@ -68,6 +68,7 @@ def _chart_ns(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "plt": plt,
         "embedder": "HashEmbedder",
         "n_queries": 12,
+        "dataset_note": "",  # set by the load cell (#238)
         "_wall_label": _wall_label(),
     }
 
