@@ -2560,3 +2560,12 @@ the old fixed three-decimal format. The cell now uses a copy of the script's
 renderer, a test checks the two agree across a table of values, and another
 test re-runs the cell on the committed results to confirm its saved output is
 unchanged.
+
+## 2026-10-07 — run results check their text fields (#234)
+
+A results file with a missing strategy name (`null`) loaded without complaint
+and then crashed the summary table renderer with an unhelpful error. The run
+and per-query result classes now check that every text field is a string when
+they are built, so a bad file is rejected at load time with a message naming
+the field. The two classes had skipped these checks together "for
+consistency"; they are now consistent the other way.

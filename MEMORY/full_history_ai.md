@@ -2639,3 +2639,22 @@ context_for_next_session:
   - MERGE_ORDER_229_231_233_231_and_233_edit_different_cells_of_the_same_two_files
 followups: []
 ---
+
+---
+session: 2026-10-07T07:47Z
+duration_min: 3   # computed from GitHub: plan comment 07:44:39Z -> PR ~07:47Z
+issue: 234
+branch: session/2026-10-07-csl-run-strings
+focus: RetrievalRun_AND_QueryResult_NEVER_TYPE_CHECKED_THEIR_TEXT_FIELDS_A_NULL_strategy_name_LOADED_AND_CRASHED_THE_RENDERER
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 21
+  suite: "1850 passed (junitxml), ruff, format, mypy gate clean"
+decisions_made: []
+measured: "main: 9 shapes load via from_json; strategy_name=None then AttributeError in _render_summary. Revert: main 17 of 48 red, RetrievalRun half removed 13 red."
+context_for_next_session:
+  - A_PARITY_REASON_IS_MET_BY_RAISING_BOTH_SIDES_the_scope_paragraph_said_dont_be_stricter_than_the_sibling_and_both_were_wrong_together
+  - MY_FIRST_THREE_PROBES_WERE_WRONG_from_json_TAKES_A_DICT_NOT_A_PATH_OR_TEXT_and_every_shape_reported_ValueError_FOR_THE_SAME_UNRELATED_REASON_A_PROBE_WHOSE_CONTROL_FAILS_IS_NOT_A_PROBE
+followups: []
+---
