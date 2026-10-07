@@ -57,13 +57,29 @@ from . import Chunk, check_chunk_input
 # part of the heading's content", but the lazy `(\S.*?)` was swallowing it, so
 # `## Title ##` titled as `Title ##` — a polluted retrieval signal, the same
 # class as the whitespace-only title #154's `(\S.*?)` was introduced to prevent.
-_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(\S.*?))?(?:[ \t]+#+)?[ \t]*\r?$", re.MULTILINE)
+#
+# The closer is captured (group 3) for the one case the lazy title cannot tell
+# apart (#242): with nothing before it, a closing run IS the whole "title", so
+# `# #` titled `#` and `### ###` titled `###` where CommonMark example 79
+# renders an empty heading. A title that is all `#`s and had no separate closer
+# is that closer. `### ### ###` keeps its `###` title (example 79's sibling): it
+# has a closer of its own.
+_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(\S.*?))?([ \t]+#+)?[ \t]*\r?$", re.MULTILINE)
+
 
 # Title for an empty ATX heading. A sentinel rather than `""` for the same
 # reason `<preamble>` is one below: `title` is documented as a retrieval
 # signal, and an empty string is a silently useless one that reads as "this
 # document had no title" instead of "this section's heading was empty".
 EMPTY_HEADING_TITLE = "<untitled>"
+
+
+def _heading_title(m: re.Match[str]) -> str:
+    title = m.group(2)
+    if title is None or (m.group(3) is None and set(title) == {"#"}):
+        return EMPTY_HEADING_TITLE
+    return title
+
 
 # A fenced code block opener: an optional indent, then a run of 3+ backticks or
 # tildes, then an optional info string (` ```python `). CommonMark allows both
@@ -173,12 +189,11 @@ class StructureAwareStrategy:
         # Drop matches inside fenced code blocks: a `# comment` line in a
         # ```python block is not a heading (#152).
         fences = _fenced_spans(text)
-        # `m.group(2) or EMPTY_HEADING_TITLE`: the content group is optional
-        # (#154), so an empty ATX heading yields None here. `or` also catches a
-        # whitespace-only capture, which the `[ \t]*$` tail makes unreachable
-        # today but which costs nothing to be safe about.
+        # `_heading_title`: the content group is optional (#154), so an empty
+        # ATX heading yields None, and a lone closing run (`# #`) is captured as
+        # the title unless it is recognised as the closer it is (#242).
         headings = [
-            (m.start(), m.end(), len(m.group(1)), m.group(2) or EMPTY_HEADING_TITLE)
+            (m.start(), m.end(), len(m.group(1)), _heading_title(m))
             for m in _HEADING_RE.finditer(text)
             if len(m.group(1)) <= self.max_heading_level and not _in_spans(m.start(), fences)
         ]
