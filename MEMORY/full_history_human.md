@@ -2594,3 +2594,11 @@ A Markdown heading written as `# #` (an empty heading with the optional
 trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
+## 2026-10-08 — the evaluator refuses repeated query ids (#250)
+
+The query file loader and validator both refuse a query id that appears twice,
+but the evaluation function itself never checked. Anyone building their query
+list in code could pass the same query twice: it was counted twice, which
+quietly changed the published recall (12 real queries reported as 15, recall@5
+0.733 instead of 0.917) with no error. The evaluator now refuses a repeated id
+before doing any work and names the ids in the message.
