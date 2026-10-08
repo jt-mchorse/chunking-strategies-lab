@@ -44,8 +44,20 @@ from . import Chunk, check_chunk_input
 # recognized terminator. Branch (b) below closes that with a zero-width boundary
 # after a full-width terminator — safe because full-width `。！？` are unambiguous
 # sentence enders in CJK, unlike ASCII `.` (decimals, abbreviations, ellipses).
-_TERMINATORS = r".!?…。！？؟"
-_FULLWIDTH_TERMINATORS = r"。！？"
+# #140 listed its non-ASCII terminators by hand and covered CJK and Arabic; the
+# scripts it did not list still parsed a whole document as ONE sentence (#240).
+# Measured on `main`: three-sentence Hindi (danda `।`), Urdu (`۔`), Amharic (`።`)
+# and Armenian (`։`) texts each split into 1 sentence, and the Hindi one then
+# came out as two `size_capped` chunks cut mid-word -- the silent fixed-size
+# fallback #140 was written to end. This is a curated subset of Unicode's
+# Sentence_Terminal property, one row per script, each pinned by a test:
+#   Devanagari  । ॥        Arabic/Urdu  ؟ ۔        Ethiopic  ። ፧
+#   Armenian    ։ ՜ ՞      Myanmar  ။             Khmer  ។ ៕
+#   CJK  。！？ ｡ (halfwidth)                    general  … ‼ ⁇ ⁈ ⁉
+# The Greek question mark (U+037E) is left out on purpose: NFC turns it into
+# `;`, which is not a sentence end anywhere else.
+_TERMINATORS = ".!?…。！？｡؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
+_FULLWIDTH_TERMINATORS = r"。！？｡"
 _CLOSERS = r"\"”’')\]」』"
 _SENTENCE_RE = re.compile(
     # (a) terminator, optionally followed by one closing quote/bracket, then
