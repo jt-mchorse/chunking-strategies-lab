@@ -2715,3 +2715,21 @@ context_for_next_session:
   - AN_OPTIONAL_GROUP_THAT_DID_NOT_PARTICIPATE_IS_INFORMATION_capture_it_to_disambiguate_what_the_lazy_group_swallowed
 followups: []
 ---
+
+---
+session: 2026-10-08T01:20Z
+duration_min: 8
+issue: 248
+branch: session/2026-10-08-issue-248
+focus: atomic_write_text_os_replace_RENAMED_ONTO_A_SYMLINKED_OUT_link_became_a_regular_file_linked_file_kept_old_contents_sibling_of_pyasync_157
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "1920 passed, re-run after commit; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: atomic_write_text('link.md') -> islink False, real file still 'old'; chunking_lab.validate data/queries.jsonl --out v.txt rc 0, link replaced, linked file still 'old'. Revert probe: 10 collected, 5 red (4 atomic arms + validate e2e), 5 green controls."
+context_for_next_session:
+  - SYMLINK_WRITE_THROUGH_SWEEP_10_08_rag_leh_emb_csl_after_pyasync_158_do_not_re_sweep_these_four
+followups: []
+---

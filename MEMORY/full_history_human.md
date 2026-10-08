@@ -2594,3 +2594,9 @@ A Markdown heading written as `# #` (an empty heading with the optional
 trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
+## 2026-10-08 — writing to a symlinked --out updates the linked file (#248)
+
+When `--out` was a symlink, the atomic writer replaced the link with a
+plain file and left the file it pointed at unchanged. It now writes
+through the link, the way a plain write does, and keeps that file's
+permissions. Same fix as python-async-llm-pipelines #157.
