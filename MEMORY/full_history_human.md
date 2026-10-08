@@ -2588,3 +2588,9 @@ endings, so Hindi, Urdu, Amharic and Armenian documents were treated as one
 giant sentence and fell back to fixed-size cuts mid-word. It now recognises the
 sentence terminators of those scripts (and Myanmar and Khmer), with a test for
 every one.
+## 2026-10-07 — empty Markdown headings stay untitled (#242)
+
+A Markdown heading written as `# #` (an empty heading with the optional
+trailing hashes) was given the title "#". It is now treated as untitled,
+matching the CommonMark spec, while headings like `### ### ###` keep their
+title.

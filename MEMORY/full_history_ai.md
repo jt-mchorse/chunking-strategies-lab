@@ -2699,5 +2699,19 @@ decisions_made: []
 measured: "main: Hindi/Urdu/Amharic/Armenian 1 sentence each; Hindi chunks size_capped mid-word. Fix: 3 each. Revert: main 7 red."
 context_for_next_session:
   - A_HAND_LISTED_CHARACTER_SET_SHOULD_BE_PARAMETRISED_OVER_ITSELF_IN_A_TEST_and_documented_as_a_subset_of_the_unicode_property_it_samples
+session: 2026-10-07T09:22Z
+duration_min: 4
+issue: 242
+branch: session/2026-10-07-csl-empty-heading
+focus: A_LONE_ATX_CLOSING_SEQUENCE_WAS_TAKEN_AS_THE_HEADING_TITLE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 12
+  suite: "1845 passed (junitxml); ruff, format clean"
+decisions_made: []
+measured: "main: '# #' -> '#', '### ###' -> '###'. Revert 5/12 red, all 7 controls hold."
+context_for_next_session:
+  - AN_OPTIONAL_GROUP_THAT_DID_NOT_PARTICIPATE_IS_INFORMATION_capture_it_to_disambiguate_what_the_lazy_group_swallowed
 followups: []
 ---
