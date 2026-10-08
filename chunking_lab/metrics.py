@@ -1064,12 +1064,35 @@ def validate_queries(queries: Sequence[Query]) -> None:
     yields a **truthful** ``0.0`` -- the queries ran and retrieved nothing -- which
     is a measurement, not a fabrication. The distinction is which population the
     denominator counts. (#192)
+
+    **Repeated ids are refused too (#250).** Emptiness was one of the two
+    population rules ``load_queries`` enforces; the other is that ``id`` is
+    unique, and the paragraph above's reasoning ("checked only inside
+    ``load_queries``, three modules away") covers it word for word. A repeated
+    query is counted once per occurrence in the numerator *and* the
+    denominator, so it re-weights the published rate. Measured on the pinned
+    substrate (``FixedSizeStrategy(600, 80)``, ``HashEmbedder``): the twelve
+    queries plus the one recall@5 miss repeated three times published
+    ``n_queries=15`` and recall@5 ``0.733`` where the twelve distinct queries
+    give ``0.917`` -- at exit 0, and ``RetrievalRun.from_json`` loads it back.
     """
     if not queries:
         raise ValueError(
             "queries must be non-empty; an empty query set would publish "
             "recall@k = 0.0 and snippet-hit@k = 0.0 for every k, which reads as "
             "'the strategy retrieved nothing' rather than 'nothing was measured'"
+        )
+    seen: set[str] = set()
+    repeated: list[str] = []
+    for q in queries:
+        if q.id in seen and q.id not in repeated:
+            repeated.append(q.id)
+        seen.add(q.id)
+    if repeated:
+        raise ValueError(
+            f"query ids must be unique; repeated: {repeated!r}. A repeated query is "
+            "counted once per occurrence, so it re-weights recall@k and snippet-hit@k "
+            "and inflates n_queries (load_queries refuses the same file)"
         )
 
 
