@@ -2594,3 +2594,12 @@ A Markdown heading written as `# #` (an empty heading with the optional
 trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
+## 2026-10-08 — the architecture doc lists all of the validator's finding codes (#252)
+
+The architecture doc said the query-file validator has seventeen finding codes.
+It has twenty-four: two whole families, for invisible characters and for broken
+Unicode in golden data, were added later and never written down. The doc now
+gives the right count and names both families, and a new test checks the doc
+against the codes the validator actually produces, so the next new code can't
+go undocumented. The same list in the validator's own docstring is tracked in
+#253, to be fixed once an open PR touching that file has merged.
