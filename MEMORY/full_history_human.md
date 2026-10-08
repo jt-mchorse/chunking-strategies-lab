@@ -2594,3 +2594,13 @@ A Markdown heading written as `# #` (an empty heading with the optional
 trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
+
+## 2026-10-08 — the setup doc describes the corpus as it is (#246)
+
+`docs/setup.md`, the page that pins the shared test corpus, said each of the
+five documents was 600–1200 words long and contained code blocks. They are
+386–473 words, and only two contain code blocks. The claim had been wrong
+since the corpus was first committed. The page now gives the real range and
+names the two documents with code. A new test reads those claims from the
+page and checks them against the corpus files, so the two cannot drift apart
+again unnoticed.

@@ -2715,3 +2715,23 @@ context_for_next_session:
   - AN_OPTIONAL_GROUP_THAT_DID_NOT_PARTICIPATE_IS_INFORMATION_capture_it_to_disambiguate_what_the_lazy_group_swallowed
 followups: []
 ---
+
+---
+session: 2026-10-08T07:50Z
+duration_min: 8   # plan comment ~07:42Z -> commit ~07:50Z (date -u)
+issue: 246
+branch: session/2026-10-08-issue-246
+focus: docs_setup_md_PINNED_SUBSTRATE_SPEC_SAID_600_1200_WORDS_AND_CODE_BLOCKS_IN_EVERY_DOC_CORPUS_IS_386_473_AND_2_OF_5
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 2
+  suite: "1910 -> 1912 passed; ruff, ruff format, mypy clean"
+decisions_made: []
+measured: "wc -w data/corpus/*.md = 467 386 426 395 473 (total 2147); fenced code only in 02_rrf.md and 05_async_pipelines.md. Revert probe (junitxml, 2 collected): old setup.md 2 red, fixed 0 red."
+context_for_next_session:
+  - THE_PROSE_WAS_NEVER_TRUE_0bc2835_IS_THE_ONLY_COMMIT_TOUCHING_THE_CORPUS_OR_THE_DOC
+  - D_002_HUMAN_RATIONALE_STILL_SAYS_600_1200_WORDS_LEFT_ALONE_decision_records_are_append_only
+  - THE_TEST_PARSES_THE_RANGE_AND_THE_BACKTICKED_FILENAMES_OUT_OF_THE_DOC_so_a_corpus_edit_under_a_D_002_revisit_must_update_setup_md_too
+followups: []
+---
