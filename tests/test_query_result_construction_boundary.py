@@ -41,6 +41,7 @@ from __future__ import annotations
 import ast
 import inspect
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -237,34 +238,80 @@ def test_each_rule_is_written_once(marker: str) -> None:
 # --- the scope boundary, stated and pinned --------------------------------
 
 
-def test_the_str_fields_are_deliberately_unchecked() -> None:
-    """Parity with `RetrievalRun`, which does not type-check `strategy_name`.
+_QR_OK: dict[str, Any] = {
+    "query_id": "q1",
+    "expected_doc": "d1",
+    "expected_snippet": "snip",
+    "retrieved_doc_ids_in_rank_order": ("d1", "d2"),
+    "snippet_hits_in_rank_order": (True, False),
+}
 
-    Making this one class stricter than its sibling for no stated reason is how
-    a module's bar becomes unknowable. If the module later decides to type-check
-    its `str` fields, this test is the thing to update — not delete.
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("query_id", 1),
+        ("expected_doc", None),
+        ("expected_snippet", 2.5),
+        ("retrieved_doc_ids_in_rank_order", (7, "d2")),
+    ],
+)
+def test_the_str_fields_are_checked_on_both_classes(field: str, bad: object) -> None:
+    """Parity with `RetrievalRun`, kept and raised (#234).
+
+    This test used to pin the *opposite*: both classes left their `str` fields
+    unchecked, for parity. A results file with `"strategy_name": null` then
+    loaded through `from_json` and crashed `run_matrix._render_summary` with an
+    `AttributeError`. Parity is met just as well by checking both, which is what
+    this pins now -- the sibling half is `test_retrieval_run_checks_its_text_fields`.
     """
-    row = QueryResult(
-        query_id=1,  # type: ignore[arg-type]
-        expected_doc=None,  # type: ignore[arg-type]
-        expected_snippet=2.5,  # type: ignore[arg-type]
-        retrieved_doc_ids_in_rank_order=(7, 8),  # type: ignore[arg-type]
-        snippet_hits_in_rank_order=(True, False),
-    )
-    assert row.query_id == 1
+    with pytest.raises(ValueError, match=r"must be a str"):
+        QueryResult(**{**_QR_OK, field: bad})
 
-    run = metrics_module.RetrievalRun(
-        strategy_name=7,  # type: ignore[arg-type]
-        n_queries=0,
-        n_chunks_total=0,
-        recall_at_k={},
-        snippet_hit_at_k={},
-        wall_clock_ms=0.0,
-        per_query=(),
-        embedder_model="hash-64",
-        dataset_version="v1",
+
+def test_an_empty_string_is_still_a_legal_text_field() -> None:
+    # `require_str` checks type, not content (its docstring): an empty snippet
+    # is a zero-width match target, not corruption.
+    assert QueryResult(**{**_QR_OK, "expected_snippet": ""}).expected_snippet == ""
+
+
+_RUN_OK: dict[str, Any] = {
+    "strategy_name": "fixed-size",
+    "n_queries": 0,
+    "n_chunks_total": 0,
+    "recall_at_k": {},
+    "snippet_hit_at_k": {},
+    "wall_clock_ms": 0.0,
+    "per_query": (),
+    "embedder_model": "hash-64",
+    "dataset_version": "v1",
+}
+
+
+@pytest.mark.parametrize("field", ["strategy_name", "embedder_model", "dataset_version"])
+@pytest.mark.parametrize("bad", [None, 7, ["v1"], b"v1"])
+def test_retrieval_run_checks_its_text_fields(field: str, bad: object) -> None:
+    with pytest.raises(ValueError, match=rf"{field} must be a str"):
+        metrics_module.RetrievalRun(**{**_RUN_OK, field: bad})
+
+
+def test_a_null_strategy_name_in_a_results_file_is_refused_at_load_not_at_render() -> None:
+    import copy
+
+    canonical = json.loads(
+        (Path(__file__).resolve().parents[1] / "results" / "canonical__fixed-size.json").read_text(
+            encoding="utf-8"
+        )
     )
-    assert run.strategy_name == 7
+    metrics_module.RetrievalRun.from_json(copy.deepcopy(canonical))  # control
+    corrupt = copy.deepcopy(canonical)
+    corrupt["strategy_name"] = None
+    with pytest.raises(ValueError, match="strategy_name must be a str"):
+        metrics_module.RetrievalRun.from_json(corrupt)
+    corrupt = copy.deepcopy(canonical)
+    corrupt["per_query"][0]["expected_doc"] = 42
+    with pytest.raises(ValueError, match="expected_doc must be a str"):
+        metrics_module.RetrievalRun.from_json(corrupt)
 
 
 # --- the neighbours, built and run ----------------------------------------
