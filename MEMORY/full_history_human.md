@@ -2575,3 +2575,9 @@ Passing `separators=". "` (a string instead of a list) silently split it into
 the separators "." and " ", so chunks came out at the wrong places with nothing
 to show anything was off. The recursive strategy now requires a list or tuple
 of strings and stores its own copy.
+## 2026-10-07 — the notebook warns when runs use different corpora (#238)
+
+The comparison notebook already warned when the runs it charts used different
+embedders or query counts. It now also warns when they used different dataset
+versions, which otherwise put results from two corpora side by side as if they
+were comparable.

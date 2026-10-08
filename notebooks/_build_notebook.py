@@ -139,8 +139,16 @@ _LOAD_CELL = dedent(
     runs = _load_latest_per_strategy(RESULTS_DIR)
     embedder = _one_or_mixed([r["embedder_model"] for r in runs])
     n_queries = _one_or_mixed([r["n_queries"] for r in runs])
-    mixed = embedder.startswith("MIXED") or n_queries.startswith("MIXED")
-    print(f"Loaded {len(runs)} strategy runs · embedder={embedder} · n_queries={n_queries}")
+    # The corpus too (#238): `--dataset-version` exists so runs can be joined
+    # across versions, and a fresh run on a new corpus with the same 12 queries
+    # sat beside four `v0` files under no warning at all. Named only when it
+    # differs, so a homogeneous set prints and titles exactly as before.
+    dataset = _one_or_mixed([r.get("dataset_version", "?") for r in runs])
+    dataset_note = f" · dataset={dataset}" if dataset.startswith("MIXED") else ""
+    mixed = embedder.startswith("MIXED") or n_queries.startswith("MIXED") or bool(dataset_note)
+    print(
+        f"Loaded {len(runs)} strategy runs · embedder={embedder} · n_queries={n_queries}{dataset_note}"
+    )
     if mixed:
         print("  WARNING: these runs are not comparable as one chart; per-run values below.")
     for r in runs:
@@ -153,7 +161,12 @@ _LOAD_CELL = dedent(
         recall_top = float(r["recall_at_k"][str(kmax)])
         snippet_top = float(r["snippet_hit_at_k"][str(kmax)])
         wall = _wall_label(float(r.get("wall_clock_ms", 0.0)))
-        per_run = f"  embedder={r['embedder_model']}  n_queries={r['n_queries']}" if mixed else ""
+        per_run = (
+            f"  embedder={r['embedder_model']}  n_queries={r['n_queries']}"
+            f"  dataset={r.get('dataset_version', '?')}"
+            if mixed
+            else ""
+        )
         print(
             f"  {name:18} chunks={n_chunks:3d}  recall@{kmax}={_rate_label(recall_top)}  snippet-hit@{kmax}={_rate_label(snippet_top)}  wall={wall}{per_run}"
         )
@@ -195,7 +208,7 @@ _RECALL_CELL = dedent(
     ax.set_xticks(x)
     ax.set_xticklabels(strategies, rotation=12)
     ax.set_ylabel("Recall (proportion of queries)")
-    ax.set_title(f"Recall@k by strategy · embedder={embedder} · n_queries={n_queries}")
+    ax.set_title(f"Recall@k by strategy · embedder={embedder} · n_queries={n_queries}{dataset_note}")
     ax.set_ylim(0, 1.0)
     ax.grid(True, axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
     ax.legend()
@@ -223,7 +236,9 @@ _SNIPPET_CELL = dedent(
     ax.set_xticks(x)
     ax.set_xticklabels(strategies, rotation=12)
     ax.set_ylabel("Snippet-hit (proportion of queries)")
-    ax.set_title(f"Snippet-hit@k by strategy · embedder={embedder} · n_queries={n_queries}")
+    ax.set_title(
+        f"Snippet-hit@k by strategy · embedder={embedder} · n_queries={n_queries}{dataset_note}"
+    )
     ax.set_ylim(0, 1.0)
     ax.grid(True, axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
     ax.legend()
@@ -252,7 +267,7 @@ _LATENCY_CELL = dedent(
         # rather than "0ms" (#210, D-016).
         ax.text(xi, val, _wall_label(val), ha="center", va="bottom", fontsize=9)
     ax.set_ylabel("Wall-clock (ms)")
-    ax.set_title(f"Latency by strategy · embedder={embedder} · n_queries={n_queries}")
+    ax.set_title(f"Latency by strategy · embedder={embedder} · n_queries={n_queries}{dataset_note}")
     ax.set_xticklabels(strategies, rotation=12)
     ax.grid(True, axis="y", linestyle=":", linewidth=0.5, alpha=0.6)
     plt.tight_layout()
