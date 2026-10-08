@@ -143,6 +143,29 @@ def unencodable_char_reason(field_name: str, value: str) -> str | None:
     return None
 
 
+#: Everything `json.loads` raises on one line of text (#244). `JSONDecodeError`
+#: is the syntax case and was the only one either reader caught, but it is a
+#: `ValueError` subclass, and `json.loads` raises two more: a plain `ValueError`
+#: for an integer literal past CPython's 4300-digit int-string limit, and
+#: `RecursionError` for a deeply nested value. Both escaped as tracebacks. In
+#: `validate` that was exit 1, which this CLI uses to mean "findings", with no
+#: finding printed and the rows after it never checked.
+JSON_ROW_ERRORS: tuple[type[Exception], ...] = (ValueError, RecursionError)
+
+
+def json_row_error_reason(e: Exception) -> str:
+    """The text after ``invalid JSON:`` for an exception in `JSON_ROW_ERRORS`.
+
+    `RecursionError`'s own text differs by interpreter version ("maximum
+    recursion depth exceeded" on 3.11, "Stack overflow" on 3.14), so it gets a
+    fixed reason. Everything else is a `ValueError`, whose text already says
+    what is wrong.
+    """
+    if isinstance(e, RecursionError):
+        return "nested too deeply to parse"
+    return str(e)
+
+
 @dataclass(frozen=True)
 class Query:
     """One question + golden-answer record."""
@@ -226,8 +249,8 @@ def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
                 continue
             try:
                 rec = json.loads(line)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"{p}:{lineno}: invalid JSON: {e}") from e
+            except JSON_ROW_ERRORS as e:
+                raise ValueError(f"{p}:{lineno}: invalid JSON: {json_row_error_reason(e)}") from e
             # A line can be well-formed JSON yet not an object — a bare number,
             # string, array, or bool. Without this guard the very next
             # `rec.get(...)` raises `AttributeError`, which escapes the
