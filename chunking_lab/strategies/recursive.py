@@ -30,8 +30,26 @@ class RecursiveStrategy:
             raise ValueError(f"chunk_chars must be an int; got {self.chunk_chars!r}")
         if self.chunk_chars <= 0:
             raise ValueError(f"chunk_chars must be positive; got {self.chunk_chars}")
-        if not self.separators:
+        # Shape before anything that iterates or copies (#236): a bare `str` is
+        # itself a sequence of strings, so `separators=". "` passed every check
+        # below and became the two separators "." and " " -- wrong boundaries
+        # that still satisfy every chunk invariant, so nothing downstream sees
+        # them. A set is refused too: the hierarchy is ordered.
+        seps = self.separators
+        if isinstance(seps, (str, bytes, bytearray)) or not isinstance(seps, (tuple, list)):
+            raise ValueError(
+                f"separators must be a tuple or list of str, largest boundary first; "
+                f"got {type(seps).__name__} {seps!r} (a bare string splits into one "
+                "separator per character)"
+            )
+        if not seps:
             raise ValueError("separators must be non-empty")
+        for i, sep in enumerate(seps):
+            if not isinstance(sep, str):
+                raise ValueError(f"separators[{i}] must be a str; got {type(sep).__name__} {sep!r}")
+        # Stored as the annotated tuple, so a caller's list cannot change the
+        # hierarchy after construction.
+        self.separators = tuple(seps)
 
     def chunk(self, text: str, *, source_doc_id: str = "doc") -> list[Chunk]:
         check_chunk_input(text, source_doc_id)

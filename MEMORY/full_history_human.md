@@ -2569,3 +2569,9 @@ and per-query result classes now check that every text field is a string when
 they are built, so a bad file is rejected at load time with a message naming
 the field. The two classes had skipped these checks together "for
 consistency"; they are now consistent the other way.
+## 2026-10-07 — the recursive chunker refuses a bare-string separator list (#236)
+
+Passing `separators=". "` (a string instead of a list) silently split it into
+the separators "." and " ", so chunks came out at the wrong places with nothing
+to show anything was off. The recursive strategy now requires a list or tuple
+of strings and stores its own copy.
