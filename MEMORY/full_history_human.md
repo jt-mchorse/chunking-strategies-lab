@@ -2620,3 +2620,11 @@ When `--out` was a symlink, the atomic writer replaced the link with a
 plain file and left the file it pointed at unchanged. It now writes
 through the link, the way a plain write does, and keeps that file's
 permissions. Same fix as python-async-llm-pipelines #157.
+## 2026-10-08 — the evaluator refuses repeated query ids (#250)
+
+The query file loader and validator both refuse a query id that appears twice,
+but the evaluation function itself never checked. Anyone building their query
+list in code could pass the same query twice: it was counted twice, which
+quietly changed the published recall (12 real queries reported as 15, recall@5
+0.733 instead of 0.917) with no error. The evaluator now refuses a repeated id
+before doing any work and names the ids in the message.

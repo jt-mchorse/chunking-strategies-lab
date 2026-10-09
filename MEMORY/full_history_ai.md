@@ -2773,3 +2773,22 @@ context_for_next_session:
   - SYMLINK_WRITE_THROUGH_SWEEP_10_08_rag_leh_emb_csl_after_pyasync_158_do_not_re_sweep_these_four
 followups: []
 ---
+
+---
+session: 2026-10-08T07:58Z
+duration_min: 14
+issue: 250
+branch: session/2026-10-08-w3-issue-250
+focus: evaluate_strategy_ACCEPTED_REPEATED_QUERY_IDS_AND_PUBLISHED_RATES_OVER_THE_INFLATED_COUNT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1916 passed (junitxml); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "main: 12 distinct ids + one recall@5 miss x3 -> n_queries=15, recall@5 0.733 (distinct: 0.917), from_json loads it. Revert: 5 of 6 red; the distinct-ids-same-question neighbour arm stays green."
+context_for_next_session:
+  - A_GUARD_MOVED_TO_THE_LIBRARY_BOUNDARY_FOR_A_STATED_REASON_CARRIES_EVERY_RULE_THAT_REASON_COVERS_192_moved_emptiness_and_left_uniqueness_in_load_queries
+  - DEFERRED_RetrievalRun_from_json_STILL_ACCEPTS_per_query_ROWS_WITH_REPEATED_query_id_self_consistent_under_D_021_writer_can_no_longer_emit_them
+followups: []
+---
