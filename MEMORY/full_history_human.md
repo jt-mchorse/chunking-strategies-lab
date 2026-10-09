@@ -2614,3 +2614,9 @@ since the corpus was first committed. The page now gives the real range and
 names the two documents with code. A new test reads those claims from the
 page and checks them against the corpus files, so the two cannot drift apart
 again unnoticed.
+## 2026-10-08 — writing to a symlinked --out updates the linked file (#248)
+
+When `--out` was a symlink, the atomic writer replaced the link with a
+plain file and left the file it pointed at unchanged. It now writes
+through the link, the way a plain write does, and keeps that file's
+permissions. Same fix as python-async-llm-pipelines #157.
