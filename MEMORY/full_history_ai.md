@@ -2715,3 +2715,23 @@ context_for_next_session:
   - AN_OPTIONAL_GROUP_THAT_DID_NOT_PARTICIPATE_IS_INFORMATION_capture_it_to_disambiguate_what_the_lazy_group_swallowed
 followups: []
 ---
+
+---
+session: 2026-10-08T07:30Z
+duration_min: 10   # plan comment 07:22Z -> commit ~07:30Z (date -u)
+issue: 244
+branch: session/2026-10-08-issue-244
+focus: json_loads_RAISES_RecursionError_AND_THE_4300_DIGIT_ValueError_TOO_validate_AND_load_queries_CAUGHT_ONLY_JSONDecodeError
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 12
+  suite: "1865 -> 1877 passed; ruff, ruff format, mypy clean"
+decisions_made: []
+measured: "main: validate on a 200000-deep line or a 5001-digit int -> traceback, exit 1, rows after it unchecked; load_queries -> RecursionError / bare ValueError without path:lineno. Revert probes (junitxml, 12 collected): validate reverted 8 red, load_queries reverted 3 red, syntax-error control green throughout."
+context_for_next_session:
+  - malformed_json_DOCSTRING_SAID_json_loads_RAISED_AND_THE_EXCEPT_SAID_JSONDecodeError_the_prose_was_the_wider_contract
+  - JSONDecodeError_KEEPS_ITS_OLD_MESSAGE_ON_BOTH_READERS_e_msg_in_validate_str_e_in_load_queries_only_the_two_new_shapes_go_through_json_row_error_reason
+  - RecursionError_TEXT_VARIES_BY_PYTHON_311_vs_314_so_the_reason_is_fixed_text
+followups: []
+---
