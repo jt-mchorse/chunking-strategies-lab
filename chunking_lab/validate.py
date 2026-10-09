@@ -29,7 +29,9 @@ loaded ``Document.filename``, so recall for that query is permanently 0.
 Finding codes (1-indexed line numbers; blank lines silently skipped to
 match ``load_queries``):
 
-- ``malformed_json``           — ``json.loads`` raised.
+- ``malformed_json``           — ``json.loads`` raised: a syntax error, a
+                                 value nested too deeply to parse, or an
+                                 integer past the 4300-digit limit (#244).
 - ``not_an_object``            — parsed JSON not a dict (e.g., bare string).
 - ``missing_id`` /
   ``missing_question`` /
@@ -65,8 +67,10 @@ from typing import Any
 from chunking_lab._fields import require_non_negative_int
 from chunking_lab.io_utils import atomic_write_text
 from chunking_lab.queries import (
+    JSON_ROW_ERRORS,
     MATCHED_FIELDS,
     invisible_char_reason,
+    json_row_error_reason,
     unencodable_char_reason,
 )
 
@@ -181,11 +185,15 @@ def validate_queries(
             n_rows += 1
             try:
                 obj = json.loads(stripped)
-            except json.JSONDecodeError as e:
+            except JSON_ROW_ERRORS as e:
                 findings.append(
                     ValidationFinding(
                         line_no=line_no,
-                        reason=f"invalid JSON: {e.msg}",
+                        reason=(
+                            f"invalid JSON: {e.msg}"
+                            if isinstance(e, json.JSONDecodeError)
+                            else f"invalid JSON: {json_row_error_reason(e)}"
+                        ),
                         code="malformed_json",
                     )
                 )
