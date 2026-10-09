@@ -375,7 +375,8 @@ def test_corpus_dir_check_accepts_real_md_document(tmp_path: Path) -> None:
         p,
         [
             {**_valid_row("q01"), "expected_doc": "01_hnsw.md"},
-            {**_valid_row("q02"), "expected_doc": "Guide.md"},
+            # Its snippet is one Guide.md contains (#255 checks that too).
+            {**_valid_row("q02"), "expected_doc": "Guide.md", "expected_snippet": "prose"},
         ],
     )
     report = validate_queries(p, corpus_dir=corpus)
