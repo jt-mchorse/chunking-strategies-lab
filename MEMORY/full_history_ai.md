@@ -2815,7 +2815,7 @@ followups: ["#253"]
 
 ---
 session: 2026-10-09T07:55Z
-duration_min: 7   # computed: issue filed 2026-10-09T07:52:59Z -> PR 2026-10-09T07:55:59Z (gh createdAt)
+duration_min: 3   # computed: issue filed 2026-10-09T07:52:59Z -> PR 2026-10-09T07:55:59Z (gh createdAt)
 issue: 255
 branch: session/2026-10-09-0805-issue-255
 focus: VALIDATE_CORPUS_DIR_CHECKED_expected_doc_BUT_NOT_expected_snippet_A_TYPOD_SNIPPET_VALIDATED_OK_AND_PINNED_SNIPPET_HIT_AT_0
