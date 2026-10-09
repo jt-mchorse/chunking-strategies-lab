@@ -111,6 +111,30 @@ def _open_temp(target: Path) -> tuple[int, Path]:
     raise FileExistsError(f"no usable temporary name beside {target}")
 
 
+def _resolve_symlinked_target(target: Path) -> Path:
+    """The file a write to *target* lands in: through a symlink, as `write_text` does (#248).
+
+    `os.replace` renames onto the LINK, not the file it points at. So a
+    symlinked `--out` became a regular file and the linked file kept its old
+    contents, while the `Path.write_text` this helper replaced writes through
+    the link. The mode copy in `atomic_write_text` already followed the link
+    (`os.stat`), so the linked file's mode was copied onto a file that then
+    replaced the link instead (sibling of python-async-llm-pipelines#157).
+
+    Resolving here also places the temp file beside the RESOLVED file, which
+    keeps the rename on one filesystem when the link points at a different
+    one, and hands `_open_temp` the resolved basename to cap. A dangling link
+    resolves to the path it names, and the write creates that file, as
+    `write_text` would. With a link loop, non-strict `realpath` returns the
+    path unresolved, and the mode copy's `os.stat` raises `OSError` (ELOOP),
+    which the `--out` write-seam guard translates to exit 2. A plain path
+    comes back unchanged.
+    """
+    if not target.is_symlink():
+        return target
+    return Path(os.path.realpath(target))
+
+
 def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> None:
     """Write *text* to *path* atomically.
 
@@ -118,9 +142,10 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
     path (signal, disk-full, OOM during flush), the destination is
     either unchanged (overwrite case) or absent (new-file case) —
     never partial. Parent directories are created with `mkdir(parents=True,
-    exist_ok=True)`.
+    exist_ok=True)`. A symlinked destination is written THROUGH, as
+    `Path.write_text` does (#248): see `_resolve_symlinked_target`.
     """
-    target = Path(path)
+    target = _resolve_symlinked_target(Path(path))
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:

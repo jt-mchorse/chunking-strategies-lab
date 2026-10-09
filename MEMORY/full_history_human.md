@@ -2594,6 +2594,32 @@ A Markdown heading written as `# #` (an empty heading with the optional
 trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
+
+## 2026-10-08 — a query line too deep or too long to parse is a finding, not a crash (#244)
+
+The query linter and loader handled a line of invalid JSON but not the two
+other ways Python's JSON parser fails: a value nested hundreds of thousands
+of levels deep, and a number with more than 4300 digits. The linter crashed
+with exit code 1, which this tool uses to mean "the file has problems",
+printed no finding, and skipped every row after the bad one. Both readers now
+treat these lines like any other bad JSON: the linter reports the line and
+carries on, and the loader raises its usual error naming the file and line.
+
+## 2026-10-08 — the setup doc describes the corpus as it is (#246)
+
+`docs/setup.md`, the page that pins the shared test corpus, said each of the
+five documents was 600–1200 words long and contained code blocks. They are
+386–473 words, and only two contain code blocks. The claim had been wrong
+since the corpus was first committed. The page now gives the real range and
+names the two documents with code. A new test reads those claims from the
+page and checks them against the corpus files, so the two cannot drift apart
+again unnoticed.
+## 2026-10-08 — writing to a symlinked --out updates the linked file (#248)
+
+When `--out` was a symlink, the atomic writer replaced the link with a
+plain file and left the file it pointed at unchanged. It now writes
+through the link, the way a plain write does, and keeps that file's
+permissions. Same fix as python-async-llm-pipelines #157.
 ## 2026-10-08 — the evaluator refuses repeated query ids (#250)
 
 The query file loader and validator both refuse a query id that appears twice,
