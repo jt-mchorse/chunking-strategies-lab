@@ -2792,3 +2792,23 @@ context_for_next_session:
   - DEFERRED_RetrievalRun_from_json_STILL_ACCEPTS_per_query_ROWS_WITH_REPEATED_query_id_self_consistent_under_D_021_writer_can_no_longer_emit_them
 followups: []
 ---
+
+---
+session: 2026-10-08T08:25Z
+duration_min: 15
+issue: 252
+branch: session/2026-10-08-w3-issue-252
+focus: ARCHITECTURE_DOC_SAID_SEVENTEEN_VALIDATOR_FINDING_CODES_THE_VALIDATOR_EMITS_24
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1913 passed (junitxml); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "main: 24 distinct codes emitted; doc says Seventeen and never names invisible_char_<field> / unencodable_char_<field>. Revert (doc only): 2 of 3 red; the anti-vacuity arm (fixture triggers every source code= template) stays green."
+context_for_next_session:
+  - A_HAND_CORRECTED_COUNT_WITH_NO_LOCK_DRIFTS_AGAIN_88_fixed_sixteen_to_seventeen_then_two_code_families_shipped_undocumented
+  - DISCOVER_THE_POPULATION_FROM_SOURCE_code_EQUALS_TEMPLATES_AND_REQUIRE_THE_FIXTURE_TO_TRIGGER_EACH
+  - FOLLOWUP_253_validate_py_module_docstring_list_after_PR_245_merges
+followups: ["#253"]
+---

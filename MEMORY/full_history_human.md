@@ -2628,3 +2628,12 @@ list in code could pass the same query twice: it was counted twice, which
 quietly changed the published recall (12 real queries reported as 15, recall@5
 0.733 instead of 0.917) with no error. The evaluator now refuses a repeated id
 before doing any work and names the ids in the message.
+## 2026-10-08 — the architecture doc lists all of the validator's finding codes (#252)
+
+The architecture doc said the query-file validator has seventeen finding codes.
+It has twenty-four: two whole families, for invisible characters and for broken
+Unicode in golden data, were added later and never written down. The doc now
+gives the right count and names both families, and a new test checks the doc
+against the codes the validator actually produces, so the next new code can't
+go undocumented. The same list in the validator's own docstring is tracked in
+#253, to be fixed once an open PR touching that file has merged.
