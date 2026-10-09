@@ -2812,3 +2812,23 @@ context_for_next_session:
   - FOLLOWUP_253_validate_py_module_docstring_list_after_PR_245_merges
 followups: ["#253"]
 ---
+
+---
+session: 2026-10-09T07:55Z
+duration_min: 3   # computed: issue filed 2026-10-09T07:52:59Z -> PR 2026-10-09T07:55:59Z (gh createdAt)
+issue: 255
+branch: session/2026-10-09-0805-issue-255
+focus: VALIDATE_CORPUS_DIR_CHECKED_expected_doc_BUT_NOT_expected_snippet_A_TYPOD_SNIPPET_VALIDATED_OK_AND_PINNED_SNIPPET_HIT_AT_0
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 11
+  suite: "1943 -> 1954 passed; ruff check + format clean"
+decisions_made: []
+measured: "q02 snippet typo'd: main validate ok exit 0; evaluate_strategy q02 snippet hits 1 -> 0, snippet_hit@1000 1.0 -> 0.9167. Branch: expected_snippet_not_in_doc, exit 1; pinned 12 still ok (every snippet in its doc and no other). Revert 6 red."
+context_for_next_session:
+  - THE_FINDING_CODE_DOC_LOCK_252_NEEDS_A_TRIGGER_ROW_AND_THE_COUNT_WORD_a_duplicate_id_row_never_reaches_the_corpus_check
+  - A_BOM_INSIDE_A_SNIPPET_IS_invisible_char_FIRST_so_it_never_reaches_this_check
+  - OPEN_QUESTION_NOT_FILED_snippet_hit_credits_a_chunk_from_ANY_doc_metric_definition_JT_territory
+followups: []
+---

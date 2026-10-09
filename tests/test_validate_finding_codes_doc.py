@@ -113,6 +113,9 @@ def _emitted_codes(tmp_path: Path) -> set[str]:
         json.dumps(
             {"id": "c", "question": "q", "expected_doc": "real.md", "expected_snippet": "s"}
         ),
+        json.dumps(
+            {"id": "e", "question": "q", "expected_doc": "real.md", "expected_snippet": "absent"}
+        ),
     ]
     rows_path = tmp_path / "q.jsonl"
     rows_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
