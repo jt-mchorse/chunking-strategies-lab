@@ -2604,3 +2604,13 @@ with exit code 1, which this tool uses to mean "the file has problems",
 printed no finding, and skipped every row after the bad one. Both readers now
 treat these lines like any other bad JSON: the linter reports the line and
 carries on, and the loader raises its usual error naming the file and line.
+
+## 2026-10-08 — the setup doc describes the corpus as it is (#246)
+
+`docs/setup.md`, the page that pins the shared test corpus, said each of the
+five documents was 600–1200 words long and contained code blocks. They are
+386–473 words, and only two contain code blocks. The claim had been wrong
+since the corpus was first committed. The page now gives the real range and
+names the two documents with code. A new test reads those claims from the
+page and checks them against the corpus files, so the two cannot drift apart
+again unnoticed.

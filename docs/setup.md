@@ -8,7 +8,8 @@ numbers (#3) and require a deliberate revisit per the portfolio handoff.
 
 **Location:** `data/corpus/*.md`
 **License:** MIT (authored for this repo).
-**Documents:** 5 multi-paragraph technical articles, 600–1200 words each.
+**Documents:** 5 multi-paragraph technical articles, 380–480 words each
+(about 2,150 words in all).
 
 | File                       | Topic                                       |
 | -------------------------- | ------------------------------------------- |
@@ -18,8 +19,9 @@ numbers (#3) and require a deliberate revisit per the portfolio handoff.
 | `04_eval_harness.md`       | LLM evaluation harness design               |
 | `05_async_pipelines.md`    | Async LLM pipeline patterns                 |
 
-Each document has Markdown headings, multi-paragraph prose, and code
-blocks — the structural diversity that makes chunking strategies
+Each document has Markdown headings and multi-paragraph prose, and two
+of them — `02_rrf.md` and `05_async_pipelines.md` — also carry fenced code
+blocks: the structural diversity that makes chunking strategies
 differentiate. The corpus is small on purpose: it has to be tractable
 to chunk under every strategy variation we'll run in #3 in one CI
 minute, so we can run the matrix on every PR without skipping.
