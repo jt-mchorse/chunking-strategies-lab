@@ -2595,6 +2595,16 @@ trailing hashes) was given the title "#". It is now treated as untitled,
 matching the CommonMark spec, while headings like `### ### ###` keep their
 title.
 
+## 2026-10-08 — a query line too deep or too long to parse is a finding, not a crash (#244)
+
+The query linter and loader handled a line of invalid JSON but not the two
+other ways Python's JSON parser fails: a value nested hundreds of thousands
+of levels deep, and a number with more than 4300 digits. The linter crashed
+with exit code 1, which this tool uses to mean "the file has problems",
+printed no finding, and skipped every row after the bad one. Both readers now
+treat these lines like any other bad JSON: the linter reports the line and
+carries on, and the loader raises its usual error naming the file and line.
+
 ## 2026-10-08 — the setup doc describes the corpus as it is (#246)
 
 `docs/setup.md`, the page that pins the shared test corpus, said each of the
