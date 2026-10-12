@@ -1,4 +1,7 @@
-"""`docs/architecture.md`'s finding-code paragraph matches what the validator emits (#252).
+"""The finding-code lists in `docs/architecture.md` and `validate.py` match what it emits.
+
+`docs/architecture.md` (#252) and the `chunking_lab/validate.py` module
+docstring (#253) each enumerate the codes.
 
 The doc said "Seventeen finding codes" -- right after #88, which corrected the
 count by hand -- and then #162/#171 (`invisible_char_<field>`) and #216
@@ -10,6 +13,11 @@ of `chunking_lab/validate.py`'s source, and a crafted file has to trigger each
 one. A new code family therefore fails here twice over -- untriggered by the
 fixture, and absent from the doc -- rather than shipping silently as the last
 two did.
+
+The docstring was left out of #252 because an open PR was editing the same
+list, and it went on missing both families after that. It sits beside the
+code it describes, and the families were still missing, so a list being close
+to its code does not keep it current. Both lists are checked.
 """
 
 from __future__ import annotations
@@ -23,6 +31,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from chunking_lab import validate as validate_module  # noqa: E402
 from chunking_lab.validate import REQUIRED_FIELDS, validate_queries  # noqa: E402
 
 _VALIDATE_SRC = _REPO_ROOT / "chunking_lab" / "validate.py"
@@ -125,6 +134,13 @@ def _emitted_codes(tmp_path: Path) -> set[str]:
     return codes | {f.code for f in validate_queries(empty_path).findings}
 
 
+def _docstring_code_list() -> str:
+    """The `Finding codes` section of the module docstring, up to the prose after it."""
+    text = validate_module.__doc__ or ""
+    start = text.index("Finding codes")
+    return text[start : text.index("A missing ``path``", start)]
+
+
 def _doc_paragraph() -> str:
     text = _ARCH_DOC.read_text("utf-8")
     start = text.index("**Pre-flight validator (#37).**")
@@ -154,3 +170,18 @@ def test_the_doc_names_every_emitted_code_family(tmp_path: Path) -> None:
     named = set(re.findall(r"`([a-z_]+(?:<field>)?)`", _doc_paragraph()))
     missing = sorted({_template(c) for c in _emitted_codes(tmp_path)} - named)
     assert not missing, f"docs/architecture.md never names: {missing}"
+
+
+def test_the_module_docstring_names_every_emitted_code_family(tmp_path: Path) -> None:
+    # A code heads a bullet (`- ``code`` —`) or continues one (`  ``code`` /`);
+    # field names quoted inside an explanation are not codes.
+    heads = re.findall(
+        r"^ *(?:- )?``([a-z_]+(?:<field>)?)`` *(?:/|—)", _docstring_code_list(), re.MULTILINE
+    )
+    named = {_template(c) for c in heads}
+    emitted = {_template(c) for c in _emitted_codes(tmp_path)}
+    assert len(named) >= 8, named  # the section was found and parsed at all
+    missing = sorted(emitted - named)
+    assert not missing, f"the validate.py docstring's finding-code list never names: {missing}"
+    extra = sorted(named - emitted)
+    assert not extra, f"the validate.py docstring lists codes the validator never emits: {extra}"

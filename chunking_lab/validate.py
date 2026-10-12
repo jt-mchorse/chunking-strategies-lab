@@ -43,7 +43,14 @@ match ``load_queries``):
                                  whitespace-only* (one per required field;
                                  #92 — a blank field corrupts metrics the same
                                  way an empty one does).
-- ``duplicate_id``             — same ``id`` seen at multiple lines.
+- ``invisible_char_<field>``   — a Unicode format (Cf) character such as
+                                 U+200B or U+FEFF, which ``str.strip()``
+                                 leaves in place, in one of the three
+                                 matched fields ``id`` / ``expected_doc`` /
+                                 ``expected_snippet`` (#162/#171).
+- ``unencodable_char_<field>`` — a lone surrogate, which has no UTF-8
+                                 encoding, in any of the four fields (#216).
+- ``duplicate_id``           — same ``id`` seen at multiple lines.
 - ``expected_doc_not_found``   — *only when corpus_dir is provided* —
                                  ``expected_doc`` is not a loaded corpus
                                  document (a ``*.md`` file matched by name).
