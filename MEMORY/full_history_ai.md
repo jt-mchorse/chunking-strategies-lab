@@ -2832,3 +2832,23 @@ context_for_next_session:
   - OPEN_QUESTION_NOT_FILED_snippet_hit_credits_a_chunk_from_ANY_doc_metric_definition_JT_territory
 followups: []
 ---
+
+---
+session: 2026-10-12T07:17Z
+duration_min: 1   # computed: plan comment 2026-10-12T07:17:06Z -> PR 2026-10-12T07:18:47Z (gh createdAt)
+issue: 253
+branch: session/2026-10-12-0717-issue-253
+focus: VALIDATE_PY_MODULE_DOCSTRING_FINDING_CODE_LIST_OMITTED_invisible_char_AND_unencodable_char_FAMILIES_NOW_LOCKED_LIKE_THE_ARCH_DOC
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "1954 -> 1955 passed; ruff check + format clean"
+decisions_made: []
+measured: "revert docstring: never names ['invisible_char_<field>', 'unencodable_char_<field>']; drop only the unencodable bullet: never names ['unencodable_char_<field>']; fixed green."
+context_for_next_session:
+  - BUILT_ON_PR_256_HEAD_THEN_rebase_onto_origin_main_AFTER_ITS_SQUASH_MERGE_clean_no_MEMORY_conflict
+  - THE_FIRST_PROBE_WENT_RED_ON_THE_ANTI_VACUITY_FLOOR_NOT_ON_THE_MISSING_CODES_unfixed_list_had_9_families_and_the_floor_was_10_LOWERED_TO_8_SO_THE_REVERT_FAILS_FOR_THE_RIGHT_REASON
+  - PARSE_ONLY_BULLET_HEADS_field_names_quoted_in_explanations_are_not_codes
+followups: []
+---
