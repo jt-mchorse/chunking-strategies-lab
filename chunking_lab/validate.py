@@ -47,6 +47,10 @@ match ``load_queries``):
 - ``expected_doc_not_found``   — *only when corpus_dir is provided* —
                                  ``expected_doc`` is not a loaded corpus
                                  document (a ``*.md`` file matched by name).
+- ``expected_snippet_not_in_doc`` — *only when corpus_dir is provided* —
+                                 ``expected_snippet`` is not a substring of
+                                 that document's text, so snippet-hit can
+                                 never credit it (#255).
 - ``empty``                    — file contained zero rows; reported once
                                  with ``line_no=0``.
 
@@ -146,6 +150,7 @@ def validate_queries(
 
     corpus_root: Path | None = None
     corpus_docs: set[str] | None = None
+    corpus_texts: dict[str, str] = {}
     if corpus_dir is not None:
         corpus_root = Path(corpus_dir)
         if not corpus_root.exists():
@@ -270,6 +275,29 @@ def validate_queries(
                     # The row is well-formed JSONL-wise but invalid against
                     # the corpus; don't count toward n_valid so the operator
                     # sees a non-zero finding total without ambiguity.
+                    continue
+                # The row's other cross-file reference (#255). snippet-hit is a
+                # substring test on chunk text and a chunk is a slice of its
+                # document, so a snippet the document does not contain can
+                # never hit from it: a typo'd `ef_constuction` validated clean
+                # and pinned that query's snippet-hit at 0 -- the silent
+                # invalidation the doc check above exists to catch, on the
+                # other metric. Read as `load_corpus` reads it, once per doc.
+                if expected_doc not in corpus_texts:
+                    corpus_texts[expected_doc] = (corpus_root / expected_doc).read_text(
+                        encoding="utf-8-sig"
+                    )
+                if obj["expected_snippet"] not in corpus_texts[expected_doc]:
+                    findings.append(
+                        ValidationFinding(
+                            line_no=line_no,
+                            reason=(
+                                f"expected_snippet {obj['expected_snippet']!r} does not occur "
+                                f"in {expected_doc!r}, so snippet-hit can never credit it"
+                            ),
+                            code="expected_snippet_not_in_doc",
+                        )
+                    )
                     continue
 
             n_valid += 1

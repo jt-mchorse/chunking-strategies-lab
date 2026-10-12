@@ -2637,3 +2637,13 @@ gives the right count and names both families, and a new test checks the doc
 against the codes the validator actually produces, so the next new code can't
 go undocumented. The same list in the validator's own docstring is tracked in
 #253, to be fixed once an open PR touching that file has merged.
+
+## 2026-10-09 — The query validator checks the expected snippet too (#255)
+
+Each benchmark query names the document that answers it and a short snippet
+from that document. Given the corpus folder, the validator already confirmed
+that the named document exists. It never checked that the snippet is in it. A
+typo in the snippet therefore passed validation, and that query could never
+score a snippet hit, which quietly lowered the strategy's number. The validator
+now reports a snippet that is not in its document, and all 12 shipped queries
+still pass.
