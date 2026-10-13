@@ -2647,3 +2647,12 @@ typo in the snippet therefore passed validation, and that query could never
 score a snippet hit, which quietly lowered the strategy's number. The validator
 now reports a snippet that is not in its document, and all 12 shipped queries
 still pass.
+
+## 2026-10-12 — The validator's own docstring lists every finding code (#253)
+
+The list of finding codes at the top of `validate.py` was missing two kinds:
+invisible characters such as zero-width spaces, and lone surrogates that can't
+be encoded. The architecture doc was fixed and locked for the same gap on
+10-09, but this list was left until a conflicting PR merged. Both kinds are now
+listed. The test that checks the architecture doc now checks this list against
+the codes the validator actually produces, so the two lists can't drift apart.
