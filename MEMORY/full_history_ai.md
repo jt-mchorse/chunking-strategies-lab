@@ -2852,3 +2852,24 @@ context_for_next_session:
   - PARSE_ONLY_BULLET_HEADS_field_names_quoted_in_explanations_are_not_codes
 followups: []
 ---
+
+---
+session: 2026-10-13T07:17Z
+duration_min: 20
+issue: 258
+branch: session/2026-10-13-0717-issue-258
+focus: VALIDATE_CORPUS_DIR_READ_SEAM_ADDED_BY_256_REPORTED_AS_failed_to_read_QUERIES_FILE_non_utf8_doc_never_named
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1898 -> 1902 passed (py3.12, no nbformat); ruff check + format + mypy clean"
+decisions_made: []
+measured: "main de1be50: latin-1 byte in corpus/a.md -> 'failed to read q.jsonl: not valid UTF-8' exit 2 while the same q.jsonl alone validates ok exit 0; chmod 000 doc -> 'failed to read q.jsonl: [Errno 13] ...'. Revert probe: 3 of 4 new tests red (the queries-file-still-blamed guard is green by design)."
+context_for_next_session:
+  - LENS_THE_SURFACE_256_DID_NOT_LIST_it_added_a_read_seam_inside_validate_queries_but_main_error_labels_assumed_one_input_file
+  - CORPUS_DOC_READ_FAILURE_NOW_RAISES_private_CorpusDocumentReadError_an_OSError_subclass_with_filename_so_a_library_caller_sees_OSError_not_UnicodeDecodeError
+  - THE_corpus_dir_HELP_TEXT_PREDATED_256_now_names_expected_snippet_not_in_doc_and_is_locked
+  - DEFERRED_run_matrix_load_corpus_on_a_non_utf8_doc_not_examined_this_session
+followups: []
+---
