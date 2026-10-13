@@ -168,3 +168,36 @@ def test_no_operator_input_failure_exits_one(
     for argv in bad_invocations:
         rc, _ = _run(capsys, [*argv, "--strategy", "fixed-size"])
         assert rc == 2, f"{argv} returned {rc}; exit 1 is reserved"
+
+
+@pytest.mark.parametrize(
+    "ks",
+    [
+        "1,3,5_0",  # PEP 515 separator: int() reads it as 50 -- a typo, a different k
+        "1,3,+5",
+        "1,3,٥",  # ARABIC-INDIC DIGIT FIVE; int() reads it as 5
+        "1,3,５",  # FULLWIDTH DIGIT FIVE
+    ],
+)
+def test_ks_outside_plain_decimal_digits_exits_two(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], ks: str
+) -> None:
+    """#260: `int()` accepts more than this flag means by "integer" -- the same
+    language #169 measured on the read side of these keys, where `"5_0"` became
+    k=50. Bare `int()` here ran the matrix at k=50 and published `recall@50`."""
+    rc, err = _run(capsys, ["--ks", ks, "--strategy", "fixed-size", "--results-dir", str(tmp_path)])
+    assert rc == 2, f"--ks {ks!r} should exit 2"
+    assert "comma-separated list of integers" in err
+    assert "Traceback" not in err
+    assert list(tmp_path.iterdir()) == [], "a rejected run must not write artifacts"
+
+
+def test_ks_tolerates_whitespace_around_elements(tmp_path: Path) -> None:
+    """The neighbour the #260 rule must not reject: `"1, 3"` is how people type a
+    list, and it measures exactly k=1 and k=3."""
+    import json
+
+    rc = main(["--ks", " 1, 3 ", "--strategy", "fixed-size", "--results-dir", str(tmp_path)])
+    assert rc == 0
+    (out,) = tmp_path.glob("*.json")
+    assert sorted(json.loads(out.read_text(encoding="utf-8"))["recall_at_k"]) == ["1", "3"]
