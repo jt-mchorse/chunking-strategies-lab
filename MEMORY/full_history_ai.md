@@ -2894,3 +2894,23 @@ context_for_next_session:
   - TIMESTAMPED_SCRATCH_SAME_SECOND_RUNS_OVERWRITE_EACH_OTHER_gitignored_scratch_not_filed
 followups: []
 ---
+
+---
+session: 2026-10-13T07:58Z
+duration_min: 20
+issue: 262
+branch: session/2026-10-13-0758-issue-262
+focus: EVALUATE_STRATEGY_ACCEPTED_TWO_CORPUS_DOCUMENTS_WITH_THE_SAME_FILENAME_CHUNKS_OF_ONE_CREDITED_RECALL_FOR_QUERIES_EXPECTING_THE_OTHER
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 9
+  suite: "1898 -> 1907 passed (no nbformat); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "pinned substrate, FixedSizeStrategy(600,80), HashEmbedder: RRF text as a 6th doc named 06_other.md recall@3/5 0.500/0.750, named 01_hnsw.md 0.583/0.833 (same chunks, same scores). corpus+corpus recall@5 0.917 -> 0.500. Revert: 5 of 9 red; 4 anti-vacuity arms green (same text distinct names, empty corpus, pinned corpus, non-str filename keeps the #176 message)."
+context_for_next_session:
+  - THE_192_EXCLUSION_REASON_WAS_ABOUT_EMPTINESS_AND_250_MOVED_ONLY_THE_QUERY_SIDE_UNIQUENESS_RULE_the_corpus_has_the_same_two_population_rules
+  - NOT_FILED_expected_doc_absent_from_corpus_is_covered_by_the_192_truthful_zero_decision
+  - NON_STR_FILENAME_IS_SKIPPED_IN_validate_corpus_so_an_unhashable_one_reaches_check_chunk_input_not_a_raw_TypeError
+followups: []
+---
