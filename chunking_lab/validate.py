@@ -63,7 +63,10 @@ match ``load_queries``):
 
 A missing ``path`` raises ``FileNotFoundError`` so the CLI surfaces it as
 exit 2. A missing ``corpus_dir`` (when supplied but doesn't exist) does
-the same — same convention as the sister-repo validators.
+the same — same convention as the sister-repo validators. A corpus
+document that cannot be read, or is not valid UTF-8, raises an ``OSError``
+whose ``filename`` is that document, so the CLI names it rather than the
+queries file (#258).
 """
 
 from __future__ import annotations
@@ -86,6 +89,17 @@ from chunking_lab.queries import (
 )
 
 REQUIRED_FIELDS: tuple[str, ...] = ("id", "question", "expected_doc", "expected_snippet")
+
+
+class _CorpusDocumentReadError(OSError):
+    """A corpus document a row names could not be read or decoded (#258).
+
+    ``main`` reports every other ``OSError`` / ``UnicodeDecodeError`` as a
+    failure to read the queries file, which was true until #255 made the
+    corpus check open each ``expected_doc``. A ``UnicodeDecodeError`` carries
+    no filename at all, so without this the operator was told the (valid)
+    queries file was not UTF-8 and never learned which document was.
+    """
 
 
 @dataclass(frozen=True)
@@ -291,9 +305,17 @@ def validate_queries(
                 # invalidation the doc check above exists to catch, on the
                 # other metric. Read as `load_corpus` reads it, once per doc.
                 if expected_doc not in corpus_texts:
-                    corpus_texts[expected_doc] = (corpus_root / expected_doc).read_text(
-                        encoding="utf-8-sig"
-                    )
+                    doc_path = corpus_root / expected_doc
+                    try:
+                        corpus_texts[expected_doc] = doc_path.read_text(encoding="utf-8-sig")
+                    except UnicodeDecodeError as e:
+                        raise _CorpusDocumentReadError(
+                            None, f"not valid UTF-8: {e}", str(doc_path)
+                        ) from e
+                    except OSError as e:
+                        raise _CorpusDocumentReadError(
+                            e.errno, e.strerror or str(e), str(doc_path)
+                        ) from e
                 if obj["expected_snippet"] not in corpus_texts[expected_doc]:
                     findings.append(
                         ValidationFinding(
@@ -418,8 +440,10 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Optional corpus directory. When given, every row's expected_doc "
-            "is checked against this directory; missing docs are reported as "
-            "'expected_doc_not_found' findings."
+            "must be a loaded corpus document (*.md) here, reported as "
+            "'expected_doc_not_found' otherwise, and its expected_snippet must "
+            "occur in that document, reported as 'expected_snippet_not_in_doc' "
+            "otherwise."
         ),
     )
     parser.add_argument(
@@ -448,6 +472,10 @@ def main(argv: list[str] | None = None) -> int:
         report = validate_queries(args.queries, corpus_dir=args.corpus_dir)
     except FileNotFoundError as e:
         sys.stderr.write(f"file not found: {e}\n")
+        return 2
+    except _CorpusDocumentReadError as e:
+        # Before the queries-file catches below, which would blame args.queries.
+        sys.stderr.write(f"failed to read corpus document {e.filename}: {e.strerror}\n")
         return 2
     except OSError as e:
         sys.stderr.write(f"failed to read {args.queries}: {e}\n")
