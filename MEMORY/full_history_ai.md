@@ -2936,3 +2936,24 @@ context_for_next_session:
   - NOT_FILED_validator_snippet_reason_says_snippet_hit_can_never_credit_it_but_snippet_hit_credits_any_top_k_chunk_pinned_substrate_has_no_cross_doc_snippet
 followups: []
 ---
+
+---
+session: 2026-10-14T07:27Z
+duration_min: 25
+issue: 266
+branch: session/2026-10-14-0727-issue-266
+focus: SBERT_INSTALL_HINTS_THREE_OF_NINETEEN_FAILED_AS_PRINTED_minilm_importerror_named_unpublished_pypi_dist_AND_capture_demo_plus_readme_demo_printed_unquoted_dot_bracket_sbert_that_zsh_globs
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "1928 collected, 1919 passed, 9 skipped after rebase onto #263 (py3.12, no nbformat); ruff check + format --check + mypy clean"
+decisions_made: []
+measured: "main: run_matrix --embedder minilm without sbert -> exit 2 printing pip install -e '.[sbert]' AND (… pip install 'chunking-strategies-lab[sbert]'); fresh venv pip install --dry-run of that -> No matching distribution (PyPI 404); zsh -c 'pip install -e .[sbert]' -> no matches found. Revert probe: 2 of 3 new tests red against the unfixed tree (scan arm + runtime ImportError arm); each of the three sites reverted alone turns a test red; anti-vacuity arm green by design."
+context_for_next_session:
+  - LENS_RUN_THE_DOCUMENTED_COMMAND_the_capture_demo_next_stop_block_is_meant_to_be_copied_and_its_first_line_failed_on_macos_zsh
+  - LOCK_SCANS_git_ls_files_FOR_pip_install_FOLLOWED_BY_AN_ARGUMENT_extras_read_from_pyproject_so_a_new_extra_or_hint_needs_no_edit_full_history_files_exempt
+  - REJECTED_canonical_out_with_strategy_leaves_summary_md_stale_IS_BY_DESIGN_151_closed_not_a_bug
+  - NOTED_NOT_FILED_test_summary_snapshot_module_docstring_still_says_regen_is_python_scripts_run_matrix_py_without_canonical_out_the_hint_190_fixed_in_REGEN_COMMAND
+followups: []
+---
