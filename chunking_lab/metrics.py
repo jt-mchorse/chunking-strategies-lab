@@ -1060,10 +1060,11 @@ def validate_queries(queries: Sequence[Query]) -> None:
     zero-row run to complete and the payload already had nullable fields. The
     shape is shared; the right answer is not.)
 
-    ``corpus`` deliberately gets no such guard. An empty corpus with real queries
-    yields a **truthful** ``0.0`` -- the queries ran and retrieved nothing -- which
-    is a measurement, not a fabrication. The distinction is which population the
-    denominator counts. (#192)
+    ``corpus`` deliberately gets no *emptiness* guard. An empty corpus with real
+    queries yields a **truthful** ``0.0`` -- the queries ran and retrieved nothing
+    -- which is a measurement, not a fabrication. The distinction is which
+    population the denominator counts. (#192) That reason is about emptiness and
+    nothing else; the corpus's *uniqueness* rule is :func:`validate_corpus` (#262).
 
     **Repeated ids are refused too (#250).** Emptiness was one of the two
     population rules ``load_queries`` enforces; the other is that ``id`` is
@@ -1093,6 +1094,50 @@ def validate_queries(queries: Sequence[Query]) -> None:
             f"query ids must be unique; repeated: {repeated!r}. A repeated query is "
             "counted once per occurrence, so it re-weights recall@k and snippet-hit@k "
             "and inflates n_queries (load_queries refuses the same file)"
+        )
+
+
+def validate_corpus(corpus: Sequence[Document]) -> None:
+    """Reject a corpus in which two documents share a ``filename`` (#262).
+
+    ``Document.filename`` is the attribution key: every chunk's
+    ``source_doc_id`` is set from it, and recall@k is ``expected_doc in
+    retrieved_doc_ids[:k]``. With a repeated name, a chunk from one document
+    credits recall for queries that expect the other. Measured on the pinned
+    substrate (``FixedSizeStrategy(600, 80)``, ``HashEmbedder``), adding the RRF
+    document's text as a sixth document:
+
+        named 06_other.md   recall@3 0.500   recall@5 0.750
+        named 01_hnsw.md    recall@3 0.583   recall@5 0.833
+
+    Same chunks, same scores; only the name differs, so the difference is HNSW
+    queries credited for retrieving RRF text. The same document listed twice
+    is the degenerate form: duplicate chunks fill the top-k (recall@5 0.917 ->
+    0.500).
+
+    The #192 paragraph above declines an *emptiness* guard for the corpus, and
+    its reason -- an empty corpus gives a truthful ``0.0`` -- still holds, so an
+    empty corpus is still accepted here. It never covered uniqueness, which is
+    the other population rule #250 moved to this boundary for ``queries``.
+    ``load_corpus`` cannot produce a repeat (one directory, one name per file);
+    a caller merging two corpora that both hold ``01_intro.md`` can.
+    """
+    seen: set[str] = set()
+    repeated: list[str] = []
+    for doc in corpus:
+        # A non-str filename is `check_chunk_input`'s to refuse, with its own
+        # message (#176); skipping it here also keeps an unhashable one from
+        # escaping as a raw TypeError out of the set lookup.
+        if not isinstance(doc.filename, str):
+            continue
+        if doc.filename in seen and doc.filename not in repeated:
+            repeated.append(doc.filename)
+        seen.add(doc.filename)
+    if repeated:
+        raise ValueError(
+            f"corpus document filenames must be unique; repeated: {repeated!r}. "
+            "filename is the source_doc_id recall@k attributes chunks by, so a "
+            "chunk of one document would credit queries expecting the other"
         )
 
 
@@ -1139,6 +1184,7 @@ def evaluate_strategy(
     # k_values guard in embedding-model-shootout (#28).
     validate_ks(ks)
     validate_queries(queries)
+    validate_corpus(corpus)
     # Deduplicate (order-preserving) so the counter dicts, `max(ks)`, and the
     # per-query counting loop all operate on the same unique-key set. The hit
     # dicts below already collapse duplicate keys, but the raw counting loop

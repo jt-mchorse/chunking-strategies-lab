@@ -2677,3 +2677,16 @@ published recall@50 columns, with no error. An earlier fix (#169) closed this
 gap where result files are read back, but not on the command line that writes
 them. The flag now accepts plain decimal numbers only, still allowing spaces
 around them, and anything else exits with the usual error.
+
+## 2026-10-13 — Two corpus documents can't share a filename (#262)
+
+A document's filename is how the evaluator decides which document a retrieved
+chunk came from. Recall asks whether the expected document's filename appears
+in the top results. If two documents were passed in with the same filename,
+for example when two corpus folders are merged and both have a `01_intro.md`,
+a chunk from one document counted as a hit for queries about the other. On the
+pinned corpus, adding a sixth document under an existing name raised recall@5
+from 0.750 to 0.833, and the run reported no error. The evaluator now refuses a
+corpus with a repeated filename before doing any work, and the message names
+the repeated files. An empty corpus is still accepted, because it honestly
+scores zero.

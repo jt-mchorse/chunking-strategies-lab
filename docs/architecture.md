@@ -196,10 +196,13 @@ the contract between layers.
   nullable values would be a type change across the read path, the
   write path and the renderer.
 
-  `corpus` deliberately gets no such guard. An empty corpus with real
+  `corpus` deliberately gets no emptiness guard. An empty corpus with real
   queries yields a **truthful** `0.0` — the queries ran and retrieved
   nothing, and `per_query` records each one. The distinction is which
-  population the denominator counts.
+  population the denominator counts. That reason covers emptiness only:
+  a repeated `Document.filename` is refused (#262), because filename is
+  the attribution key and a chunk of one document would credit recall
+  for queries expecting the other.
 
 - **One rule per field, shared by both paths (#180, #181, #182).**
   `RetrievalRun` is written by `evaluate_strategy` and read back by
