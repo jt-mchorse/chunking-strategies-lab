@@ -2656,3 +2656,14 @@ be encoded. The architecture doc was fixed and locked for the same gap on
 10-09, but this list was left until a conflicting PR merged. Both kinds are now
 listed. The test that checks the architecture doc now checks this list against
 the codes the validator actually produces, so the two lists can't drift apart.
+
+## 2026-10-13 — validate names the corpus document it could not read (#258)
+
+When `--corpus-dir` started checking that each snippet appears in its document
+(#255), the validator began opening those documents. Its error messages still
+assumed only one file was ever read. If a corpus document had a non-UTF-8 byte,
+the message said the queries file was not valid UTF-8, even though the queries
+file was fine, and it never said which document was broken. A document it had
+no permission to read was also reported as a failure to read the queries file.
+Both now say `failed to read corpus document <path>`, still with exit 2. The
+`--corpus-dir` help text now mentions the snippet check too.
