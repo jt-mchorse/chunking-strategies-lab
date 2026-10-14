@@ -415,13 +415,24 @@ def main(argv: list[str] | None = None) -> int:
 
     # `--ks` first: it is pure string parsing, so the operator learns the flag is
     # wrong before waiting on an embedder build, a corpus load, and five
-    # evaluations. `int()` raises on a non-numeric element, and the empty /
+    # evaluations. A non-numeric element is refused here, and the empty /
     # non-positive rules come from `metrics.validate_ks` — the *same* function
     # `evaluate_strategy` calls, not a second copy of the rule in the CLI.
-    try:
-        ks = tuple(int(k) for k in args.ks.split(",") if k.strip())
-    except ValueError as e:
-        return _fail(f"--ks must be a comma-separated list of integers; got {args.ks!r} ({e})")
+    #
+    # Plain ASCII decimal digits, not bare `int()` (#260). `int()` also accepts
+    # `_` digit separators, a leading `+` and non-ASCII decimal digits -- the
+    # language #169 measured as wider than `str(k)` on the read side of these
+    # same keys, where `"5_0"` became k=50: "a typo becomes a different k". Here
+    # that typo ran the matrix at k=50 and published `recall@50` columns, exit 0.
+    # A leading `-` is let through so `validate_ks` keeps owning the sign rule.
+    elements = [k.strip() for k in args.ks.split(",") if k.strip()]
+    bad = [k for k in elements if not re.fullmatch(r"-?[0-9]+", k)]
+    if bad:
+        return _fail(
+            f"--ks must be a comma-separated list of integers; got {args.ks!r} "
+            f"(not a plain decimal integer: {bad!r})"
+        )
+    ks = tuple(int(k) for k in elements)
     try:
         validate_ks(ks)
     except ValueError as e:

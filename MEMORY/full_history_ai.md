@@ -2873,3 +2873,24 @@ context_for_next_session:
   - DEFERRED_run_matrix_load_corpus_on_a_non_utf8_doc_not_examined_this_session
 followups: []
 ---
+
+---
+session: 2026-10-13T07:42Z
+duration_min: 20
+issue: 260
+branch: session/2026-10-13-0742-issue-260
+focus: RUN_MATRIX_KS_PARSED_WITH_BARE_int_SO_5_0_RAN_AS_K50_AND_PUBLISHED_RECALL_AT_50_169_FIXED_THE_SAME_GRAMMAR_ON_THE_READ_SIDE_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 5
+  suite: "1903 passed, 9 skipped (py3.12 venv); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "main: --ks 1,3,5_0 exit 0, recall_at_k keys ['1','3','50']; --ks 1,3,<U+0665> exit 0 as k=5. Branch: both exit 2 with the existing integers message. Revert: 4 of 5 new tests red; the whitespace neighbour ('1, 3') stays green by design."
+context_for_next_session:
+  - PROPERTY_FUZZ_OF_ALL_FIVE_CHUNKERS_CLEAN_offsets_cap_coverage_contiguity_determinism_over_3000_adversarial_docs_x2_seeds_crlf_nel_ls_astral_fences
+  - STRUCTURE_TITLE_KEEPS_TRAILING_U3000_OR_VT_COMMONMARK_STRIPS_ONLY_SPACE_TAB_NOT_A_BUG
+  - DUPLICATE_KS_3_03_STILL_ACCEPTED_evaluate_strategy_DEDUPS_BY_DESIGN_84
+  - TIMESTAMPED_SCRATCH_SAME_SECOND_RUNS_OVERWRITE_EACH_OTHER_gitignored_scratch_not_filed
+followups: []
+---

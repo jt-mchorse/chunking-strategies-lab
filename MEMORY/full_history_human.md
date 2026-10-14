@@ -2667,3 +2667,13 @@ file was fine, and it never said which document was broken. A document it had
 no permission to read was also reported as a failure to read the queries file.
 Both now say `failed to read corpus document <path>`, still with exit 2. The
 `--corpus-dir` help text now mentions the snippet check too.
+
+## 2026-10-13 — `run_matrix --ks` only takes plain numbers (#260)
+
+The matrix script read each `--ks` value with Python's `int()`, which also
+accepts underscores as digit separators, a leading plus, and digits from other
+scripts. So a typo like `--ks 1,3,5_0` quietly ran the benchmark at k=50 and
+published recall@50 columns, with no error. An earlier fix (#169) closed this
+gap where result files are read back, but not on the command line that writes
+them. The flag now accepts plain decimal numbers only, still allowing spaces
+around them, and anything else exits with the usual error.
