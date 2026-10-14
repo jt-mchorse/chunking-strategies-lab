@@ -75,7 +75,9 @@ class HashEmbedder:
 class MiniLMEmbedder:
     """sentence-transformers adapter for the canonical embedding model.
 
-    Requires the optional ``sbert`` extra: ``pip install '.[sbert]'``.
+    Requires the optional ``sbert`` extra: ``pip install -e '.[sbert]'`` from a
+    clone. The package is not on PyPI, so the hint names the local path, not
+    the distribution name (#266).
     Lazy-imports so the package still imports cleanly without the extra.
     """
 
@@ -84,8 +86,7 @@ class MiniLMEmbedder:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:  # pragma: no cover - exercised by users without the extra
             raise ImportError(
-                "MiniLMEmbedder requires the 'sbert' extra. "
-                "Install with: pip install 'chunking-strategies-lab[sbert]'"
+                "MiniLMEmbedder requires the 'sbert' extra. Install with: pip install -e '.[sbert]'"
             ) from e
         self.model_name = model_name
         self._model = SentenceTransformer(model_name)
