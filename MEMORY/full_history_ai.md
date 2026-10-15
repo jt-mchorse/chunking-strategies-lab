@@ -2914,3 +2914,25 @@ context_for_next_session:
   - NON_STR_FILENAME_IS_SKIPPED_IN_validate_corpus_so_an_unhashable_one_reaches_check_chunk_input_not_a_raw_TypeError
 followups: []
 ---
+
+---
+session: 2026-10-14T07:19Z
+duration_min: 20
+issue: 264
+branch: session/2026-10-14-0719-issue-264
+focus: LOAD_CORPUS_NON_UTF8_DOCUMENT_RAISED_A_UnicodeDecodeError_WITH_NO_FILENAME_258_FIXED_THE_SAME_READ_IN_VALIDATE_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "1905 passed, 9 skipped (py3.12, no nbformat); ruff check + format + mypy clean"
+decisions_made: []
+measured: "main b20f92e: load_corpus on a.md/b.md(latin-1 0xE9)/c.md -> UnicodeDecodeError \"'utf-8' codec can't decode byte 0xe9 in position 3: invalid continuation byte\", filename None. Branch: same type and offsets, reason ends '(corpus document <dir>/b.md)'. Revert: 2 of 3 new tests red; the valid-corpus neighbour stays green by design."
+context_for_next_session:
+  - LENS_THE_READER_258_DID_NOT_LIST_validate_and_load_corpus_read_the_same_files_259_session_log_deferred_it_by_name
+  - KEPT_UnicodeDecodeError_TYPE_reraised_with_path_in_reason_so_except_ValueError_callers_unchanged_unlike_validate_which_wraps_in_an_OSError
+  - DEFERRED_load_queries_non_utf8_has_no_line_number_single_path_so_the_file_is_known
+  - NOT_FILED_run_matrix_strategy_with_canonical_out_rewrites_one_canonical_json_without_summary_md_the_snapshot_test_goes_red_loudly
+  - NOT_FILED_validator_snippet_reason_says_snippet_hit_can_never_credit_it_but_snippet_hit_credits_any_top_k_chunk_pinned_substrate_has_no_cross_doc_snippet
+followups: []
+---

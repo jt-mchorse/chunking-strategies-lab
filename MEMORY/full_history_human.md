@@ -2690,3 +2690,12 @@ from 0.750 to 0.833, and the run reported no error. The evaluator now refuses a
 corpus with a repeated filename before doing any work, and the message names
 the repeated files. An empty corpus is still accepted, because it honestly
 scores zero.
+
+## 2026-10-14 — `load_corpus` names the document that is not UTF-8 (#264)
+
+Yesterday the validator learned to say which corpus document had a bad byte
+(#258). The library's own corpus loader reads the same files and still did
+not. With several documents, a non-UTF-8 byte in one of them gave the codec's
+generic message, so you had to check the files one by one. The error is still
+a `UnicodeDecodeError`, so code that catches it works as before, but its
+message now ends with `(corpus document <path>)`.

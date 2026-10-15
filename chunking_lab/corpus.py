@@ -59,7 +59,20 @@ def load_corpus(corpus_dir: PathLike[str] | str | None = None) -> list[Document]
         # as an invisible leading char, shifting first-chunk offsets by one and
         # leaking into snippet-match comparisons (#95). Parity with the queries
         # loader / validator fixed in #93.
-        docs.append(Document(filename=path.name, text=path.read_text(encoding="utf-8-sig")))
+        #
+        # A non-UTF-8 document raises a `UnicodeDecodeError`, which carries no
+        # filename: with five documents the caller learned that *some* byte was
+        # bad and not which file held it. `validate --corpus-dir` names the
+        # document since #258; this is the same read (#264). Re-raised as the
+        # same type with the same offsets, so `except UnicodeDecodeError` and
+        # `except ValueError` callers are unaffected.
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError as e:
+            raise UnicodeDecodeError(
+                e.encoding, e.object, e.start, e.end, f"{e.reason} (corpus document {path})"
+            ) from e
+        docs.append(Document(filename=path.name, text=text))
     if not docs:
         raise FileNotFoundError(f"no markdown documents in: {base}")
     return docs
