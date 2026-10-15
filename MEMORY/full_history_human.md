@@ -2713,3 +2713,13 @@ On zsh, the default macOS shell, the brackets are read as a filename pattern,
 so the command stops with "no matches found". All three now use the quoted
 form. A new test checks every tracked file for install hints and compares them
 with the extras listed in `pyproject.toml`, so the next one can't drift.
+
+## 2026-10-15 — `validate --corpus-dir` reads every corpus document (#268)
+
+Two days ago the validator learned to name a corpus document that isn't valid
+UTF-8 (#258), but it only read a document when a query pointed at it. A bad
+document that no query mentioned was never opened, so the validator said `ok`
+and the next `load_corpus` on the same folder crashed on that file. The
+validator now reads every document in the folder up front, the same way the
+loader does, so it rejects exactly the folders the loader rejects. A document
+that no query uses is still fine on its own.
