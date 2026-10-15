@@ -2723,3 +2723,14 @@ and the next `load_corpus` on the same folder crashed on that file. The
 validator now reads every document in the folder up front, the same way the
 loader does, so it rejects exactly the folders the loader rejects. A document
 that no query uses is still fine on its own.
+
+## 2026-10-15 — the notebook's bar charts stay readable at any number of k values (#270)
+
+The comparison notebook draws one group of bars per strategy, one bar for each
+k. The bar width was fixed at 0.25, which suits the default three k values.
+With five or more, a group became wider than the space between strategies.
+One strategy's last bar then sat exactly on top of the next strategy's first
+bar and hid it, so a reader could take one strategy's number for another's.
+Five k values come from a `--ks 1,2,3,4,5` run, or from a fresh run beside the
+canonical files once the chart combines their k sets. The bars now narrow as
+k values are added. The default chart is exactly as before.
