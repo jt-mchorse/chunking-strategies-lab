@@ -105,8 +105,7 @@ def test_minilm_without_the_extra_exits_two_not_a_traceback(
     class _NeedsExtra:
         def __init__(self, *_a, **_k):
             raise ImportError(
-                "MiniLMEmbedder requires the 'sbert' extra. "
-                "Install with: pip install 'chunking-strategies-lab[sbert]'"
+                "MiniLMEmbedder requires the 'sbert' extra. Install with: pip install -e '.[sbert]'"
             )
 
     monkeypatch.setattr(emb_mod, "MiniLMEmbedder", _NeedsExtra, raising=False)

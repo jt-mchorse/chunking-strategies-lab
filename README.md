@@ -230,7 +230,7 @@ the committed `results/summary.md` (its header says which embedder made
 it, and that a HashEmbedder run is not a quality comparison). Real
 cross-strategy numbers come from the operator running
 `python scripts/run_matrix.py --embedder minilm` after
-`pip install -e .[sbert]` (D-002, D-003); none is committed yet, and the
+`pip install -e '.[sbert]'` (D-002, D-003); none is committed yet, and the
 demo banner prints the committed summary's embedder rather than assuming
 one (#228).
 

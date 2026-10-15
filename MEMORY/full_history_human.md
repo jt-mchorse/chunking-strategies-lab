@@ -2699,3 +2699,17 @@ not. With several documents, a non-UTF-8 byte in one of them gave the codec's
 generic message, so you had to check the files one by one. The error is still
 a `UnicodeDecodeError`, so code that catches it works as before, but its
 message now ends with `(corpus document <path>)`.
+
+## 2026-10-14 — every `[sbert]` install hint is a command that works (#266)
+
+Most of the repo tells you to install the real-embedder extra with
+`pip install -e '.[sbert]'`. Three places said something else, and each one
+failed if you ran it as written. The error raised when the extra is missing
+said to install `chunking-strategies-lab[sbert]` from PyPI, but the package has
+never been published there, so pip can't find it. `run_matrix.py` showed that
+broken command right after the correct one. The demo script's closing
+"next stop" block and the README's Demo section left the quotes off `.[sbert]`.
+On zsh, the default macOS shell, the brackets are read as a filename pattern,
+so the command stops with "no matches found". All three now use the quoted
+form. A new test checks every tracked file for install hints and compares them
+with the extras listed in `pyproject.toml`, so the next one can't drift.
