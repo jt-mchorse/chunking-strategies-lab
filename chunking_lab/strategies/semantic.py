@@ -115,7 +115,11 @@ def _cosine_distance(a: list[float], b: list[float]) -> float:
             "non-finite cosine distance from a NaN/Inf embedding component; "
             "the embedder returned a non-finite vector"
         )
-    return dist
+    # Cosine distance lies in [0, 2]; the float quotient can land a ULP outside
+    # (#277). Two identical sentences came out at -2.2e-16 for some texts and
+    # 0.0 for others, so at `distance_threshold=0.0` a repeated sentence split
+    # or did not depending on rounding.
+    return min(2.0, max(0.0, dist))
 
 
 @dataclass
@@ -125,7 +129,7 @@ class SemanticBoundaryStrategy:
     embedder: Embedder
     name: str = "semantic"
     distance_threshold: float = 0.4
-    """Distance above which adjacent sentences are considered topic-changing."""
+    """Distance at or above which adjacent sentences are considered topic-changing."""
     min_chunk_chars: int = 80
     """Don't emit chunks shorter than this; merge them with the next."""
     max_chunk_chars: int = 1600
