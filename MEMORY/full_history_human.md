@@ -2734,3 +2734,11 @@ bar and hid it, so a reader could take one strategy's number for another's.
 Five k values come from a `--ks 1,2,3,4,5` run, or from a fresh run beside the
 canonical files once the chart combines their k sets. The bars now narrow as
 k values are added. The default chart is exactly as before.
+
+## 2026-10-16 — Passing documents as a generator gives the real scores (#279)
+
+A recent check reads through the documents before chunking them. If the
+documents were given as a generator, that check used them up, so the chunker
+saw nothing and the evaluation reported zero recall with no error, which looks
+just like an empty corpus. One-shot inputs are now read into a list first, and
+a generator gives exactly the same results as a list.
