@@ -449,8 +449,21 @@ def main(argv: list[str] | None = None) -> int:
     strategies = _build_strategies(embedder)
     if args.strategy is not None:
         strategies = [s for s in strategies if s.name == args.strategy]
-    corpus = load_corpus()
-    queries = load_queries()
+    # The dataset is operator input too (#275): `data/` is what an operator edits
+    # to extend the pinned set, and `python -m chunking_lab.validate` exists to
+    # check that edit. Both loaders already raise one `ValueError` (which
+    # includes `UnicodeDecodeError`) or `OSError` naming the file and line; #149
+    # covered the flags and the write path, so a bad row or a non-UTF-8
+    # document escaped here as a traceback at exit 1. Only these two calls are
+    # wrapped, so a bug anywhere else is not relabelled as bad data.
+    try:
+        corpus = load_corpus()
+        queries = load_queries()
+    except (OSError, ValueError) as e:
+        return _fail(
+            f"failed to load the dataset: {e} "
+            "(check data/queries.jsonl with: python -m chunking_lab.validate)"
+        )
 
     # The output directory is operator input too: a read-only filesystem, a
     # permission-denied path, or a path component that is a file makes `mkdir`
