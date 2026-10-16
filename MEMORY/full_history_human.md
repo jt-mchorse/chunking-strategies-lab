@@ -2734,3 +2734,12 @@ bar and hid it, so a reader could take one strategy's number for another's.
 Five k values come from a `--ks 1,2,3,4,5` run, or from a fresh run beside the
 canonical files once the chart combines their k sets. The bars now narrow as
 k values are added. The default chart is exactly as before.
+
+## 2026-10-16 — The matrix script reports a broken dataset cleanly (#275)
+
+`scripts/run_matrix.py` already turned bad flags and unwritable output folders
+into one clear error line and exit code 2. A broken data file, such as a query
+row missing a field or a document with a bad byte, still crashed with a Python
+traceback and exit code 1, which the repo reserves for something else. It now
+prints one error line that quotes what is wrong with the file, suggests running
+the validator, and exits 2.
