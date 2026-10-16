@@ -34,9 +34,9 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar, cast
 
 from ._fields import (
     require_non_negative_finite_number,
@@ -1141,6 +1141,16 @@ def validate_corpus(corpus: Sequence[Document]) -> None:
         )
 
 
+_T = TypeVar("_T")
+
+
+def _read_once(arg: _T) -> _T:
+    """*arg* as a list if it is a one-shot iterator, else unchanged (#279)."""
+    if isinstance(arg, Iterator):
+        return cast(_T, list(arg))
+    return arg
+
+
 def evaluate_strategy(
     strategy: Strategy,
     corpus: list[Document],
@@ -1182,6 +1192,17 @@ def evaluate_strategy(
     # empty `recall_at_k` dict. Surface every offender in one pass so
     # operators don't chase them one-at-a-time. Mirrors the run_sweep
     # k_values guard in embedding-model-shootout (#28).
+    # A one-shot iterator is read once, here, before anything iterates it
+    # (#279). Each validator below loops over its argument, so a generator was
+    # spent by the time `_materialize_vectors` / the query loop / `max(ks)` ran:
+    # a generator corpus produced 0 chunks and recall 0.0 at exit 0 -- the
+    # truthful-zero shape of a genuinely empty corpus, which `validate_corpus`
+    # deliberately still accepts -- and a generator `ks` raised a raw
+    # `max() iterable argument is empty`. Only iterators are copied: a `str`
+    # and every other shape still reach the validators as given.
+    ks = _read_once(ks)
+    queries = _read_once(queries)
+    corpus = _read_once(corpus)
     validate_ks(ks)
     validate_queries(queries)
     validate_corpus(corpus)
