@@ -2999,3 +2999,20 @@ context_for_next_session:
   - NOT_FILED_RetrievalRun_from_json_repeated_per_query_ids_deferred_2026_10_08_still_self_consistent_under_D_021_only_reachable_by_hand_edit
 followups: []
 ---
+
+---
+session: 2026-10-16T13:40Z
+issue: 279
+branch: session/2026-10-16-0916-issue-279
+focus: 262S_VALIDATE_CORPUS_SPENT_A_GENERATOR_BEFORE_CHUNKING_RECALL_0_0_ZERO_CHUNKS_AT_EXIT_0_INDISTINGUISHABLE_FROM_AN_EMPTY_CORPUS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "green; ruff, format, mypy clean"
+decisions_made: []
+measured: "generator corpus: recall 0/0/0 0 chunks on main; .167/.417/.583 after (= list). Revert 3 of 4 red."
+context_for_next_session:
+  - A_VALIDATOR_THAT_ITERATES_ITS_ARGUMENT_SPENDS_A_GENERATOR_read_once_up_front_only_for_Iterator_so_str_refusals_still_fire
+followups: []
+---
