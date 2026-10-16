@@ -3018,3 +3018,20 @@ context_for_next_session:
   - SIBLING_NOT_FIXED_scripts_run_matrix_py_loads_corpus_and_queries_outside_its_fail_exit_2_handling_a_bad_data_file_exits_1_with_a_traceback
 followups: []
 ---
+
+---
+session: 2026-10-16T11:50Z
+issue: 277
+branch: session/2026-10-16-0842-issue-277
+focus: COSINE_DISTANCE_ROUNDED_TO_MINUS_2_2E_16_FOR_IDENTICAL_SENTENCES_SO_THRESHOLD_ZERO_SPLIT_SOME_REPEATS_AND_NOT_OTHERS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 27
+  suite: "2001 -> 2028 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "12 repeated-sentence texts at threshold 0.0: 7 gave 1 chunk (-2.2e-16), 5 gave 2 (0.0) on main; all 12 give 2 after. canonical__semantic.json regen identical except wall_clock_ms. Revert 14 of 27 red."
+context_for_next_session:
+  - SAME_ULP_CLASS_AS_LEH_384_PEARSON_a_bounded_statistic_computed_in_floats_needs_a_clamp_at_its_mathematical_range
+followups: []
+---
