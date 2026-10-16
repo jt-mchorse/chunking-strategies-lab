@@ -2734,3 +2734,12 @@ bar and hid it, so a reader could take one strategy's number for another's.
 Five k values come from a `--ks 1,2,3,4,5` run, or from a fresh run beside the
 canonical files once the chart combines their k sets. The bars now narrow as
 k values are added. The default chart is exactly as before.
+
+## 2026-10-16 — A bad byte in a queries file is reported where it actually is (#273)
+
+The queries loader and the validator read the queries file in 8 KB pieces.
+When a file was bigger than that and had a non-UTF-8 byte past the first piece,
+the error gave the byte's position within its piece, not within the file, and
+gave no line number. An operator who opened the file at that position found a
+perfectly good character. Both readers now decode the whole file at once and
+report the real position and the line it is on.

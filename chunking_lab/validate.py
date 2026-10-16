@@ -85,7 +85,9 @@ from chunking_lab.queries import (
     JSON_ROW_ERRORS,
     MATCHED_FIELDS,
     invisible_char_reason,
+    iter_query_lines,
     json_row_error_reason,
+    read_queries_text,
     unencodable_char_reason,
 )
 
@@ -218,7 +220,9 @@ def validate_queries(
     # utf-8-sig strips a leading BOM, matching load_queries for parity (#93):
     # otherwise a BOM-prefixed file reports a spurious malformed_json finding on
     # line 1 (`.strip()` does not remove U+FEFF).
-    with path.open("r", encoding="utf-8-sig") as fh:
+    # Decoded whole by the reader `load_queries` uses, so a bad byte is
+    # reported at its real offset and line (#273).
+    with iter_query_lines(read_queries_text(path)) as fh:
         for line_no, raw_line in enumerate(fh, start=1):
             stripped = raw_line.strip()
             if not stripped:
@@ -485,13 +489,14 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"failed to read {args.queries}: {e}\n")
         return 2
     except UnicodeDecodeError as e:
-        # `validate_queries` decodes lazily while iterating the file handle
-        # (open with encoding="utf-8-sig"), outside the per-row json.loads try.
+        # `validate_queries` decodes the file whole before the first row
+        # (`read_queries_text`, #273), outside the per-row json.loads try.
         # A non-UTF-8 byte raises UnicodeDecodeError — a ValueError subclass, NOT
         # an OSError — which the narrow catches above miss, so it escaped as a
         # raw traceback at exit 1, breaking the documented "0 clean / 1 findings /
         # 2 I/O error" contract. A whole-file decode failure is an I/O error
-        # (exit 2), not a per-row malformed_json finding. Sibling of the
+        # (exit 2), not a per-row malformed_json finding; the message carries the
+        # byte's file offset and line. Sibling of the
         # llm-eval-harness validate/run non-UTF-8 fix and prs/ems snapshot reads.
         sys.stderr.write(f"failed to read {args.queries}: not valid UTF-8: {e}\n")
         return 2

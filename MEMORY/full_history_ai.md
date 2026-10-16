@@ -2999,3 +2999,22 @@ context_for_next_session:
   - NOT_FILED_RetrievalRun_from_json_repeated_per_query_ids_deferred_2026_10_08_still_self_consistent_under_D_021_only_reachable_by_hand_edit
 followups: []
 ---
+
+---
+session: 2026-10-16T07:50Z
+issue: 273
+branch: session/2026-10-16-0735-issue-273
+focus: BOTH_QUERIES_READERS_DECODED_IN_8_KIB_PIECES_SO_A_BAD_BYTE_PAST_THE_FIRST_PIECE_WAS_REPORTED_AT_ITS_OFFSET_IN_THE_PIECE_43364_READ_AS_2404_WITH_NO_LINE
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 15
+  suite: "2001 -> 2016 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "401-row file, bad byte at offset 43364 line 301: main 'position 2404', no line; after 'position 43364 ... (line 301)', rc 2 both. Revert 12 of 15 red."
+context_for_next_session:
+  - utf_8_sig_REPORTS_OFFSETS_RELATIVE_TO_THE_POST_BOM_BYTES_add_the_bom_length_back_for_a_file_offset
+  - StringIO_newline_None_IS_UNIVERSAL_NEWLINES_and_splits_exactly_like_a_text_handle_splitlines_DOES_NOT
+  - SIBLING_NOT_FIXED_scripts_run_matrix_py_loads_corpus_and_queries_outside_its_fail_exit_2_handling_a_bad_data_file_exits_1_with_a_traceback
+followups: []
+---
