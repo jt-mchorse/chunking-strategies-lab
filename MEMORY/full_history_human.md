@@ -2743,3 +2743,12 @@ the error gave the byte's position within its piece, not within the file, and
 gave no line number. An operator who opened the file at that position found a
 perfectly good character. Both readers now decode the whole file at once and
 report the real position and the line it is on.
+
+## 2026-10-16 — The matrix script reports a broken dataset cleanly (#275)
+
+`scripts/run_matrix.py` already turned bad flags and unwritable output folders
+into one clear error line and exit code 2. A broken data file, such as a query
+row missing a field or a document with a bad byte, still crashed with a Python
+traceback and exit code 1, which the repo reserves for something else. It now
+prints one error line that quotes what is wrong with the file, suggests running
+the validator, and exits 2.
