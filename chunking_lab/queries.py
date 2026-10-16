@@ -17,6 +17,8 @@ relevant passage fail this query.
 
 from __future__ import annotations
 
+import codecs
+import io
 import json
 import unicodedata
 from dataclasses import dataclass
@@ -231,6 +233,47 @@ def _require_str(value: object, name: str) -> str:
     return value
 
 
+def read_queries_text(path: Path) -> str:
+    """The queries file decoded whole, a leading BOM dropped (#93), as ``str``.
+
+    Both queries readers (`load_queries`, `validate.validate_queries`) used to
+    iterate a handle opened with ``encoding="utf-8-sig"``, which decodes in
+    8 KiB pieces. A bad byte past the first piece raised a `UnicodeDecodeError`
+    whose ``start`` counted from that piece and whose ``object`` was that piece:
+    a bad byte at file offset 43364 on line 301 was reported as "position 2404",
+    a different and valid byte, with no line (#273). The corpus reads use
+    ``read_text`` and never had this. Decoding the bytes whole gives the real
+    offset; the error is re-raised with the file's bytes, that offset counted
+    from the start of the file (BOM included), and the line it is on. Same
+    type, so ``except UnicodeDecodeError`` / ``except ValueError`` callers are
+    unaffected.
+    """
+    data = path.read_bytes()
+    bom = len(codecs.BOM_UTF8) if data.startswith(codecs.BOM_UTF8) else 0
+    try:
+        return data[bom:].decode("utf-8")
+    except UnicodeDecodeError as e:
+        start = bom + e.start
+        # Everything before the first bad byte decodes. Lines are counted the
+        # way iterating the text handle split them: \r\n, \r and \n.
+        prefix = data[bom:start].decode("utf-8")
+        line = prefix.replace("\r\n", "\n").replace("\r", "\n").count("\n") + 1
+        raise UnicodeDecodeError(
+            "utf-8", data, start, bom + e.end, f"{e.reason} (line {line})"
+        ) from e
+
+
+def iter_query_lines(text: str) -> io.StringIO:
+    """*text* as lines split exactly as a text-mode file handle splits them.
+
+    ``newline=None`` is universal-newline mode, which is what ``open(..., "r")``
+    gave both readers: ``\r\n``, ``\r`` and ``\n`` end a line, and nothing
+    else does. ``str.splitlines()`` would also break on U+2028, U+0085 and
+    friends, which JSON allows raw inside a string.
+    """
+    return io.StringIO(text, newline=None)
+
+
 def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
     """Load all queries from a JSONL file. Validates required fields."""
     p = Path(path) if path is not None else DEFAULT_QUERIES_PATH
@@ -242,7 +285,9 @@ def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
     # Windows Notepad and some spreadsheet exports) and is a no-op for BOM-less
     # UTF-8. `.strip()` below does not remove U+FEFF, so without this the BOM
     # reaches json.loads on line 1 and the whole file fails to load (#93).
-    with p.open("r", encoding="utf-8-sig") as f:
+    # utf-8-sig semantics -- see `read_queries_text`, which also gives a bad
+    # byte its real offset and line (#273).
+    with iter_query_lines(read_queries_text(p)) as f:
         for lineno, raw in enumerate(f, start=1):
             line = raw.strip()
             if not line:
