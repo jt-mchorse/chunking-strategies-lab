@@ -2978,3 +2978,24 @@ context_for_next_session:
   - DEFERRED_load_queries_non_utf8_has_no_line_number_still_deferred_from_265
 followups: []
 ---
+
+---
+session: 2026-10-15T07:34Z
+duration_min: 25
+issue: 270
+branch: session/2026-10-15-0734-issue-270
+focus: NOTEBOOK_CHART_FIXED_BAR_WIDTH_0_25_OVERLAPPED_NEIGHBOURING_STRATEGIES_AT_5_PLUS_KS_one_strategys_last_bar_drawn_exactly_over_the_next_strategys_first
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 19
+  suite: "1997 passed ([dev,notebook] py3.12); 1922 passed, 10 skipped (CI-shaped [dev] py3.11); ruff check + format --check + mypy clean"
+decisions_made: []
+measured: "main 70b593b: run_matrix --ks 1,2,3,4,5 then exec the committed notebook cells -> fixed-size recall@5 x=[0.375,0.625] and recursive recall@1 x=[0.375,0.625], same interval, recall@5 drawn last hides it. Revert probe: 11 of 19 new tests red (4..8 k's x both charts + the measured 5-k case); 1..3 k's and the canonical-geometry control green by design."
+context_for_next_session:
+  - LENS_TEST_THE_DRAWN_THING_210_made_ks_a_union_and_kept_the_constant_width_chosen_for_three_ks_the_comment_said_centred_for_any_len_ks_and_centring_was_true_width_was_not
+  - FIX_width_min_0_25_0_8_over_len_ks_canonical_3_k_geometry_unchanged_so_committed_png_outputs_kept_notebook_cell_source_resynced_via_nbformat_not_re_executed
+  - NOT_FILED_run_matrix_ks_far_above_n_chunks_publishes_recall_at_99999_1_000_retrieving_everything_is_a_real_measurement
+  - NOT_FILED_RetrievalRun_from_json_repeated_per_query_ids_deferred_2026_10_08_still_self_consistent_under_D_021_only_reachable_by_hand_edit
+followups: []
+---

@@ -195,7 +195,10 @@ _RECALL_CELL = dedent(
     ks = sorted({int(k) for r in runs for k in r["recall_at_k"]}) if runs else [1, 3, 5]
     strategies = [r["strategy_name"] for r in runs]
     x = np.arange(len(strategies))
-    width = 0.25
+    # A group of len(ks) bars must fit between ticks 1.0 apart. A fixed 0.25
+    # does that only up to four k's; at five, one strategy's last bar sat exactly
+    # on the next strategy's first and hid it (#270). 0.25 for the default 3.
+    width = min(0.25, 0.8 / len(ks))
 
     fig, ax = plt.subplots(figsize=(9.0, 4.5))
     for i, k in enumerate(ks):
