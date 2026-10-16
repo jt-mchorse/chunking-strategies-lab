@@ -2957,3 +2957,24 @@ context_for_next_session:
   - NOTED_NOT_FILED_test_summary_snapshot_module_docstring_still_says_regen_is_python_scripts_run_matrix_py_without_canonical_out_the_hint_190_fixed_in_REGEN_COMMAND
 followups: []
 ---
+
+---
+session: 2026-10-15T07:18Z
+duration_min: 25
+issue: 268
+branch: session/2026-10-15-0718-issue-268
+focus: VALIDATE_CORPUS_DIR_READ_ONLY_THE_DOCUMENTS_A_VALID_ROW_NAMES_SO_AN_UNREFERENCED_NON_UTF8_OR_UNREADABLE_DOC_VALIDATED_OK_EXIT_0_WHILE_load_corpus_RAISED_ON_IT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "1923 passed, 9 skipped (py3.12, no nbformat); ruff check + format --check + mypy clean"
+decisions_made: []
+measured: "main aebf438: corpus a.md + b.md(latin-1 0xE9), one row naming a.md -> validate --corpus-dir 'ok: rows=1 valid=1 findings=0' exit 0; load_corpus on the same dir -> UnicodeDecodeError (corpus document corpus/b.md). Branch: exit 2 'failed to read corpus document corpus/b.md: not valid UTF-8'. Revert probe: 3 of 4 new tests red; the loadable-corpus neighbour stays green by design."
+context_for_next_session:
+  - LENS_THE_SURFACE_258_AND_264_DID_NOT_LIST_258_fixed_the_docs_a_row_reads_264_the_loader_neither_listed_the_docs_no_row_reads
+  - FIX_reads_every_enumerated_doc_up_front_sorted_through_the_same_CorpusDocumentReadError_wrap_per_row_lazy_read_removed_snippet_check_uses_the_cache
+  - REJECTED_install_hints_267_sibling_sweep_every_pip_install_hint_on_the_branch_already_canonical_no_pip3_or_uv_forms_in_tracked_files
+  - DEFERRED_load_queries_non_utf8_has_no_line_number_still_deferred_from_265
+followups: []
+---

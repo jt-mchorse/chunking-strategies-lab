@@ -66,7 +66,8 @@ exit 2. A missing ``corpus_dir`` (when supplied but doesn't exist) does
 the same — same convention as the sister-repo validators. A corpus
 document that cannot be read, or is not valid UTF-8, raises an ``OSError``
 whose ``filename`` is that document, so the CLI names it rather than the
-queries file (#258).
+queries file (#258). Every enumerated document is read, whether or not a row
+names it, so the validator refuses the corpora ``load_corpus`` refuses (#268).
 """
 
 from __future__ import annotations
@@ -194,6 +195,20 @@ def validate_queries(
         # an I/O-shaped error (exit 2), and the loader already says so.
         if not corpus_docs:
             raise FileNotFoundError(f"no markdown documents in: {corpus_root}")
+        # Read every document now, as `load_corpus` does (#268). The snippet
+        # check below used to read a document on its first reference, so one
+        # that no valid row names -- not valid UTF-8, or unreadable -- was never
+        # opened: the run validated `ok` at exit 0 and `load_corpus` then raised
+        # on that same directory. Sorted so the first bad document reported is
+        # the one `load_corpus` would raise on.
+        for name in sorted(corpus_docs):
+            doc_path = corpus_root / name
+            try:
+                corpus_texts[name] = doc_path.read_text(encoding="utf-8-sig")
+            except UnicodeDecodeError as e:
+                raise _CorpusDocumentReadError(None, f"not valid UTF-8: {e}", str(doc_path)) from e
+            except OSError as e:
+                raise _CorpusDocumentReadError(e.errno, e.strerror or str(e), str(doc_path)) from e
 
     findings: list[ValidationFinding] = []
     seen_ids: dict[str, int] = {}
@@ -303,19 +318,8 @@ def validate_queries(
                 # never hit from it: a typo'd `ef_constuction` validated clean
                 # and pinned that query's snippet-hit at 0 -- the silent
                 # invalidation the doc check above exists to catch, on the
-                # other metric. Read as `load_corpus` reads it, once per doc.
-                if expected_doc not in corpus_texts:
-                    doc_path = corpus_root / expected_doc
-                    try:
-                        corpus_texts[expected_doc] = doc_path.read_text(encoding="utf-8-sig")
-                    except UnicodeDecodeError as e:
-                        raise _CorpusDocumentReadError(
-                            None, f"not valid UTF-8: {e}", str(doc_path)
-                        ) from e
-                    except OSError as e:
-                        raise _CorpusDocumentReadError(
-                            e.errno, e.strerror or str(e), str(doc_path)
-                        ) from e
+                # other metric. Every document was read above, as `load_corpus`
+                # reads it (#268).
                 if obj["expected_snippet"] not in corpus_texts[expected_doc]:
                     findings.append(
                         ValidationFinding(
