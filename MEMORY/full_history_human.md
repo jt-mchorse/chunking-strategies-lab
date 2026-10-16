@@ -2734,3 +2734,12 @@ bar and hid it, so a reader could take one strategy's number for another's.
 Five k values come from a `--ks 1,2,3,4,5` run, or from a fresh run beside the
 canonical files once the chart combines their k sets. The bars now narrow as
 k values are added. The default chart is exactly as before.
+
+## 2026-10-16 — Repeated sentences split consistently at a zero threshold (#277)
+
+The semantic chunker measures how different two adjacent sentences are. For
+two identical sentences that difference should be exactly 0, but rounding
+sometimes made it a tiny negative number, so at a threshold of 0 some repeated
+sentences were split and others weren't. The distance is now kept within its
+valid range, and every identical pair behaves the same. The published
+comparison results don't change.
