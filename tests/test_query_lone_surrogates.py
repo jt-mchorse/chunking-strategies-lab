@@ -82,3 +82,17 @@ def test_a_real_astral_character_is_not_a_surrogate() -> None:
 
 def test_the_shipped_queries_are_clean() -> None:
     assert list(validate_queries(QUERIES).findings) == []
+
+
+@pytest.mark.parametrize("field", FIELDS)
+def test_the_loader_names_the_file_and_line(field: str, tmp_path: Path) -> None:
+    # #281: `Query.__post_init__` has no file to name; `load_queries` adds it.
+    # Two rows, the bad one second, so the line is not the default 1.
+    good = _valid()
+    bad = dict(good, id=good["id"] + "b")
+    bad[field] = bad[field] + "\ud800"
+    p = tmp_path / "q.jsonl"
+    p.write_text(json.dumps(good) + "\n" + json.dumps(bad) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="lone surrogate") as exc:
+        load_queries(p)
+    assert str(exc.value).startswith(f"{p}:2: {field} contains the lone surrogate U+D800")

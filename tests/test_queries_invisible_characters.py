@@ -212,3 +212,32 @@ def test_the_corrupting_rows_can_no_longer_reach_the_metric(field, ch):
     a real measurement rather than a data defect."""
     with pytest.raises(ValueError, match="invisible character"):
         _run_metric(_row(**{field: _row()[field] + ch}))
+
+
+# ----------------------------------------------------------------------
+# The loader names the file and line (#281)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ch", INVISIBLE, ids=lambda c: f"U+{ord(c):04X}")
+@pytest.mark.parametrize("field", ["id", "expected_doc", "expected_snippet"])
+def test_the_loader_names_the_file_and_line_of_an_invisible_character(tmp_path, field, ch):
+    """`Query.__post_init__` raises with no file; `load_queries` must add it.
+
+    The bad row is on line 2 so the line number is not the default 1.
+    """
+    p = tmp_path / "queries.jsonl"
+    bad = _row(id="q2")
+    bad[field] += ch
+    rows = [_row(), bad]
+    p.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="invisible character") as exc:
+        load_queries(p)
+    assert str(exc.value).startswith(f"{p}:2: {field} contains the invisible character")
+
+
+def test_direct_construction_keeps_its_unprefixed_message():
+    # Control: there is no file on this path, so nothing is prefixed.
+    with pytest.raises(ValueError, match="invisible character") as exc:
+        Query(**_row(expected_doc="d1.md" + ZWSP))
+    assert str(exc.value).startswith("expected_doc contains the invisible character")
