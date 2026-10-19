@@ -2778,3 +2778,12 @@ came from. Every other bad-row error does say this, and the matrix script's
 error line depends on it. Because the bad character can't be seen, the line
 number is exactly what an operator needs. These errors now start with
 `<file>:<line>:`, the same as the others.
+
+## 2026-10-19 — The matrix script's "check it with" hint actually works (#283)
+
+When the matrix script couldn't load the data, its error line suggested running
+`python -m chunking_lab.validate`. Run as printed, that only produced a usage
+error. Adding the queries file made it run, but it never looked at the
+documents, so a broken document was reported as "ok". The hint now prints the
+full command, with the queries file and the document folder the script actually
+loaded, and that command fails on the same broken data the script refused.
