@@ -3088,3 +3088,21 @@ context_for_next_session:
   - "PATHS_READ_ONCE_AND_PASSED_TO_BOTH_LOADERS_AND_THE_HINT_so_they_cannot_drift"
 followups: []
 ---
+
+---
+session: 2026-10-19T08:15Z
+issue: 285
+branch: session/2026-10-19-0815-issue-285
+focus: SEMANTIC_CLOSERS_KNEW_8_MARKS_SO_GERMAN_FRENCH_QUOTES_HID_THE_BOUNDARY_AND_UNSPACED_CJK_BRACKETS_AFTER_FULLWIDTH_STOP_WERE_ORPHANED
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 16
+  suite: "2037 passed, 10 skipped; ruff, format, mypy clean"
+decisions_made: []
+measured: "main: 'Er sagte „Ja.“ Dann ging er.' / '«Ja.»' / '‹Ja.›' -> 1 sentence; '会议在周一举行（见附录。）收入大幅增长。' -> ['...（见附录。', '）收入大幅增长。'] (same for 】 》). After: 2 sentences, closer on the first. run_matrix --canonical-out: only wall_clock_ms moved, every metric and n_chunks identical. Revert 11 of 16 red; the 5 green are the controls (en ”, en opening “ after a space, zh 」, zh 。“ and 。‘ openers). The neighbouring wrong fix (ambiguous quotes in the shared class) turns the 2 zh-opener controls red."
+context_for_next_session:
+  - "A_LOCALE_DEPENDENT_QUOTE_IS_A_CLOSER_ONLY_WHERE_WHITESPACE_FOLLOWS_branch_a_may_take_it_branch_b_may_not"
+  - "French_spaced_guillemets_'Oui. » Puis'_still_orphan_the_closer_space_before_closer_shape_not_filed"
+followups: []
+---
