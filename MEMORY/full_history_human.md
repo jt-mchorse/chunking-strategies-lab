@@ -2769,3 +2769,12 @@ documents were given as a generator, that check used them up, so the chunker
 saw nothing and the evaluation reported zero recall with no error, which looks
 just like an empty corpus. One-shot inputs are now read into a list first, and
 a generator gives exactly the same results as a list.
+
+## 2026-10-19 — Query errors from the loader name the file and line (#281)
+
+When a query row contained an invisible character or a broken (lone surrogate)
+character, the loader passed the error up without saying which file or line it
+came from. Every other bad-row error does say this, and the matrix script's
+error line depends on it. Because the bad character can't be seen, the line
+number is exactly what an operator needs. These errors now start with
+`<file>:<line>:`, the same as the others.

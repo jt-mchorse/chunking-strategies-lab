@@ -3052,3 +3052,21 @@ context_for_next_session:
   - A_VALIDATOR_THAT_ITERATES_ITS_ARGUMENT_SPENDS_A_GENERATOR_read_once_up_front_only_for_Iterator_so_str_refusals_still_fire
 followups: []
 ---
+
+---
+session: 2026-10-19T07:25Z
+issue: 281
+branch: session/2026-10-19-0723-issue-281
+focus: LOAD_QUERIES_RERAISED_QUERY_POST_INIT_ERRORS_UNCHANGED_VIA_A_DEAD_EXCEPT_VALUEERROR_RAISE_SO_INVISIBLE_CHAR_AND_LONE_SURROGATE_ROWS_NAMED_NO_FILE_OR_LINE
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 35
+  suite: "2013 passed, 10 skipped; ruff, format, mypy clean"
+decisions_made: []
+measured: "run_matrix with a ZWSP / lone-surrogate row on line 13: main '::error::failed to load the dataset: expected_doc contains the invisible character ...' (no file, no line); after '<path>/queries.jsonl:13: expected_doc contains ...'. Revert 33 of 35 red; the 2 green are the unprefixed-direct-construction and not-prefixed-twice controls."
+context_for_next_session:
+  - "A_BARE_EXCEPT_X_RAISE_IS_A_NO_OP_that_reads_as_context_wrapping_276_trusted_it_in_a_comment"
+  - "REQUIRE_STR_MOVED_OUTSIDE_THE_TRY_so_its_own_file_line_prefix_is_not_doubled"
+followups: []
+---
