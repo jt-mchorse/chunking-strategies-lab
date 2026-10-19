@@ -2787,3 +2787,14 @@ error. Adding the queries file made it run, but it never looked at the
 documents, so a broken document was reported as "ok". The hint now prints the
 full command, with the queries file and the document folder the script actually
 loaded, and that command fails on the same broken data the script refused.
+
+## 2026-10-19 — German, French and CJK closing marks stay with their sentence (#285)
+
+The semantic chunker's sentence splitter knew only eight closing quotes and
+brackets. A German `„Ja.“ Dann …` or French `«Ja.» Dann …` therefore stayed one
+sentence. In unspaced Chinese, a closing `）`, `】` or `》` after a `。` was
+split off and started the next sentence. The splitter now knows the CJK closing
+brackets. It also treats the quotes whose direction depends on the language
+(`“ ‘ » « › ‹`) as closers, but only when a space follows them, because in
+Chinese `。“你好”` the `“` opens the next sentence. The English benchmark
+numbers do not change.
