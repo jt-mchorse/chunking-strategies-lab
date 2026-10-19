@@ -307,19 +307,21 @@ def load_queries(path: PathLike[str] | str | None = None) -> list[Query]:
                 raise ValueError(
                     f"{p}:{lineno}: row must be a JSON object, got {type(rec).__name__}"
                 )
+            # `_require_str` names the file and line itself, so it runs outside
+            # the `try`. What the `try` wraps is `Query.__post_init__`, whose
+            # message has no file to name (it is also the direct-construction
+            # path): an invisible character (#162, #171) or a lone surrogate
+            # (#216). This was `except ValueError: raise`, a no-op, so those
+            # rows -- the ones whose offending character the operator cannot
+            # see -- were the only row errors that carried no line (#281).
+            fields = {
+                name: _require_str(rec.get(name), f"{p}:{lineno} {name!r}")
+                for name in ("id", "question", "expected_doc", "expected_snippet")
+            }
             try:
-                q = Query(
-                    id=_require_str(rec.get("id"), f"{p}:{lineno} 'id'"),
-                    question=_require_str(rec.get("question"), f"{p}:{lineno} 'question'"),
-                    expected_doc=_require_str(
-                        rec.get("expected_doc"), f"{p}:{lineno} 'expected_doc'"
-                    ),
-                    expected_snippet=_require_str(
-                        rec.get("expected_snippet"), f"{p}:{lineno} 'expected_snippet'"
-                    ),
-                )
-            except ValueError:
-                raise
+                q = Query(**fields)
+            except ValueError as e:
+                raise ValueError(f"{p}:{lineno}: {e}") from e
             if q.id in seen_ids:
                 raise ValueError(f"{p}:{lineno}: duplicate query id {q.id!r}")
             seen_ids.add(q.id)

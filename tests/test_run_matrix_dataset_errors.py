@@ -11,6 +11,7 @@ copy of `data/` and never touches the committed files.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 from collections.abc import Callable
@@ -47,6 +48,23 @@ def _break_row(d: Path) -> None:
         f.write('{"id": "q99", "question": "x"}\n')
 
 
+def _append_row(d: Path, field: str, ch: str) -> None:
+    # `json.dumps` escapes the character, so the file stays valid UTF-8 and the
+    # row reaches `Query.__post_init__` (#281).
+    row = {"id": "q99", "question": "x?", "expected_doc": "01_hnsw.md", "expected_snippet": "HNSW"}
+    row[field] += ch
+    with (d / "queries.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def _invisible_char_row(d: Path) -> None:
+    _append_row(d, "expected_doc", "\u200b")
+
+
+def _lone_surrogate_row(d: Path) -> None:
+    _append_row(d, "question", "\ud800")
+
+
 def _non_utf8_query(d: Path) -> None:
     with (d / "queries.jsonl").open("ab") as f:
         f.write(
@@ -69,6 +87,8 @@ def _empty_corpus(d: Path) -> None:
 
 CASES = {
     "bad-row": (_break_row, "queries.jsonl:13 'expected_doc' must be a string"),
+    "invisible-char-row": (_invisible_char_row, "queries.jsonl:13: expected_doc contains"),
+    "lone-surrogate-row": (_lone_surrogate_row, "queries.jsonl:13: question contains"),
     "non-utf8-query": (_non_utf8_query, "can't decode byte 0xe9"),
     "non-utf8-document": (_non_utf8_document, "corpus document"),
     "missing-queries": (_missing_queries, "queries file not found"),

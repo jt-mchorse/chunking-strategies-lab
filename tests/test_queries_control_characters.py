@@ -246,3 +246,27 @@ def test_find_invisible_char_reports_the_first_of_either_category() -> None:
     index, label = second
     assert index == 2
     assert label.startswith("U+200B")
+
+
+# --- the loader names the file and line (#281) -------------------------------
+
+
+@pytest.mark.parametrize("cp", [0x00, 0x1B, 0x7F, 0x9B], ids=_label)
+@pytest.mark.parametrize("field", MATCHED_FIELDS)
+def test_the_loader_names_the_file_and_line_of_a_control(tmp_path, field: str, cp: int) -> None:
+    p = tmp_path / "queries.jsonl"
+    bad = _row(id="q2")
+    bad[field] = str(bad[field]) + chr(cp)
+    p.write_text(json.dumps(_row()) + "\n" + json.dumps(bad) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="invisible character") as exc:
+        load_queries(p)
+    assert str(exc.value).startswith(f"{p}:2: {field} contains the invisible character")
+
+
+def test_a_require_str_error_is_not_prefixed_twice(tmp_path) -> None:
+    # Control: `_require_str` already names the file and line; the #281 prefix
+    # wraps `Query.__post_init__` only, so this message is unchanged.
+    p = _write(tmp_path, _row(expected_doc=None))
+    with pytest.raises(ValueError, match="must be a string") as exc:
+        load_queries(p)
+    assert str(exc.value) == f"{p}:1 'expected_doc' must be a string, got NoneType"
