@@ -12,7 +12,10 @@ copy of `data/` and never touches the committed files.
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -123,3 +126,65 @@ def test_the_copied_dataset_still_runs_clean(
     rc, err, out = _run(tmp_path, capsys)
     assert rc == 0, err
     assert [p.name for p in out.iterdir() if p.suffix == ".json"]
+
+
+# --- the hint is runnable as printed and checks what failed (#283) ----------
+
+_HINT_MARK = "(check it with: "
+
+
+def _validate_argv(d: Path) -> list[str]:
+    """The validator run that checks everything `run_matrix` loads from *d*."""
+    return [
+        "python",
+        "-m",
+        "chunking_lab.validate",
+        str(d / "queries.jsonl"),
+        "--corpus-dir",
+        str(d / "corpus"),
+    ]
+
+
+def _hint_argv(err: str) -> list[str]:
+    """The command the `::error::` line tells the operator to run, as argv."""
+    line = err.strip().splitlines()[-1]
+    assert _HINT_MARK in line, line
+    return shlex.split(line.rsplit(_HINT_MARK, 1)[1].removesuffix(")"))
+
+
+def _run_validator(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    # `python` is this interpreter; the cwd is NOT the repo root, so a hint that
+    # only works from there (a relative `data/...`) fails here.
+    assert argv[0] == "python", argv
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    return subprocess.run(
+        [sys.executable, *argv[1:]], cwd=cwd, env=env, capture_output=True, text=True
+    )
+
+
+@pytest.mark.parametrize(("breakage", "needle"), list(CASES.values()), ids=list(CASES))
+def test_the_printed_hint_runs_and_refuses_the_same_dataset(
+    data: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    breakage: Callable[[Path], None],
+    needle: str,
+) -> None:
+    breakage(data)
+    rc, err, _ = _run(tmp_path, capsys)
+    assert rc == 2
+    argv = _hint_argv(err)
+    assert argv == _validate_argv(data)
+    proc = _run_validator(argv, tmp_path)
+    # 1 = findings, 2 = could not read; 0 would call the refused dataset ok.
+    # An argparse usage error is also 2, so require that the validator ran.
+    assert proc.returncode in (1, 2), proc
+    assert "usage:" not in proc.stderr, proc.stderr
+
+
+def test_the_validator_run_passes_the_clean_copy(data: Path, tmp_path: Path) -> None:
+    # Control: the command the hint must equal is exit 0 on the unbroken copy,
+    # so each refusal above is the breakage and not the command.
+    proc = _run_validator(_validate_argv(data), tmp_path)
+    assert proc.returncode == 0, proc
+    assert proc.stdout.startswith("ok: "), proc.stdout
