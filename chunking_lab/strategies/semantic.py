@@ -58,11 +58,27 @@ from . import Chunk, check_chunk_input
 # `;`, which is not a sentence end anywhere else.
 _TERMINATORS = ".!?…。！？｡؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
 _FULLWIDTH_TERMINATORS = r"。！？｡"
-_CLOSERS = r"\"”’')\]」』"
+# The closer list had the same blind spot as the terminator list (#285): it
+# knew 8 marks, so a German `„Ja.“ Dann`, a French/Swiss `«Ja.» Dann` or a
+# `‹Ja.› Dann` stayed one sentence (harm 2 above), and after an unspaced `。`
+# the bare-terminator alternative of branch (b) fired before a `）` `】` `》`
+# `〉`, starting the next sentence with the orphaned bracket. Curated per
+# script, the way #240 extended `_TERMINATORS`:
+#   CJK brackets  ） 】 》 〉 〕 〗 〙 〛 ］ ｝ ｣ (halfwidth)
+# These are closing-only (Unicode Pe/Pf), so both branches may use them.
+_CLOSERS = r"\"”’')\]」』）】》〉〕〗〙〛］｝｣"
+# Quotes whose direction depends on the locale: `“` `‘` close in German
+# (`„Ja.“`, `‚Ja.‘`) but open in English and Chinese; `»` `›` close in French
+# and Swiss usage but open in German/Danish `»Ja.«`, where `«` `‹` close.
+# Branch (a) may treat them as closers because it then requires whitespace,
+# and an opening mark is followed by text, never by whitespace. Branch (b) has
+# no whitespace to tell them apart: there `。“你好”` must keep the `“` on the
+# second sentence, so these stay out of its class.
+_SPACED_CLOSERS = _CLOSERS + "“‘»«›‹"
 _SENTENCE_RE = re.compile(
     # (a) terminator, optionally followed by one closing quote/bracket, then
     #     whitespace — the spaced case (ASCII prose, spaced CJK, Arabic).
-    f"(?:(?<=[{_TERMINATORS}])|(?<=[{_TERMINATORS}][{_CLOSERS}]))\\s+"
+    f"(?:(?<=[{_TERMINATORS}])|(?<=[{_TERMINATORS}][{_SPACED_CLOSERS}]))\\s+"
     # (b) full-width terminator with *no* following whitespace — the unspaced
     #     CJK case. Zero-width, so nothing is consumed and offsets stay exact.
     #     The bare-terminator alternative must refuse to fire when a closer
