@@ -3070,3 +3070,21 @@ context_for_next_session:
   - "REQUIRE_STR_MOVED_OUTSIDE_THE_TRY_so_its_own_file_line_prefix_is_not_doubled"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:27Z
+issue: 283
+branch: session/2026-10-19-0726-issue-283
+focus: RUN_MATRIX_DATASET_ERROR_HINT_VALIDATE_WITH_NO_ARGS_WAS_AN_ARGPARSE_USAGE_ERROR_AND_ITS_COMPLETION_WITHOUT_CORPUS_DIR_PASSED_A_BROKEN_CORPUS_AT_EXIT_0
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "1984 passed, 10 skipped; ruff, format, mypy clean"
+decisions_made: []
+measured: "non-UTF-8 corpus doc: hint as printed rc 2 (usage: queries required); 'validate data/queries.jsonl' rc 0 'ok'; with --corpus-dir rc 2. After: hint is 'python -m chunking_lab.validate <queries> --corpus-dir <corpus>' with the loaded paths, rc 1/2 for all 5 CASES rows from a non-repo cwd. Revert 5 of 6 red; the green one is the clean-copy control."
+context_for_next_session:
+  - "A_HINT_IS_A_COMMAND_RUN_IT_FROM_THE_ERROR_TEXT_parse_the_printed_argv_and_execute_it_against_the_same_input"
+  - "PATHS_READ_ONCE_AND_PASSED_TO_BOTH_LOADERS_AND_THE_HINT_so_they_cannot_drift"
+followups: []
+---

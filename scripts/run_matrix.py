@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 import time
 from pathlib import Path
@@ -38,6 +39,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from chunking_lab import corpus as corpus_mod  # noqa: E402
+from chunking_lab import queries as queries_mod  # noqa: E402
 from chunking_lab.corpus import load_corpus  # noqa: E402
 from chunking_lab.embedder import CANONICAL_EMBEDDING_MODEL, Embedder, HashEmbedder  # noqa: E402
 from chunking_lab.io_utils import atomic_write_text  # noqa: E402
@@ -456,14 +459,30 @@ def main(argv: list[str] | None = None) -> int:
     # covered the flags and the write path, so a bad row or a non-UTF-8
     # document escaped here as a traceback at exit 1. Only these two calls are
     # wrapped, so a bug anywhere else is not relabelled as bad data.
+    #
+    # The hint must be runnable as printed (the #266/#267 rule) and must check
+    # what failed (#283). It was `python -m chunking_lab.validate` with no
+    # arguments -- an argparse usage error -- and its obvious completion,
+    # `validate data/queries.jsonl`, never reads the corpus, so a corpus error
+    # validated `ok` at exit 0. The paths are read once and passed to both the
+    # loaders and the hint, so the command names exactly what was loaded.
+    queries_path = Path(queries_mod.DEFAULT_QUERIES_PATH)
+    corpus_dir = Path(corpus_mod.DEFAULT_CORPUS_DIR)
     try:
-        corpus = load_corpus()
-        queries = load_queries()
+        corpus = load_corpus(corpus_dir)
+        queries = load_queries(queries_path)
     except (OSError, ValueError) as e:
-        return _fail(
-            f"failed to load the dataset: {e} "
-            "(check data/queries.jsonl with: python -m chunking_lab.validate)"
+        hint = shlex.join(
+            [
+                "python",
+                "-m",
+                "chunking_lab.validate",
+                str(queries_path),
+                "--corpus-dir",
+                str(corpus_dir),
+            ]
         )
+        return _fail(f"failed to load the dataset: {e} (check it with: {hint})")
 
     # The output directory is operator input too: a read-only filesystem, a
     # permission-denied path, or a path component that is a file makes `mkdir`
