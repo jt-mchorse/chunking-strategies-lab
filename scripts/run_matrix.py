@@ -371,6 +371,25 @@ def _render_summary(runs: list[RetrievalRun], embedder_name: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _free_stamp(results_dir: Path, base: str) -> str:
+    """A stamp no file in *results_dir* already starts with (#289).
+
+    The stamp has one-second resolution, so a second run inside the same
+    second (a full run, then a quick `--strategy` one) replaced the first
+    run's JSON, and the first run's summary then described numbers no file
+    beside it held. A taken stamp gets a `-02`, `-03`, ... suffix instead.
+    The notebook picks the latest run by plain string order (`_stamp_rank`),
+    and the suffixed stamp sorts after the bare one and before the next
+    second's, so the newer run still wins.
+    """
+    taken = {p.name.split("__", 1)[0] for p in results_dir.glob("*__*")}
+    stamp, n = base, 1
+    while stamp in taken:
+        n += 1
+        stamp = f"{base}-{n:02d}"
+    return stamp
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
@@ -494,7 +513,7 @@ def main(argv: list[str] | None = None) -> int:
         results_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         return _fail(f"failed to create results dir {results_dir}: {e}")
-    stamp = time.strftime("%Y%m%dT%H%M%S")
+    stamp = _free_stamp(results_dir, time.strftime("%Y%m%dT%H%M%S"))
 
     runs: list[RetrievalRun] = []
     for strat in strategies:
