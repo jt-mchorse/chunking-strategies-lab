@@ -3178,3 +3178,22 @@ context_for_next_session:
   - "SHARED_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CHECKOUT_run_worktree_tests_with_PYTHONPATH_dot_or_a_fresh_venv"
 followups: []
 ---
+
+---
+session: 2026-10-20T08:08Z
+issue: 293
+branch: session/2026-10-20-0820-issue-293
+focus: SENTENCE_RE_BRANCH_B_READ_THE_RUN_AS_TERMINATORS_THEN_CLOSERS_SO_A_TERMINATOR_AFTER_A_CLOSER_ENDED_NO_SENTENCE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 10
+  suite: "2083 passed, 10 skipped on 3.11 and 3.12; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 52ae6c1: '他喊道：“救命！”……没有人回答。' -> 1 sentence; '（他说「好。」）……然后走了。' -> 1 sentence; '！'*16000 -> 3.29 s. After: 2 sentences each, run on the first; 16k run < 1 ms. Exhaustive old/new diff over '字'+len<=6 on a 10-char alphabet: 7572 worded merges fixed, 0 introduced. run_matrix --canonical-out: only wall_clock_ms moved. Revert 6 of 10 red; the 4 green are controls (single-terminator spaced quote, spaced repro, run at end of text, 16k run)."
+context_for_next_session:
+  - "A_RUN_IN_ANY_ORDER_IS_A_POSSESSIVE_CHAR_CLASS_[TERM_CLOSERS]*+_it_drops_the_whole-run_lookahead_and_the_backtracking"
+  - "DROPPING_(?=\\S)_FROM_(b)_NEEDED_AN_OPTIONAL_SPACED_CLOSER_TAIL_or_'！？“ 我'_orphans_the_quote"
+  - "TWO_RED_EXPECTED_ROWS_WERE_GREEN_ON_OLD_a_trailing_FULLWIDTH_terminator_starts_its_own_run_only_non-fullwidth_after_a_closer_reproduces"
+followups: []
+---

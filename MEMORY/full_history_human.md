@@ -2835,3 +2835,13 @@ but only if the first run had already written its files. Two runs started at
 the same moment still picked the same name, and one overwrote the other.
 Each run now claims its name up front with a small marker file that only one
 run can create, and removes the marker when it finishes.
+
+## 2026-10-20 — A terminator after a closing mark no longer merges two sentences (#293)
+
+The #287 fix treated a run of end marks and closing marks as one sentence end,
+but only when the closing marks came last. With an ellipsis after a closing
+quote or bracket (`“救命！”……没有人回答。`, `「好。」）……然后走了。`) two
+sentences came back as one. The run is now read in any order. The rewrite also
+stops a long run of `！` from taking seconds to split. A spaced `“` after a
+doubled terminator now stays on its sentence, as it does after a single one.
+The benchmark numbers do not change.
