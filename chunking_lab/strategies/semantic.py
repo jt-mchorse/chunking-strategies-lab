@@ -86,6 +86,12 @@ _SPACED_CLOSERS = _CLOSERS + "“‘»«›‹"
 # `m.start(1)` and the next one starts at `m.end(1)`. Each branch matches only
 # a WHOLE run. (a) needs `\s` straight after its closers, and (b) refuses a
 # following terminator or closer, so neither can stop part-way through a run.
+# #291's (b) still read the run as "terminators, THEN closers", so a terminator
+# after a closer (`救命！”……没有`, `「好。」）……然后`) failed the lookahead at
+# every backtrack point and the two sentences merged (#293). (b) now takes
+# terminators and closers in any order, possessively (`*+`): the run is always
+# maximal, so the old "no terminator or closer follows" lookahead is implied,
+# and nothing backtracks — the old shape cost 3.3 s on a 16k run of `！`.
 _SENTENCE_RE = re.compile(
     "(?:"
     # (a) terminator, then any number of closing quotes/brackets, then
@@ -96,8 +102,12 @@ _SENTENCE_RE = re.compile(
     #     be whole: stopping before a closer (`了。」然後`) or a second
     #     terminator (`吗！？我`) orphans it as a one-character sentence.
     #     Branch (a) needs no such guard: it cannot stop before its `\s`.
-    f"|[{_FULLWIDTH_TERMINATORS}][{_TERMINATORS}]*[{_CLOSERS}]*"
-    f"(?![{_TERMINATORS}{_CLOSERS}])(?=\\S)"
+    #     A locale-ambiguous quote after the run belongs to this sentence only
+    #     when whitespace follows it (`！？“ 我`, as branch (a) reads it);
+    #     unspaced (`！？“你好`) it opens the next one. The optional tail takes
+    #     the first reading and falls back to the run alone (#293).
+    f"|[{_FULLWIDTH_TERMINATORS}][{_TERMINATORS}{_CLOSERS}]*+"
+    f"(?:[{_SPACED_CLOSERS}]*+(?=\\s))?"
     ")(\\s*)"
 )
 
