@@ -3106,3 +3106,21 @@ context_for_next_session:
   - "French_spaced_guillemets_'Oui. » Puis'_still_orphan_the_closer_space_before_closer_shape_not_filed"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:33Z
+issue: 289
+branch: session/2026-10-20-0752-issue-289
+focus: RUN_MATRIX_SCRATCH_STAMP_HAD_ONE_SECOND_RESOLUTION_SO_A_SECOND_RUN_IN_THAT_SECOND_OVERWROTE_THE_FIRSTS_JSON
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "2116 passed (3.14); ruff check + format + mypy clean"
+decisions_made: []
+measured: "main 6c40be3 (hunt agent, synced to a second boundary): full run then --strategy semantic --ks 2 left <stamp>__summary.md showing recall@1/3/5 for semantic beside a JSON holding recall_at_k {'2': 0.5}. After (strftime frozen): second run writes <stamp>-02__semantic.json, no byte of the first set changes. Revert 2 of 4 red; green are the rank-order check and the canonical-out control."
+context_for_next_session:
+  - "SUFFIX_IS_-NN_ZERO_PADDED_SO_PLAIN_STRING_ORDER_IN_THE_NOTEBOOKS__stamp_rank_STILL_PICKS_THE_NEWER_RUN"
+  - "FILED_SAME_RUN_FROM_A_HUNT_287_sentence_runs_288_fallback_title"
+followups: []
+---

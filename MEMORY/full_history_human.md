@@ -2798,3 +2798,13 @@ brackets. It also treats the quotes whose direction depends on the language
 (`“ ‘ » « › ‹`) as closers, but only when a space follows them, because in
 Chinese `。“你好”` the `“` opens the next sentence. The English benchmark
 numbers do not change.
+
+## 2026-10-20 — Two quick matrix runs no longer overwrite each other (#289)
+
+`run_matrix.py` names its scratch files with a timestamp accurate to the
+second. If you ran it twice within the same second, for example a full run
+and then a single-strategy run, the second run replaced one of the first
+run's files. The first run's summary then described numbers that no longer
+existed. A second run in the same second now adds a `-02` suffix to its name
+and leaves the first run's files alone. The notebook still picks up the newer
+run.
