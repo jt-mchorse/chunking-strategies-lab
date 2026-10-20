@@ -2827,3 +2827,11 @@ code block. Titles came out as `### Install`, `` ```python `` or `## Title ##`.
 The fallback now skips code-block lines. When the first line is a heading that
 was only filtered out by level, it is titled the way the heading path titles it:
 `Install` and `Title`. Chunk text and the benchmark numbers do not change.
+
+## 2026-10-20 — Two matrix runs started at once no longer share a name (#294)
+
+This morning's fix (#289) gave a second run in the same second its own name,
+but only if the first run had already written its files. Two runs started at
+the same moment still picked the same name, and one overwrote the other.
+Each run now claims its name up front with a small marker file that only one
+run can create, and removes the marker when it finishes.
