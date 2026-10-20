@@ -33,10 +33,10 @@ from . import Chunk, check_chunk_input
 #    the boundary, so two sentences embedded as one unit and the distance peak
 #    that *was* the topic boundary never got computed.
 #
-# Python's `re` forbids a variable-width lookbehind, so the fixed-width
-# alternatives are alternated. The closing punct stays attached to the preceding
-# sentence, keeping the split non-lossy and `_split_sentences_with_offsets`'
-# offset contract exact.
+# The closing punct stays attached to the preceding sentence, keeping the split
+# non-lossy and `_split_sentences_with_offsets`' offset contract exact. (#140
+# used alternated fixed-width lookbehinds for this; #287 replaced them with a
+# consumed run, see `_SENTENCE_RE`.)
 #
 # Porting rag's regex verbatim is *not* sufficient for (1): rag's pattern still
 # requires `\s+`, and CJK prose does not put whitespace between sentences, so an
@@ -75,18 +75,30 @@ _CLOSERS = r"\"”’')\]」』）】》〉〕〗〙〛］｝｣"
 # no whitespace to tell them apart: there `。“你好”` must keep the `“` on the
 # second sentence, so these stay out of its class.
 _SPACED_CLOSERS = _CLOSERS + "“‘»«›‹"
+# A run of terminators and closers is ONE sentence end (#287). #285 handled a
+# single closer after `。`, but a doubled terminator (`真的吗！？`, `举行。。`) or
+# two closers (`「好。」）`) still orphaned a one-character sentence: the
+# bare-terminator alternative fired after the first `！` because `？` is not a
+# closer, and the one-closer alternative fired between `」` and `）`. Branch (a)
+# had the mild sibling: one closer only, so `("yes.") Then` hid the boundary.
+# Python's `re` cannot put an unbounded run in a lookbehind, so the run is
+# consumed instead and the separator is the capture group: the sentence ends at
+# `m.start(1)` and the next one starts at `m.end(1)`. Each branch matches only
+# a WHOLE run. (a) needs `\s` straight after its closers, and (b) refuses a
+# following terminator or closer, so neither can stop part-way through a run.
 _SENTENCE_RE = re.compile(
-    # (a) terminator, optionally followed by one closing quote/bracket, then
+    "(?:"
+    # (a) terminator, then any number of closing quotes/brackets, then
     #     whitespace — the spaced case (ASCII prose, spaced CJK, Arabic).
-    f"(?:(?<=[{_TERMINATORS}])|(?<=[{_TERMINATORS}][{_SPACED_CLOSERS}]))\\s+"
+    f"[{_TERMINATORS}][{_SPACED_CLOSERS}]*(?=\\s)"
     # (b) full-width terminator with *no* following whitespace — the unspaced
-    #     CJK case. Zero-width, so nothing is consumed and offsets stay exact.
-    #     The bare-terminator alternative must refuse to fire when a closer
-    #     follows (`了。」然後`), or both alternatives match — once before the
-    #     closer and once after — orphaning it as a one-character sentence.
-    #     Branch (a) needs no such guard: its `\s+` cannot match a closer.
-    f"|(?:(?<=[{_FULLWIDTH_TERMINATORS}])(?![{_CLOSERS}])"
-    f"|(?<=[{_FULLWIDTH_TERMINATORS}][{_CLOSERS}]))(?=\\S)"
+    #     CJK case. The separator is empty, so offsets stay exact. The run must
+    #     be whole: stopping before a closer (`了。」然後`) or a second
+    #     terminator (`吗！？我`) orphans it as a one-character sentence.
+    #     Branch (a) needs no such guard: it cannot stop before its `\s`.
+    f"|[{_FULLWIDTH_TERMINATORS}][{_TERMINATORS}]*[{_CLOSERS}]*"
+    f"(?![{_TERMINATORS}{_CLOSERS}])(?=\\S)"
+    ")(\\s*)"
 )
 
 
@@ -97,10 +109,12 @@ def _split_sentences_with_offsets(text: str) -> list[tuple[str, int]]:
     sentences: list[tuple[str, int]] = []
     cursor = 0
     for m in _SENTENCE_RE.finditer(text):
-        end = m.start()
+        # The match includes the terminator run, which belongs to the sentence
+        # it ends. Only group 1 (the whitespace, or nothing) is the gap (#287).
+        end = m.start(1)
         if end > cursor:
             sentences.append((text[cursor:end], cursor))
-        cursor = m.end()
+        cursor = m.end(1)
     if cursor < len(text):
         sentences.append((text[cursor:], cursor))
     return sentences

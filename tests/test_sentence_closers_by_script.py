@@ -90,3 +90,64 @@ def test_the_german_quote_is_a_semantic_boundary() -> None:
     strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
     chunks = strategy.chunk("Er sagte „Ja.“ Dann ging er.")
     assert [c.text.strip() for c in chunks] == ["Er sagte „Ja.“", "Dann ging er."]
+
+
+# A run of terminators and closers is ONE sentence end (#287). Measured on
+# `main` 6c40be3, after #285: a doubled full-width terminator or two closers
+# still orphaned a one-character sentence (`['真的吗！', '？', '我不相信。']`,
+# `['（他说「好。」', '）然后走了。']`), and the spaced branch accepted only one
+# closer, so `("yes.") Then` stayed one sentence.
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        ("zh-exclaim-question", "真的吗！？我不相信。", ["真的吗！？", "我不相信。"]),
+        ("zh-question-exclaim", "真的吗？！我不相信。", ["真的吗？！", "我不相信。"]),
+        ("zh-doubled-period", "会议举行。。收入增长。", ["会议举行。。", "收入增长。"]),
+        ("zh-two-closers", "（他说「好。」）然后走了。", ["（他说「好。」）", "然后走了。"]),
+        (
+            "zh-doubled-terminator-then-closer",
+            "他说「真的吗！？」然后走了。",
+            ["他说「真的吗！？」", "然后走了。"],
+        ),
+        # Spaced CJK: branch (b) fired after `！` before branch (a) could see
+        # the space after `？`.
+        ("zh-doubled-terminator-spaced", "真的吗！？ 我不相信。", ["真的吗！？", "我不相信。"]),
+        # `“` opens the next quote after the whole run, as after a lone `。`.
+        (
+            "zh-doubled-terminator-then-opening-quote",
+            "他走了！？“你好”他说。",
+            ["他走了！？", "“你好”他说。"],
+        ),
+        ("en-two-closers", 'He said ("yes.") Then he left.', ['He said ("yes.")', "Then he left."]),
+        (
+            "en-three-closers",
+            "He said (“‘yes.’”) Then he left.",
+            ["He said (“‘yes.’”)", "Then he left."],
+        ),
+    ],
+)
+def test_a_terminator_closer_run_is_one_sentence_end(
+    label: str, text: str, expected: list[str]
+) -> None:
+    assert _sentences(text) == expected, label
+
+
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        # Controls (#287): green on `main` before the fix and must not move.
+        ("zh-single-terminator", "会议举行。收入增长。", ["会议举行。", "收入增长。"]),
+        ("en-single-closer", 'He said "yes." Then he left.', ['He said "yes."', "Then he left."]),
+        ("en-ellipsis", "Wait... Then go.", ["Wait...", "Then go."]),
+        ("en-decimal", "Pi is 3.14 today. Fine.", ["Pi is 3.14 today.", "Fine."]),
+        ("en-exclaim-question-spaced", "Really?! Yes.", ["Really?!", "Yes."]),
+    ],
+)
+def test_run_controls_unchanged(label: str, text: str, expected: list[str]) -> None:
+    assert _sentences(text) == expected, label
+
+
+def test_a_doubled_terminator_is_not_a_semantic_chunk() -> None:
+    strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
+    chunks = strategy.chunk("真的吗！？我不相信。他走了。")
+    assert [c.text for c in chunks] == ["真的吗！？", "我不相信。", "他走了。"]
