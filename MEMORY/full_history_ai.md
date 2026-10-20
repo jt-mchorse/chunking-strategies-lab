@@ -3160,3 +3160,21 @@ context_for_next_session:
   - "4_space_indented_first_line_still_titles_raw_by_D_002_not_filed"
 followups: []
 ---
+
+---
+session: 2026-10-20T08:12Z
+issue: 294
+branch: session/2026-10-20-0812-issue-294
+focus: 290_CHECKED_EXISTING_FILES_BUT_A_RUN_WRITES_ITS_FILES_AFTER_EVALUATING_SO_CONCURRENT_RUNS_SHARED_A_STAMP
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "2149 passed (3.14, worktree on PYTHONPATH); ruff check + format + mypy clean"
+decisions_made: []
+measured: "hunt agent on 52ae6c1: two concurrent runs -> one stamp, 6 files, the --ks 2 JSON replaced by {1,3,5} (3 of 3). After: barrier-synced threads get FROZEN and FROZEN-02, each JSON its own ks, no marker left. Revert: the new test red, #290's 4 green."
+context_for_next_session:
+  - "MY_OWN_290_CLAIM_A_SECOND_RUN_IN_THE_SAME_SECOND_LEAVES_THE_FIRST_ALONE_WAS_ONLY_TRUE_FOR_SEQUENTIAL_RUNS_check_then_write_is_a_race"
+  - "SHARED_REPO_VENV_EDITABLE_INSTALL_POINTS_AT_THE_MAIN_CHECKOUT_run_worktree_tests_with_PYTHONPATH_dot_or_a_fresh_venv"
+followups: []
+---
