@@ -3124,3 +3124,21 @@ context_for_next_session:
   - "FILED_SAME_RUN_FROM_A_HUNT_287_sentence_runs_288_fallback_title"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:35Z
+issue: 287
+branch: session/2026-10-20-0745-issue-287
+focus: SEMANTIC_DOUBLED_FULLWIDTH_TERMINATOR_OR_TWO_CLOSERS_ORPHANED_A_ONE_CHAR_SENTENCE_AND_SPACED_BRANCH_TOOK_ONE_CLOSER_ONLY
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "2127 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 6c40be3: '真的吗！？我不相信。' -> ['真的吗！', '？', '我不相信。']; '会议举行。。收入增长。' -> ['会议举行。', '。', ...]; '（他说「好。」）然后走了。' -> ['（他说「好。」', '）然后走了。']; 'He said (\"yes.\") Then he left.' -> 1 sentence. After: run stays on the first sentence, 2 sentences each. Exhaustive old/new diff over len<=6 strings on a 9-char alphabet: 258,514 changes, all orphan-leak / hidden multi-closer / trailing-ws-after-run; 0 new unspaced sentence starts with a terminator or closer. run_matrix --canonical-out: only wall_clock_ms moved. Revert 10 of 15 red; the 5 green are the run controls."
+context_for_next_session:
+  - "AN_UNBOUNDED_RUN_CANNOT_LIVE_IN_A_PYTHON_LOOKBEHIND_consume_it_and_make_the_separator_a_capture_group"
+  - "ASCII_TERMINATOR_AFTER_FULLWIDTH_NOW_JOINS_THE_RUN_'。.a'_->_['。.', 'a']_noted_in_PR_291"
+followups: []
+---
