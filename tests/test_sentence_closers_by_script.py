@@ -151,3 +151,68 @@ def test_a_doubled_terminator_is_not_a_semantic_chunk() -> None:
     strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
     chunks = strategy.chunk("真的吗！？我不相信。他走了。")
     assert [c.text for c in chunks] == ["真的吗！？", "我不相信。", "他走了。"]
+
+
+# #291 read the run as "terminators, THEN closers", so a terminator after a
+# closer ended no sentence (#293). Measured on `main` 52ae6c1:
+# `['他喊道：“救命！”……没有人回答。']` and `['（他说「好。」）……然后走了。']`, each
+# one sentence where #291's own rule ("each branch matches only a WHOLE run")
+# gives two. A FULL-WIDTH terminator after the closer (`「好。」。然后`) was
+# never affected: it starts a run of its own.
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        (
+            "zh-closer-then-ellipsis",
+            "他喊道：“救命！”……没有人回答。",
+            ["他喊道：“救命！”……", "没有人回答。"],
+        ),
+        (
+            "zh-two-closers-then-ellipsis",
+            "（他说「好。」）……然后走了。",
+            ["（他说「好。」）……", "然后走了。"],
+        ),
+        ("zh-closer-then-one-ellipsis", "他说：“好。”…然后走了。", ["他说：“好。”…", "然后走了。"]),
+        (
+            "zh-interleaved",
+            "他说「真的？！」…」然后走了。",
+            ["他说「真的？！」…」", "然后走了。"],
+        ),
+        # A spaced `“` after a doubled terminator closes the sentence, as it
+        # does after a single one (control below); #291's (b) fired before it.
+        (
+            "zh-doubled-terminator-spaced-quote",
+            "他走了！？“ 我不信。",
+            ["他走了！？“", "我不信。"],
+        ),
+    ],
+)
+def test_a_terminator_after_a_closer_stays_in_the_run(
+    label: str, text: str, expected: list[str]
+) -> None:
+    assert _sentences(text) == expected, label
+
+
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        # Controls (#293): green on `main` before the fix and must not move.
+        ("zh-single-terminator-spaced-quote", "他走了！“ 我不信。", ["他走了！“", "我不信。"]),
+        (
+            "zh-closer-then-ellipsis-spaced",
+            "他喊道：“救命！”…… 没有人回答。",
+            ["他喊道：“救命！”……", "没有人回答。"],
+        ),
+        ("zh-run-at-end-of-text", "他喊道：“救命！”……", ["他喊道：“救命！”……"]),
+        # A long run is still one sentence end (#291 took 3.3 s on this).
+        ("zh-long-run", "好" + "！" * 16000, ["好" + "！" * 16000]),
+    ],
+)
+def test_closer_terminator_controls_unchanged(label: str, text: str, expected: list[str]) -> None:
+    assert _sentences(text) == expected, label
+
+
+def test_a_terminator_after_a_closer_is_a_semantic_boundary() -> None:
+    strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
+    chunks = strategy.chunk("他喊道：“救命！”……没有人回答。")
+    assert [c.text for c in chunks] == ["他喊道：“救命！”……", "没有人回答。"]
