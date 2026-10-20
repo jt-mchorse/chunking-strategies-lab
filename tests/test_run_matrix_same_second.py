@@ -75,3 +75,43 @@ def test_canonical_out_still_writes_its_fixed_names(tmp_path: Path, one_second: 
         assert run_matrix.main(["--results-dir", str(tmp_path), "--canonical-out"]) == 0
     assert set(_stamps(tmp_path)) == {"canonical"}
     assert (tmp_path / "summary.md").exists()
+
+
+def test_two_runs_started_together_get_distinct_stamps(tmp_path: Path, one_second: None) -> None:
+    # #294: #290 checked for existing files, but a run writes its files only
+    # after evaluating, so two runs started together both saw an empty
+    # directory and shared one stamp (measured: the `--ks 2` run's JSON was
+    # replaced by the full run's `{'1','3','5'}`). The stamp is now reserved
+    # atomically when it is picked.
+    import threading
+
+    barrier = threading.Barrier(2)
+    real_free = run_matrix._free_stamp
+
+    def synced_free(results_dir: Path, base: str) -> str:
+        barrier.wait()  # both runs reach the pick together
+        return real_free(results_dir, base)
+
+    rcs: list[int] = []
+    argvs = [
+        ["--results-dir", str(tmp_path), "--strategy", "semantic"],
+        ["--results-dir", str(tmp_path), "--strategy", "semantic", "--ks", "2"],
+    ]
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(run_matrix, "_free_stamp", synced_free)
+        threads = [
+            threading.Thread(target=lambda a=a: rcs.append(run_matrix.main(a))) for a in argvs
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert rcs == [0, 0]
+    stamps = _stamps(tmp_path)
+    assert set(stamps) == {FROZEN, f"{FROZEN}-02"}
+    ks = sorted(
+        tuple(sorted(json.loads((tmp_path / f"{s}__semantic.json").read_text())["recall_at_k"]))
+        for s in stamps
+    )
+    assert ks == [("1", "3", "5"), ("2",)]
+    assert not list(tmp_path.glob("*__reserved"))  # released at the end

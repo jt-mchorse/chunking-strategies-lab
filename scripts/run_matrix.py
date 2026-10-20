@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shlex
 import sys
@@ -384,10 +385,29 @@ def _free_stamp(results_dir: Path, base: str) -> str:
     """
     taken = {p.name.split("__", 1)[0] for p in results_dir.glob("*__*")}
     stamp, n = base, 1
-    while stamp in taken:
+    while True:
+        if stamp not in taken:
+            # Reserve it atomically (#294). The run's files are written after
+            # evaluation, so two runs started together both saw an empty
+            # directory, picked the same stamp, and one silently replaced the
+            # other's JSON. `O_EXCL` lets exactly one of them create the marker;
+            # the loser moves on to the next suffix.
+            try:
+                os.close(os.open(_reservation(results_dir, stamp), os.O_CREAT | os.O_EXCL))
+                return stamp
+            except FileExistsError:
+                pass
         n += 1
         stamp = f"{base}-{n:02d}"
-    return stamp
+
+
+def _reservation(results_dir: Path, stamp: str) -> Path:
+    return results_dir / f"{stamp}__reserved"
+
+
+def _release_stamp(results_dir: Path, stamp: str) -> None:
+    """Drop the reservation once the run's own files hold the stamp (#294)."""
+    _reservation(results_dir, stamp).unlink(missing_ok=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -513,91 +533,96 @@ def main(argv: list[str] | None = None) -> int:
         results_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         return _fail(f"failed to create results dir {results_dir}: {e}")
-    stamp = _free_stamp(results_dir, time.strftime("%Y%m%dT%H%M%S"))
-
-    runs: list[RetrievalRun] = []
-    for strat in strategies:
-        run = evaluate_strategy(
-            strat,
-            corpus,
-            queries,
-            embedder,
-            ks=ks,
-            dataset_version=args.dataset_version,
-        )
-        prefix = "canonical" if args.canonical_out else stamp
-        path = results_dir / f"{prefix}__{run.strategy_name}.json"
-        try:
-            atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
-        except OSError as e:
-            return _fail(f"failed to write {path}: {e}")
-        # Report the largest computed k (most informative). Hardcoding 5 showed
-        # 0.000 when `--ks` omitted 5; `max(ks)` is 5 for the default --ks 1,3,5
-        # so this line is unchanged on the canonical path (#76).
-        top_k = max(ks)
-        # Direct index, not `.get(top_k, 0)` (#160). This default is currently
-        # UNREACHABLE — `evaluate_strategy` was called with `ks=ks` three lines
-        # above and builds both maps from it, so `max(ks)` is always a key — and
-        # that is exactly why it should not be written as a default. stdout is a
-        # publication surface like the summary table, and a silent `0.000` here
-        # would be the same fabricated measurement. A KeyError naming the key is
-        # the better failure if that invariant ever changes.
-        # `test_stdout_summary_indexes_a_key_that_always_exists` pins the
-        # invariant, so the direct index is provably safe rather than assumed so.
-        #
-        # The wall-clock field goes through `_wall_clock_cell` here for the
-        # reason the paragraph above already gives: "stdout is a publication
-        # surface like the summary table, and a silent `0.000` here would be the
-        # same fabricated measurement." That argument is about the *surface*, not
-        # about which column, so it covers this line's own `wall_clock=…` as
-        # much as the recall cells it was written for — and this line was still a
-        # bare `.0f`, printing `wall_clock=0ms` for a 0.4 ms run (#196). The one
-        # difference is that `0.0` prints `—` rather than `0`, which reads as
-        # "not measured" here exactly as it does in the table.
-        print(
-            f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
-            f"recall@{top_k}={_render_rate(run.recall_at_k[top_k])} "
-            f"snippet-hit@{top_k}="
-            f"{_render_rate(run.snippet_hit_at_k[top_k])} "
-            f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
-        )
-        runs.append(run)
-
-    # summary.md is the tracked canonical aggregate. When --strategy
-    # filters the run, a partial summary would be misleading next to
-    # the canonical (and would invalidate the snapshot lock under
-    # --canonical-out). Skip the summary entirely in that case — the
-    # iterative dev workflow doesn't need it.
-    if args.strategy is not None:
-        print("\n(no summary written: --strategy filter is set)")
-        return 0
-
-    # summary.md is the tracked canonical fixture; only --canonical-out
-    # overwrites it. Default runs emit a sibling timestamped summary so
-    # the regen scratch is self-contained and can't desync the snapshot
-    # test from the committed canonical set.
-    if args.canonical_out:
-        summary_path = results_dir / "summary.md"
-    else:
-        summary_path = results_dir / f"{stamp}__summary.md"
-    # Render the header from the SAME canonical name source that
-    # `evaluate_strategy` persists into every `RetrievalRun.embedder_model`
-    # (`_embedder_model_name`, per D-011) — NOT `type(embedder).__name__`. The
-    # two agree only for `HashEmbedder` (no `model_name` → class-name fallback),
-    # so the canonical hash path is byte-identical and the line-89 disclaimer
-    # gate still fires. They diverge for any `model_name`-bearing embedder
-    # (e.g. `MiniLMEmbedder` → `sentence-transformers/all-MiniLM-L6-v2`): with
-    # the old class-name source, an honest `--canonical-out --embedder minilm`
-    # refresh wrote a `summary.md` whose header disagreed with the committed
-    # JSONs, permanently failing `test_summary_snapshot`'s re-render (which
-    # reads `runs[0].embedder_model`). Using `_embedder_model_name(embedder)`
-    # keeps the summary self-consistent with the fixtures and is empty-runs-safe.
     try:
-        atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
+        stamp = _free_stamp(results_dir, time.strftime("%Y%m%dT%H%M%S"))
     except OSError as e:
-        return _fail(f"failed to write {summary_path}: {e}")
-    print(f"\nsummary wrote {summary_path}")
-    return 0
+        return _fail(f"failed to reserve a run stamp in {results_dir}: {e}")
+    try:
+        runs: list[RetrievalRun] = []
+        for strat in strategies:
+            run = evaluate_strategy(
+                strat,
+                corpus,
+                queries,
+                embedder,
+                ks=ks,
+                dataset_version=args.dataset_version,
+            )
+            prefix = "canonical" if args.canonical_out else stamp
+            path = results_dir / f"{prefix}__{run.strategy_name}.json"
+            try:
+                atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
+            except OSError as e:
+                return _fail(f"failed to write {path}: {e}")
+            # Report the largest computed k (most informative). Hardcoding 5 showed
+            # 0.000 when `--ks` omitted 5; `max(ks)` is 5 for the default --ks 1,3,5
+            # so this line is unchanged on the canonical path (#76).
+            top_k = max(ks)
+            # Direct index, not `.get(top_k, 0)` (#160). This default is currently
+            # UNREACHABLE — `evaluate_strategy` was called with `ks=ks` three lines
+            # above and builds both maps from it, so `max(ks)` is always a key — and
+            # that is exactly why it should not be written as a default. stdout is a
+            # publication surface like the summary table, and a silent `0.000` here
+            # would be the same fabricated measurement. A KeyError naming the key is
+            # the better failure if that invariant ever changes.
+            # `test_stdout_summary_indexes_a_key_that_always_exists` pins the
+            # invariant, so the direct index is provably safe rather than assumed so.
+            #
+            # The wall-clock field goes through `_wall_clock_cell` here for the
+            # reason the paragraph above already gives: "stdout is a publication
+            # surface like the summary table, and a silent `0.000` here would be the
+            # same fabricated measurement." That argument is about the *surface*, not
+            # about which column, so it covers this line's own `wall_clock=…` as
+            # much as the recall cells it was written for — and this line was still a
+            # bare `.0f`, printing `wall_clock=0ms` for a 0.4 ms run (#196). The one
+            # difference is that `0.0` prints `—` rather than `0`, which reads as
+            # "not measured" here exactly as it does in the table.
+            print(
+                f"{run.strategy_name:24} n_chunks={run.n_chunks_total:4d} "
+                f"recall@{top_k}={_render_rate(run.recall_at_k[top_k])} "
+                f"snippet-hit@{top_k}="
+                f"{_render_rate(run.snippet_hit_at_k[top_k])} "
+                f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
+            )
+            runs.append(run)
+
+        # summary.md is the tracked canonical aggregate. When --strategy
+        # filters the run, a partial summary would be misleading next to
+        # the canonical (and would invalidate the snapshot lock under
+        # --canonical-out). Skip the summary entirely in that case — the
+        # iterative dev workflow doesn't need it.
+        if args.strategy is not None:
+            print("\n(no summary written: --strategy filter is set)")
+            return 0
+
+        # summary.md is the tracked canonical fixture; only --canonical-out
+        # overwrites it. Default runs emit a sibling timestamped summary so
+        # the regen scratch is self-contained and can't desync the snapshot
+        # test from the committed canonical set.
+        if args.canonical_out:
+            summary_path = results_dir / "summary.md"
+        else:
+            summary_path = results_dir / f"{stamp}__summary.md"
+        # Render the header from the SAME canonical name source that
+        # `evaluate_strategy` persists into every `RetrievalRun.embedder_model`
+        # (`_embedder_model_name`, per D-011) — NOT `type(embedder).__name__`. The
+        # two agree only for `HashEmbedder` (no `model_name` → class-name fallback),
+        # so the canonical hash path is byte-identical and the line-89 disclaimer
+        # gate still fires. They diverge for any `model_name`-bearing embedder
+        # (e.g. `MiniLMEmbedder` → `sentence-transformers/all-MiniLM-L6-v2`): with
+        # the old class-name source, an honest `--canonical-out --embedder minilm`
+        # refresh wrote a `summary.md` whose header disagreed with the committed
+        # JSONs, permanently failing `test_summary_snapshot`'s re-render (which
+        # reads `runs[0].embedder_model`). Using `_embedder_model_name(embedder)`
+        # keeps the summary self-consistent with the fixtures and is empty-runs-safe.
+        try:
+            atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
+        except OSError as e:
+            return _fail(f"failed to write {summary_path}: {e}")
+        print(f"\nsummary wrote {summary_path}")
+        return 0
+    finally:
+        _release_stamp(results_dir, stamp)
 
 
 if __name__ == "__main__":
