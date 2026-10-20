@@ -2817,3 +2817,13 @@ own, and so did the second `。` in `。。`. A quote inside a parenthesis,
 closers before a space (`("yes.") Then`) hid the boundary completely. The
 splitter now treats a whole run of end marks and closing marks as one sentence
 end. The English benchmark numbers do not change.
+
+## 2026-10-20 — The structure chunker's fallback title no longer carries markdown (#288)
+
+If no heading survived filtering, the structure-aware chunker titled the
+document with its raw first line. That also happened to documents whose headings
+were all deeper than `max_heading_level`, or whose only `#` lines were inside a
+code block. Titles came out as `### Install`, `` ```python `` or `## Title ##`.
+The fallback now skips code-block lines. When the first line is a heading that
+was only filtered out by level, it is titled the way the heading path titles it:
+`Install` and `Title`. Chunk text and the benchmark numbers do not change.

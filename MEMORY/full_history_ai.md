@@ -3142,3 +3142,21 @@ context_for_next_session:
   - "ASCII_TERMINATOR_AFTER_FULLWIDTH_NOW_JOINS_THE_RUN_'。.a'_->_['。.', 'a']_noted_in_PR_291"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:35Z
+issue: 288
+branch: session/2026-10-20-0746-issue-288
+focus: STRUCTURE_FALLBACK_TITLE_TOOK_THE_RAW_FIRST_LINE_SO_A_LEVEL_FILTERED_HEADING_A_FENCE_OPENER_OR_A_CLOSING_SEQUENCE_BECAME_THE_TITLE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 17
+  suite: "2129 passed; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 6c40be3: '### Install' max_heading_level=2 -> ['### Install']; fence-only '#' lines -> ['```python']; '## Title ##' max_heading_level=1 -> ['## Title ##']. After: ['Install'], first line outside the fence, ['Title']; wholly fenced doc -> source_doc_id default. run_matrix --canonical-out: only wall_clock_ms moved. Revert 8 of 17 red; the 9 green are controls (plain, Setext, #hashtag, 7 hashes, 4-space indented code, empty, whitespace-only, offsets unchanged)."
+context_for_next_session:
+  - "NO_SURVIVING_HEADING_IS_WIDER_THAN_NO_HEADING_a_fallback_reached_by_filtering_inherits_every_input_the_filtered_path_cleaned"
+  - "4_space_indented_first_line_still_titles_raw_by_D_002_not_filed"
+followups: []
+---
