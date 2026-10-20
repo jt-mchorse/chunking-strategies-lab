@@ -2808,3 +2808,12 @@ run's files. The first run's summary then described numbers that no longer
 existed. A second run in the same second now adds a `-02` suffix to its name
 and leaves the first run's files alone. The notebook still picks up the newer
 run.
+
+## 2026-10-20 — A doubled `！？` or two closing brackets stay with their sentence (#287)
+
+After #285, a Chinese `真的吗！？` still split the `？` off as a sentence of its
+own, and so did the second `。` in `。。`. A quote inside a parenthesis,
+`「好。」）`, sent the `）` to the start of the next sentence. In English, two
+closers before a space (`("yes.") Then`) hid the boundary completely. The
+splitter now treats a whole run of end marks and closing marks as one sentence
+end. The English benchmark numbers do not change.
