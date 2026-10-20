@@ -5,8 +5,9 @@ on heading boundaries (`#`, `##`, `###`, etc.) and treat each
 heading-bounded section as one chunk. The heading text itself is included
 in the chunk's metadata so retrieval can use it as a title field.
 
-If the document has no headings, falls back to one chunk per document with
-the document's first non-empty line as the title.
+If no heading survives filtering, falls back to one chunk per document with
+the document's first non-empty line outside a code fence as the title, de-marked
+if it is a heading `max_heading_level` filtered out (#288).
 """
 
 from __future__ import annotations
@@ -198,16 +199,17 @@ class StructureAwareStrategy:
             if len(m.group(1)) <= self.max_heading_level and not _in_spans(m.start(), fences)
         ]
         if not headings:
-            # No headings — fallback: title = first non-empty line. Still honor
+            # No surviving heading — fallback: title = first non-empty line
+            # outside a fence (`_fallback_title`, #288). Still honor
             # max_chunk_chars: a long unheaded document (plain text, Setext
             # `===`/`---` headings or RST that the ATX-only _HEADING_RE doesn't
             # match) must not bypass the ceiling and emit one monster chunk.
             # Mirrors the cap logic the heading-bounded path uses; a follow-up
             # can unify both through `_emit_capped` once #56's PR lands.
-            first_line = next(
-                (line.strip() for line in text.splitlines() if line.strip()), source_doc_id
-            )
-            base_meta = {"title": first_line, "heading_level": None}
+            base_meta = {
+                "title": self._fallback_title(text, fences, source_doc_id),
+                "heading_level": None,
+            }
             if len(text) <= self.max_chunk_chars:
                 return [
                     Chunk(
@@ -278,6 +280,32 @@ class StructureAwareStrategy:
                 source_doc_id,
             )
         return chunks
+
+    @staticmethod
+    def _fallback_title(text: str, fences: list[tuple[int, int]], source_doc_id: str) -> str:
+        """Title for the no-surviving-heading fallback: the first non-empty
+        line outside a fenced block, de-marked if it is an ATX heading.
+
+        "No surviving heading" is wider than "no heading" (#288). A document
+        whose headings are all deeper than ``max_heading_level``, or whose only
+        `#` lines sit inside a fence, also lands here — and the raw first line
+        then titled the chunk ``### Install``, `` ```python `` or
+        ``## Title ##``: the markup #152, #154 and #242 removed from the
+        heading path. So skip fenced lines (#152's rule), and run a heading
+        that was filtered only by level through ``_heading_title`` so it
+        titles exactly as it would had it survived. Plain text, Setext and RST
+        first lines match neither and keep the raw stripped line, as before.
+        """
+        offset = 0
+        for line in text.splitlines(keepends=True):
+            line_start = offset
+            offset += len(line)
+            if not line.strip() or _in_spans(line_start, fences):
+                continue
+            m = _HEADING_RE.match(line.splitlines()[0])
+            return _heading_title(m) if m else line.strip()
+        # Blank or wholly fenced: no line can stand as a title.
+        return source_doc_id
 
     def _emit_capped(
         self,
