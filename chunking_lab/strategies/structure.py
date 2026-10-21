@@ -65,7 +65,22 @@ from . import Chunk, check_chunk_input
 # renders an empty heading. A title that is all `#`s and had no separate closer
 # is that closer. `### ### ###` keeps its `###` title (example 79's sibling): it
 # has a closer of its own.
-_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(\S.*?))?([ \t]+#+)?[ \t]*\r?$", re.MULTILINE)
+#
+# Line ends are `str.splitlines()`'s set, not `re.MULTILINE`'s `\n` (#297).
+# `_fallback_title` finds lines with `splitlines()`, which also breaks on `\r`,
+# `\x0b`, `\x0c`, `\x1c`-`\x1e`, `\x85`, U+2028 and U+2029. Under MULTILINE
+# the title's `.*?` ran straight through all nine, so `### Install\x0cbody`
+# titled `Install\x0cbody` when it survived the level filter and `Install` when
+# it did not, and a CR-only document had no line starts after the first: one
+# chunk, titled with the whole text. `_LINE_START`/`_LINE_END` anchor on the
+# same set, and `[^{_EOL}]` replaces `.` in the title. The old `\r?$` tail is
+# subsumed: `\r` is itself a line end.
+_EOL = "\n\r\x0b\x0c\x1c-\x1e\x85\u2028\u2029"
+_LINE_START = rf"(?:^|(?<=[{_EOL}]))"
+_LINE_END = rf"(?=[{_EOL}]|\Z)"
+_HEADING_RE = re.compile(
+    rf"{_LINE_START} {{0,3}}(#{{1,6}})(?:[ \t]+(\S[^{_EOL}]*?))?([ \t]+#+)?[ \t]*{_LINE_END}"
+)
 
 
 # Title for an empty ATX heading. A sentinel rather than `""` for the same
@@ -93,7 +108,12 @@ def _heading_title(m: re.Match[str]) -> str:
 # suppressed every heading inside it. Measured: a 3-section document containing
 # one `    ``` ` line collapsed to a SINGLE chunk, destroying two real headings.
 # Same 0-3 rule as `_HEADING_RE` above, so the two agree.
-_FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$", re.MULTILINE)
+# Same line ends as `_HEADING_RE` (#297): were the heading scan to see CR-only
+# lines while this one did not, a `# comment` inside a CR-only fence would open
+# a section again, which is #152 through a different line ending.
+_FENCE_RE = re.compile(
+    rf"{_LINE_START} {{0,3}}(?P<fence>`{{3,}}|~{{3,}})[ \t]*(?P<info>[^{_EOL}]*){_LINE_END}"
+)
 
 
 def _fenced_spans(text: str) -> list[tuple[int, int]]:
