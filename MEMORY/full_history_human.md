@@ -2855,3 +2855,13 @@ different title depending on whether it survived the level filter. A document
 with old-Mac `\r` line endings came out as one chunk titled with its whole
 text. Heading and code-fence detection now use the same line ends as the
 fallback. LF and CRLF documents, and the benchmark numbers, do not change.
+
+## 2026-10-21 — A bad byte in a corpus document is reported where it really is (#298)
+
+#273 made a bad byte in the queries file report its true offset and line. The
+corpus readers (`load_corpus` and `validate --corpus-dir`) still read with
+`read_text`, so in a document that starts with a BOM the offset came out 3 too
+low, pointing at a different byte, and no line was given. Both now use the same
+reader as the queries file, so the offset counts from the start of the file and
+the line is named. Line endings are still normalised as before, so document text
+and the benchmark numbers do not change.

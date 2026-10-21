@@ -3215,3 +3215,21 @@ context_for_next_session:
   - "PYTEST_ADDOPTS_ALREADY_HAS_-q_AN_EXTRA_-q_HIDES_THE_SUMMARY_LINE_read_the_exit_code_or_drop_the_flag"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:24Z
+issue: 298
+branch: session/2026-10-21-0720-issue-298
+focus: CORPUS_READ_TEXT_UTF8_SIG_COUNTED_A_BAD_BYTE_FROM_PAST_THE_BOM_AND_NAMED_NO_LINE_273_FIXED_ONLY_THE_QUERIES_READERS
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 8
+  suite: "2092 passed, 10 skipped (3.12, .[dev] only, worktree venv); new+decode tests green on 3.11; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 8e10489: BOM + 'line\\n'*3000 + 'bad \\xff byte\\n' (true offset 15007, line 3001) -> load_corpus and validate --corpus-dir both 'position 15004', no line. After: 'position 15007 ... (line 3001)' from both. Revert: 6 of 8 red (load_corpus + validate CLI x bom/bom-crlf/no-bom; no-bom red on the line only); 2 green controls (reader parity, BOM/CRLF/CR document text == read_text(utf-8-sig))."
+context_for_next_session:
+  - "READ_QUERIES_TEXT_MOVED_TO_io_utils.read_utf8_text_corpus.read_corpus_text_wraps_it_for_load_corpus_and_validate"
+  - "READ_TEXT_IS_TEXT_MODE_IT_TRANSLATES_CRLF_AND_CR_a_bytes_decode_must_translate_too_or_every_chunk_offset_moves_the_issue_fix_shape_did_not_say_so"
+followups: []
+---
