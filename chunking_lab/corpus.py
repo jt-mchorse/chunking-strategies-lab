@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 
+from chunking_lab.io_utils import read_utf8_text
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CORPUS_DIR = _REPO_ROOT / "data" / "corpus"
 
@@ -30,6 +32,18 @@ class Document:
     @property
     def char_count(self) -> int:
         return len(self.text)
+
+
+def read_corpus_text(path: Path) -> str:
+    """One corpus document as ``read_text(encoding="utf-8-sig")`` returned it.
+
+    Decoded whole by `read_utf8_text`, so a bad byte is reported at its offset
+    from the start of the file (BOM included) and with its line (#298), then
+    \r\n and \r translated to \n exactly as the text-mode read did, so the
+    document text -- and every chunk offset into it -- is unchanged. Shared by
+    `load_corpus` and `validate --corpus-dir`, which read the same files.
+    """
+    return read_utf8_text(path).replace("\r\n", "\n").replace("\r", "\n")
 
 
 def load_corpus(corpus_dir: PathLike[str] | str | None = None) -> list[Document]:
@@ -65,9 +79,10 @@ def load_corpus(corpus_dir: PathLike[str] | str | None = None) -> list[Document]
         # bad and not which file held it. `validate --corpus-dir` names the
         # document since #258; this is the same read (#264). Re-raised as the
         # same type with the same offsets, so `except UnicodeDecodeError` and
-        # `except ValueError` callers are unaffected.
+        # `except ValueError` callers are unaffected. The offset counts from the
+        # start of the file, BOM included, and the line is named (#298).
         try:
-            text = path.read_text(encoding="utf-8-sig")
+            text = read_corpus_text(path)
         except UnicodeDecodeError as e:
             raise UnicodeDecodeError(
                 e.encoding, e.object, e.start, e.end, f"{e.reason} (corpus document {path})"
