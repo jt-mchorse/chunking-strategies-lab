@@ -3197,3 +3197,21 @@ context_for_next_session:
   - "TWO_RED_EXPECTED_ROWS_WERE_GREEN_ON_OLD_a_trailing_FULLWIDTH_terminator_starts_its_own_run_only_non-fullwidth_after_a_closer_reproduces"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:20Z
+issue: 297
+branch: session/2026-10-21-0720-issue-297
+focus: HEADING_RE_WAS_MULTILINE_SO_ITS_TITLE_RAN_THROUGH_THE_NINE_NON_LF_SPLITLINES_SEPARATORS_THE_288_FALLBACK_STOPS_AT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 35
+  suite: "2119 passed, 10 skipped on 3.12; 3.11 exit 0; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 8e10489: '### Install<sep>body' -> 'Install<sep>body' surviving vs 'Install' filtered, for all 9 seps; '# A\\r\\rtext a\\r# B\\rtext b\\r' -> 1 chunk titled with the whole text. After: 'Install' both ways; CR-only doc -> A@0, B@12. Revert 29 of 35 red; the 6 green are controls (separator list == brute-force splitlines set, LF/CRLF headings, LF/CRLF fences, \\x1f not a line end). Fence-only revert: 1 red (CR-only fenced '# comment')."
+context_for_next_session:
+  - "FIXING_ONE_LINE_ANCHORED_SCAN_MEANS_FIXING_EVERY_SCAN_IT_IS_FILTERED_BY_HEADING_ALONE_WOULD_HAVE_REOPENED_152_IN_CR_ONLY_FENCES"
+  - "PYTEST_ADDOPTS_ALREADY_HAS_-q_AN_EXTRA_-q_HIDES_THE_SUMMARY_LINE_read_the_exit_code_or_drop_the_flag"
+followups: []
+---

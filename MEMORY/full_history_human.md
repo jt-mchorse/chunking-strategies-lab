@@ -2845,3 +2845,13 @@ sentences came back as one. The run is now read in any order. The rewrite also
 stops a long run of `！` from taking seconds to split. A spaced `“` after a
 doubled terminator now stays on its sentence, as it does after a single one.
 The benchmark numbers do not change.
+
+## 2026-10-21 — Headings end where the line ends, whatever the line ending (#297)
+
+The structure-aware chunker's heading search treated only `\n` as a line end.
+The fallback title added by #288 also treats `\r`, form feeds, U+2028 and
+six other separators as line ends. So a heading followed by one of those got a
+different title depending on whether it survived the level filter. A document
+with old-Mac `\r` line endings came out as one chunk titled with its whole
+text. Heading and code-fence detection now use the same line ends as the
+fallback. LF and CRLF documents, and the benchmark numbers, do not change.
