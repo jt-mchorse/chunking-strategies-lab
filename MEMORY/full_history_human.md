@@ -2865,3 +2865,14 @@ low, pointing at a different byte, and no line was given. Both now use the same
 reader as the queries file, so the offset counts from the start of the file and
 the line is named. Line endings are still normalised as before, so document text
 and the benchmark numbers do not change.
+
+## 2026-10-21 — A spaced French closing quote stays with its sentence (#299)
+
+French typography puts a no-break space before a closing `»`, as in
+`« Oui. » Puis il est parti.` The sentence splitter took that space for the
+sentence break, so the `»` started the next sentence. At the end of a text it
+became a one-character sentence. The `»` and `›` closers are now reached across
+a space, a no-break space, a thin space or a narrow no-break space. The opening
+`«` is deliberately left out, because in French it is followed by a space and
+would otherwise be pulled back onto the previous sentence. The benchmark
+numbers do not change.
