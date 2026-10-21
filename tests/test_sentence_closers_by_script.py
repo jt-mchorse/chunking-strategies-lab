@@ -216,3 +216,96 @@ def test_a_terminator_after_a_closer_is_a_semantic_boundary() -> None:
     strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
     chunks = strategy.chunk("他喊道：“救命！”……没有人回答。")
     assert [c.text for c in chunks] == ["他喊道：“救命！”……", "没有人回答。"]
+
+
+# French typography spaces a closing `»` off the terminator (#299). Python's
+# `\s` matches U+00A0 and U+202F, so branch (a) ended the sentence at the `.`
+# and the closer opened the next one. Measured on `main` 8e10489:
+# `['Il a dit «\xa0Oui.', '» Puis il est parti.']`, the same with U+202F and an
+# ASCII space, and `['Il a dit «\xa0Oui.', '»']` at end of text.
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        (
+            "fr-nbsp",
+            "Il a dit «\u00a0Oui.\u00a0» Puis il est parti.",
+            ["Il a dit «\u00a0Oui.\u00a0»", "Puis il est parti."],
+        ),
+        (
+            "fr-narrow-nbsp",
+            "Il a dit «\u202fOui.\u202f» Puis il est parti.",
+            ["Il a dit «\u202fOui.\u202f»", "Puis il est parti."],
+        ),
+        (
+            "fr-thin-space",
+            "Il a dit «\u2009Oui.\u2009» Puis il est parti.",
+            ["Il a dit «\u2009Oui.\u2009»", "Puis il est parti."],
+        ),
+        (
+            "fr-ascii-space",
+            "Il a dit « Oui. » Puis il est parti.",
+            ["Il a dit « Oui. »", "Puis il est parti."],
+        ),
+        (
+            "fr-single-guillemet",
+            "Il a dit ‹\u00a0Oui.\u00a0› Puis.",
+            ["Il a dit ‹\u00a0Oui.\u00a0›", "Puis."],
+        ),
+        ("fr-nbsp-at-end-of-text", "Il a dit «\u00a0Oui.\u00a0»", ["Il a dit «\u00a0Oui.\u00a0»"]),
+        # Both guillemets of a quote that opens a sentence: the `«` stays on
+        # the second sentence and the `»` closes it.
+        (
+            "fr-quote-after-boundary",
+            "Il est parti. «\u00a0Bonjour.\u00a0» Fin.",
+            ["Il est parti.", "«\u00a0Bonjour.\u00a0»", "Fin."],
+        ),
+        (
+            "fr-nbsp-question",
+            "Il a demandé «\u00a0Pourquoi\u00a0?\u00a0» Puis il est parti.",
+            ["Il a demandé «\u00a0Pourquoi\u00a0?\u00a0»", "Puis il est parti."],
+        ),
+    ],
+)
+def test_a_spaced_french_closer_stays_with_its_sentence(
+    label: str, text: str, expected: list[str]
+) -> None:
+    assert _sentences(text) == expected, label
+
+
+@pytest.mark.parametrize(
+    ("label", "text", "expected"),
+    [
+        # Controls (#299): green on `main` before the fix and must not move.
+        (
+            "fr-unspaced",
+            "Il a dit «Oui.» Puis il est parti.",
+            ["Il a dit «Oui.»", "Puis il est parti."],
+        ),
+        ("fr-no-closer", "Oui. Puis il est parti.", ["Oui.", "Puis il est parti."]),
+        ("fr-nbsp-no-closer", "Oui.\u00a0Puis il est parti.", ["Oui.", "Puis il est parti."]),
+        # A spaced `»` that OPENS (German) is followed by text: next sentence.
+        ("de-spaced-opener", "Er sagte. »Ja.« Dann.", ["Er sagte.", "»Ja.«", "Dann."]),
+        # `«` OPENS in French, with a no-break space after it: it must not be
+        # pulled back onto the previous sentence.
+        (
+            "fr-opener-after-boundary",
+            "Il est parti. «\u00a0Bonjour Fin.",
+            ["Il est parti.", "«\u00a0Bonjour Fin."],
+        ),
+        # A line break is a boundary, not horizontal space.
+        ("fr-newline-before-closer", "Oui.\n» Puis.", ["Oui.", "» Puis."]),
+    ],
+)
+def test_spaced_french_closer_controls_unchanged(
+    label: str, text: str, expected: list[str]
+) -> None:
+    assert _sentences(text) == expected, label
+
+
+def test_a_spaced_french_closer_is_not_a_semantic_chunk() -> None:
+    strategy = SemanticBoundaryStrategy(HashEmbedder(), distance_threshold=0.0, min_chunk_chars=0)
+    text = "Il a dit «\u00a0Oui.\u00a0» Puis il est parti."
+    chunks = strategy.chunk(text)
+    assert [c.text.strip() for c in chunks] == ["Il a dit «\u00a0Oui.\u00a0»", "Puis il est parti."]
+    for c in chunks:
+        assert text[c.start_offset : c.end_offset] == c.text

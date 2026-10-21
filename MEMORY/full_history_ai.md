@@ -3233,3 +3233,23 @@ context_for_next_session:
   - "READ_TEXT_IS_TEXT_MODE_IT_TRANSLATES_CRLF_AND_CR_a_bytes_decode_must_translate_too_or_every_chunk_offset_moves_the_issue_fix_shape_did_not_say_so"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:23Z
+issue: 299
+branch: session/2026-10-21-0720-issue-299
+focus: SENTENCE_RE_BRANCH_A_READ_THE_FRENCH_NO_BREAK_SPACE_BEFORE_A_CLOSING_GUILLEMET_AS_THE_BOUNDARY_SO_THE_CLOSER_OPENED_THE_NEXT_SENTENCE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 15
+  suite: "2099 passed, 10 skipped (3.12, fresh worktree venv); 2142 passed after rebase onto c802de3; ruff, format, mypy clean"
+decisions_made: []
+measured: "main 8e10489: 'Il a dit «\u00a0Oui.\u00a0» Puis il est parti.' -> ['Il a dit «\u00a0Oui.', '» Puis il est parti.'], same with U+202F, U+2009 and ASCII space; at end of text -> ['Il a dit «\u00a0Oui.', '»']. After: closer and space stay on the sentence. run_matrix --canonical-out: only wall_clock_ms moved. Revert 9 of 15 red; the 6 green are controls (unspaced, no closer, nbsp no closer, German spaced opener, French opener after a boundary, newline before closer). Wrong-fix probes: all _SPACED_CLOSERS across space -> 2 red; no \\Z -> 1 red; \\s for hspace -> 1 red."
+context_for_next_session:
+  - "ONLY_»_›_MAY_BE_REACHED_ACROSS_SPACE_«_‹_OPEN_FRENCH_QUOTES_WITH_A_NBSP_AFTER_and_would_be_pulled_back"
+  - "A_SPACED_CLOSER_AT_END_OF_TEXT_NEEDS_(?=\\s|\\Z)_else_the_regex_backtracks_to_the_terminator_and_orphans_the_closer"
+  - "A_CONTROL_THAT_WAS_RED_ON_MAIN_IS_A_RED_ROW_a_second_quote_after_a_boundary_also_orphaned_its_closer_moved_it_and_added_a_true_opener_control"
+  - "SPACED_CLOSER_AFTER_A_FULLWIDTH_TERMINATOR_IN_BRANCH_B_not_touched_no_repro"
+followups: []
+---
