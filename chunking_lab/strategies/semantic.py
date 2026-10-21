@@ -75,6 +75,17 @@ _CLOSERS = r"\"”’')\]」』）】》〉〕〗〙〛］｝｣"
 # no whitespace to tell them apart: there `。“你好”` must keep the `“` on the
 # second sentence, so these stay out of its class.
 _SPACED_CLOSERS = _CLOSERS + "“‘»«›‹"
+# French typography puts a no-break space before a closing `»` / `›`
+# (`«\xa0Oui.\xa0» Puis`; U+202F in modern typesetting, a plain space when
+# typed). Branch (a)'s lookahead saw that space as the boundary and the closer
+# opened the next sentence (#299). Only `»` `›` may be reached across it: they
+# are the marks French closes with, and where `»` opens instead (German
+# `Er sagte. »Ja.«`) it is followed by text, which the boundary check after
+# the closer rejects. `«` `‹` stay out: in French they
+# OPEN with a space after them, so `parti. «\xa0Bonjour` would be pulled back
+# onto the previous sentence. Horizontal only; a line break is a boundary.
+_HSPACE = " \u00a0\u2009\u202f"
+_FRENCH_CLOSERS = "»›"
 # A run of terminators and closers is ONE sentence end (#287). #285 handled a
 # single closer after `。`, but a doubled terminator (`真的吗！？`, `举行。。`) or
 # two closers (`「好。」）`) still orphaned a one-character sentence: the
@@ -95,8 +106,12 @@ _SPACED_CLOSERS = _CLOSERS + "“‘»«›‹"
 _SENTENCE_RE = re.compile(
     "(?:"
     # (a) terminator, then any number of closing quotes/brackets, then
-    #     whitespace — the spaced case (ASCII prose, spaced CJK, Arabic).
-    f"[{_TERMINATORS}][{_SPACED_CLOSERS}]*(?=\\s)"
+    #     whitespace — the spaced case (ASCII prose, spaced CJK, Arabic). A
+    #     French closer may follow across horizontal space (#299); end of text
+    #     also counts, else `Oui.\xa0»` at the very end backtracks to the `.`
+    #     and the `»` comes out as a sentence of its own.
+    f"[{_TERMINATORS}](?:[{_SPACED_CLOSERS}]|[{_HSPACE}]+[{_FRENCH_CLOSERS}])*"
+    "(?=\\s|\\Z)"
     # (b) full-width terminator with *no* following whitespace — the unspaced
     #     CJK case. The separator is empty, so offsets stay exact. The run must
     #     be whole: stopping before a closer (`了。」然後`) or a second
