@@ -80,14 +80,14 @@ from pathlib import Path
 from typing import Any
 
 from chunking_lab._fields import require_non_negative_int
-from chunking_lab.io_utils import atomic_write_text
+from chunking_lab.corpus import read_corpus_text
+from chunking_lab.io_utils import atomic_write_text, read_utf8_text
 from chunking_lab.queries import (
     JSON_ROW_ERRORS,
     MATCHED_FIELDS,
     invisible_char_reason,
     iter_query_lines,
     json_row_error_reason,
-    read_queries_text,
     unencodable_char_reason,
 )
 
@@ -202,11 +202,12 @@ def validate_queries(
         # that no valid row names -- not valid UTF-8, or unreadable -- was never
         # opened: the run validated `ok` at exit 0 and `load_corpus` then raised
         # on that same directory. Sorted so the first bad document reported is
-        # the one `load_corpus` would raise on.
+        # the one `load_corpus` would raise on, by the same reader, so the bad
+        # byte's offset and line match it (#298).
         for name in sorted(corpus_docs):
             doc_path = corpus_root / name
             try:
-                corpus_texts[name] = doc_path.read_text(encoding="utf-8-sig")
+                corpus_texts[name] = read_corpus_text(doc_path)
             except UnicodeDecodeError as e:
                 raise _CorpusDocumentReadError(None, f"not valid UTF-8: {e}", str(doc_path)) from e
             except OSError as e:
@@ -222,7 +223,7 @@ def validate_queries(
     # line 1 (`.strip()` does not remove U+FEFF).
     # Decoded whole by the reader `load_queries` uses, so a bad byte is
     # reported at its real offset and line (#273).
-    with iter_query_lines(read_queries_text(path)) as fh:
+    with iter_query_lines(read_utf8_text(path)) as fh:
         for line_no, raw_line in enumerate(fh, start=1):
             stripped = raw_line.strip()
             if not stripped:
@@ -490,7 +491,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except UnicodeDecodeError as e:
         # `validate_queries` decodes the file whole before the first row
-        # (`read_queries_text`, #273), outside the per-row json.loads try.
+        # (`read_utf8_text`, #273), outside the per-row json.loads try.
         # A non-UTF-8 byte raises UnicodeDecodeError — a ValueError subclass, NOT
         # an OSError — which the narrow catches above miss, so it escaped as a
         # raw traceback at exit 1, breaking the documented "0 clean / 1 findings /

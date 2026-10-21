@@ -1,4 +1,4 @@
-"""Atomic on-disk write helper, and the copy a frozen record needs for a free-form field.
+"""Atomic on-disk write helper, the whole-file UTF-8 read, and the copy a frozen record needs.
 
 `scripts/run_matrix.py` writes per-strategy `RetrievalRun` JSON
 (canonical fixtures committed to `results/`) plus a markdown summary
@@ -21,6 +21,7 @@ Pattern mirrors the portfolio siblings:
 
 from __future__ import annotations
 
+import codecs
 import contextlib
 import os
 import secrets
@@ -165,6 +166,42 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
         if tmp_path is not None:
             with contextlib.suppress(FileNotFoundError):
                 tmp_path.unlink()
+
+
+def read_utf8_text(path: Path) -> str:
+    """The file decoded whole, a leading BOM dropped (#93, #95), as ``str``.
+
+    Both queries readers (`load_queries`, `validate.validate_queries`) used to
+    iterate a handle opened with ``encoding="utf-8-sig"``, which decodes in
+    8 KiB pieces. A bad byte past the first piece raised a `UnicodeDecodeError`
+    whose ``start`` counted from that piece and whose ``object`` was that piece:
+    a bad byte at file offset 43364 on line 301 was reported as "position 2404",
+    a different and valid byte, with no line (#273). The corpus reads
+    (`corpus.read_corpus_text`) used ``read_text(encoding="utf-8-sig")``, which
+    decodes whole but counts from the end of the BOM: a BOM-prefixed document
+    reported its bad byte 3 too low, again at a different and valid byte, and
+    again with no line (#298). Decoding the bytes whole gives the real offset;
+    the error is re-raised with the file's bytes, that offset counted from the
+    start of the file (BOM included), and the line it is on. Same type, so
+    ``except UnicodeDecodeError`` / ``except ValueError`` callers are
+    unaffected.
+
+    Line endings are returned as they are in the file; a caller that wants the
+    text-mode view translates them (`iter_query_lines`, `read_corpus_text`).
+    """
+    data = path.read_bytes()
+    bom = len(codecs.BOM_UTF8) if data.startswith(codecs.BOM_UTF8) else 0
+    try:
+        return data[bom:].decode("utf-8")
+    except UnicodeDecodeError as e:
+        start = bom + e.start
+        # Everything before the first bad byte decodes. Lines are counted the
+        # way a text-mode handle splits them: \r\n, \r and \n.
+        prefix = data[bom:start].decode("utf-8")
+        line = prefix.replace("\r\n", "\n").replace("\r", "\n").count("\n") + 1
+        raise UnicodeDecodeError(
+            "utf-8", data, start, bom + e.end, f"{e.reason} (line {line})"
+        ) from e
 
 
 def copy_json_value(value: Any) -> Any:

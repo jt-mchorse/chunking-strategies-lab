@@ -5,7 +5,8 @@ which decodes in 8 KiB pieces. A bad byte past the first piece raised a
 `UnicodeDecodeError` whose ``start`` counted from that piece: measured on main,
 a Latin-1 byte at file offset 43364 on line 301 was reported as "position
 2404", a different and valid byte, with no line. The corpus reads decode whole
-and never had this.
+but counted from past a BOM, with no line; see
+``test_corpus_decode_error_position.py`` (#298).
 """
 
 from __future__ import annotations
