@@ -2876,3 +2876,16 @@ a space, a no-break space, a thin space or a narrow no-break space. The opening
 `«` is deliberately left out, because in French it is followed by a space and
 would otherwise be pulled back onto the previous sentence. The benchmark
 numbers do not change.
+
+## 2026-10-22 — The notebook shows the newest run, canonical or not (#303)
+
+The comparison notebook chose the newest run per strategy from the file name.
+A `canonical__` file has no time in its name, and #78 ranked it below every
+timestamped run. So after anyone ran the default `run_matrix.py`, a later
+`--canonical-out` refresh, the one `capture_demo.sh` tells the operator to run,
+was ignored and the notebook charted the older scratch numbers. The timestamp
+was also local time, so after a DST fall-back the newer run sorted first.
+`run_matrix.py` now records each run's start time in UTC inside every result
+file and names scratch files in UTC. The notebook orders runs by that recorded
+time. Older files without it keep the previous order. The committed fixtures,
+the notebook's charts and the benchmark numbers do not change.

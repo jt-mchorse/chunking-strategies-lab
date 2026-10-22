@@ -14,7 +14,10 @@ that tests/test_summary_snapshot.py locks:
     canonical__structure-aware.json
     summary.md
 
-Per-strategy JSON is the `RetrievalRun.to_json()` shape. The markdown
+Per-strategy JSON is the `RetrievalRun.to_json()` shape plus a `run_at`
+key: the run's start time in UTC (#303). The notebook orders runs by it,
+so the most recent run wins whichever prefix its files carry. The
+filename stamp is UTC too. The markdown
 summary aggregates recall@k and snippet-hit@k across strategies.
 
 The embedder defaults to `HashEmbedder` (dep-free, hermetic, CI-safe).
@@ -34,6 +37,7 @@ import re
 import shlex
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -379,9 +383,11 @@ def _free_stamp(results_dir: Path, base: str) -> str:
     second (a full run, then a quick `--strategy` one) replaced the first
     run's JSON, and the first run's summary then described numbers no file
     beside it held. A taken stamp gets a `-02`, `-03`, ... suffix instead.
-    The notebook picks the latest run by plain string order (`_stamp_rank`),
-    and the suffixed stamp sorts after the bare one and before the next
-    second's, so the newer run still wins.
+    The notebook orders runs by their recorded `run_at` (#303), and falls
+    back to plain string order (`_stamp_rank`) only for files written before
+    it existed; there too the suffixed stamp sorts after the bare one and
+    before the next second's. The base stamp is UTC (#303): a local-time
+    stamp ran backwards across a DST fall-back, so the newer run sorted first.
     """
     taken = {p.name.split("__", 1)[0] for p in results_dir.glob("*__*")}
     stamp, n = base, 1
@@ -399,6 +405,11 @@ def _free_stamp(results_dir: Path, base: str) -> str:
                 pass
         n += 1
         stamp = f"{base}-{n:02d}"
+
+
+def _run_clock() -> float:
+    """The run's start time in epoch seconds; a seam so tests can pin it (#303)."""
+    return time.time()
 
 
 def _reservation(results_dir: Path, stamp: str) -> Path:
@@ -533,8 +544,17 @@ def main(argv: list[str] | None = None) -> int:
         results_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         return _fail(f"failed to create results dir {results_dir}: {e}")
+    # One clock reading for both the filename stamp and the recorded `run_at`
+    # (#303). The notebook used to infer recency from the filename alone, which
+    # cannot work: a `canonical__` file carries no time, so either every
+    # timestamped scratch run beat a newer `--canonical-out` refresh (#78's
+    # ordering) or the reverse. `run_at` is what it orders by now. Both are UTC:
+    # a `time.strftime` with no time argument is local, and across a DST
+    # fall-back the newer run got the smaller stamp.
+    started = _run_clock()
+    run_at = datetime.fromtimestamp(started, UTC).isoformat(timespec="microseconds")
     try:
-        stamp = _free_stamp(results_dir, time.strftime("%Y%m%dT%H%M%S"))
+        stamp = _free_stamp(results_dir, time.strftime("%Y%m%dT%H%M%S", time.gmtime(started)))
     except OSError as e:
         return _fail(f"failed to reserve a run stamp in {results_dir}: {e}")
     try:
@@ -551,7 +571,11 @@ def main(argv: list[str] | None = None) -> int:
             prefix = "canonical" if args.canonical_out else stamp
             path = results_dir / f"{prefix}__{run.strategy_name}.json"
             try:
-                atomic_write_text(path, json.dumps(run.to_json(), indent=2, sort_keys=True))
+                payload = run.to_json()
+                # File provenance, not a measurement: `from_json` ignores it,
+                # the notebook loader orders by it (#303).
+                payload["run_at"] = run_at
+                atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True))
             except OSError as e:
                 return _fail(f"failed to write {path}: {e}")
             # Report the largest computed k (most informative). Hardcoding 5 showed

@@ -247,7 +247,9 @@ the contract between layers.
   pipeline lock re-runs the real script and compares every field except
   that one, with `_HOST_DEPENDENT_FIELDS` pinned to exactly
   `{"wall_clock_ms"}` and a determinism arm that justifies the exclusion
-  by measurement rather than assumption.
+  by measurement rather than assumption. #303 added the second member on
+  purpose: `run_at`, the UTC start time `run_matrix.py` now records so the
+  notebook can order a `canonical__` refresh against scratch runs.
 
   Three smaller defects in the same file came from following its own
   failure message. `REGEN_HINT` printed `python scripts/run_matrix.py`,

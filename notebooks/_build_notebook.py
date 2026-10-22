@@ -34,7 +34,7 @@ _INTRO = dedent(
     """\
     # chunking-strategies-lab — comparison notebook (#4)
 
-    Loads every per-strategy result JSON under `results/`, picks the **most recent run per strategy** (by filename timestamp), and renders three charts:
+    Loads every per-strategy result JSON under `results/`, picks the **most recent run per strategy** (by the UTC `run_at` each run records, else by filename timestamp), and renders three charts:
 
     1. **Recall@k** across strategies — the IR metric.
     2. **Snippet-hit@k** across strategies — the answer-faithfulness proxy ([D-008](../MEMORY/core_decisions_human.md#d-008)).
@@ -106,18 +106,35 @@ _LOAD_CELL = dedent(
         return (0, "") if stamp == "canonical" else (1, stamp)
 
 
+    def _recency(payload: dict, stamp: str) -> tuple:
+        """Order runs by the UTC `run_at` they record, else by filename (#303).
+
+        `_stamp_rank` alone over-corrected #78: a `canonical__` file carries no
+        time, so ranking it lowest meant one old scratch run in `results/`
+        shadowed every later `--canonical-out` refresh. And the stamp was local
+        time, which runs backwards across a DST fall-back. `run_matrix.py` now
+        writes `run_at` into each JSON; a file with it outranks one without, and
+        files written before it existed keep `_stamp_rank`'s order.
+        """
+        run_at = payload.get("run_at")
+        if isinstance(run_at, str):
+            return (1, run_at, _stamp_rank(stamp))
+        return (0, "", _stamp_rank(stamp))
+
+
     def _load_latest_per_strategy(results_dir: Path) -> list[dict]:
         """Pick the most recent JSON per `strategy_name`."""
         files = sorted(results_dir.glob("*.json"))
         latest_by_strategy: dict[str, dict] = {}
-        latest_stamp: dict[str, str] = {}
+        latest_key: dict[str, tuple] = {}
         for p in files:
             stamp = p.name.split("__")[0]
             payload = json.loads(p.read_text(encoding="utf-8"))
             name = payload["strategy_name"]
-            if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
+            key = _recency(payload, stamp)
+            if name not in latest_key or key > latest_key[name]:
                 latest_by_strategy[name] = payload
-                latest_stamp[name] = stamp
+                latest_key[name] = key
         canonical = ["fixed-size", "recursive", "semantic", "late-chunking", "structure-aware"]
         return [latest_by_strategy[n] for n in canonical if n in latest_by_strategy]
 
