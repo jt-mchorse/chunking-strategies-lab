@@ -3253,3 +3253,23 @@ context_for_next_session:
   - "SPACED_CLOSER_AFTER_A_FULLWIDTH_TERMINATOR_IN_BRANCH_B_not_touched_no_repro"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:25Z
+issue: 303
+branch: session/2026-10-22-0724-issue-303
+focus: NOTEBOOK_ORDERED_RUNS_BY_FILENAME_A_CANONICAL_FILE_HAS_NO_TIME_SO_78_LET_ANY_OLD_SCRATCH_RUN_SHADOW_A_NEWER_CANONICAL_OUT_AND_LOCAL_STAMPS_INVERT_ACROSS_DST
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 7
+  suite: "2224 passed (repo venv, notebook extras); 2149 passed, 10 skipped (fresh py3.11 .[dev] venv, --cov); ruff, format, mypy clean"
+decisions_made: []
+measured: "main a3de41e: default run_matrix then --canonical-out --dataset-version v1-refreshed --ks 1,10 into one dir -> load cell printed recall@5 rows from the older scratch run, no MIXED. After: recall@10 rows from the canonical refresh; scratch stamp UTC (073136 at 07:31Z, was local 002513). Revert (run_matrix.py + _build_notebook.py): 4 of 7 new red (canonical-after-scratch, DST pair in America/New_York, run_at is UTC, run_at outranks an inverted stamp); 3 green controls (#78 scratch-after-canonical, no-run_at files keep stamp order, committed fixtures load); updated test_notebook lock also red. Same split in a [dev]-only venv. Notebook rebuilt: images and printed rows unchanged."
+context_for_next_session:
+  - "RUN_AT_IS_WRITTEN_BY_RUN_MATRIX_BESIDE_TO_JSON_NOT_A_RETRIEVALRUN_FIELD_from_json_ignores_it_a_from_json_to_json_round_trip_drops_it"
+  - "RUN_AT_IS_THE_SECOND_HOST_DEPENDENT_FIELD_test_summary_snapshot_pipeline_lock_and_canonical_freshness_both_strip_it_the_lock_test_was_renamed_to_only_host_dependent_fields"
+  - "NOTEBOOK_LOADER_TESTS_SKIP_IN_CI_WHEN_THEY_IMPORT_build_notebook_nbformat_IS_NOT_IN_DEV_read_LOAD_CELL_from_source_with_ast_instead"
+  - "COMMITTED_CANONICAL_FIXTURES_NOT_REGENERATED_they_carry_no_run_at_and_any_new_run_outranks_them"
+followups: []
+---
