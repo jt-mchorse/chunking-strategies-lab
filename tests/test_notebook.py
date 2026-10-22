@@ -39,6 +39,15 @@ def _stamp_rank(stamp: str) -> tuple[int, str]:
     return (0, "") if stamp == "canonical" else (1, stamp)
 
 
+def _recency(payload: dict, stamp: str) -> tuple:
+    """Mirror of the load cell's `_recency` (#303): the recorded UTC `run_at`
+    first, then `_stamp_rank` for files written before `run_at` existed."""
+    run_at = payload.get("run_at")
+    if isinstance(run_at, str):
+        return (1, run_at, _stamp_rank(stamp))
+    return (0, "", _stamp_rank(stamp))
+
+
 def test_notebook_committed():
     assert _NOTEBOOK.exists(), f"comparison notebook missing at {_NOTEBOOK}"
 
@@ -74,14 +83,15 @@ def test_results_dir_loadable_by_notebook_helper():
     files = sorted(results_dir.glob("*.json"))
     assert len(files) >= 1, "no result JSON files committed under results/"
     latest_by_strategy: dict[str, dict] = {}
-    latest_stamp: dict[str, str] = {}
+    latest_key: dict[str, tuple] = {}
     for p in files:
         stamp = p.name.split("__")[0]
         payload = json.loads(p.read_text(encoding="utf-8"))
         name = payload["strategy_name"]
-        if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
+        key = _recency(payload, stamp)
+        if name not in latest_key or key > latest_key[name]:
             latest_by_strategy[name] = payload
-            latest_stamp[name] = stamp
+            latest_key[name] = key
     # Every loaded run carries every chart-data field the notebook references.
     for payload in latest_by_strategy.values():
         assert "recall_at_k" in payload
@@ -113,11 +123,15 @@ def _select_latest(results_dir: Path) -> dict[str, str]:
     """Stamp-selection logic from the notebook's load cell, returning the
     chosen stamp per strategy (enough to assert which file won)."""
     latest_stamp: dict[str, str] = {}
+    latest_key: dict[str, tuple] = {}
     for p in sorted(results_dir.glob("*.json")):
         stamp = p.name.split("__")[0]
-        name = json.loads(p.read_text(encoding="utf-8"))["strategy_name"]
-        if name not in latest_stamp or _stamp_rank(stamp) > _stamp_rank(latest_stamp[name]):
+        payload = json.loads(p.read_text(encoding="utf-8"))
+        name = payload["strategy_name"]
+        key = _recency(payload, stamp)
+        if name not in latest_key or key > latest_key[name]:
             latest_stamp[name] = stamp
+            latest_key[name] = key
     return latest_stamp
 
 
@@ -162,10 +176,16 @@ def test_build_notebook_load_cell_ships_the_stamp_rank_fix():
 
     cell = _build_notebook._LOAD_CELL
     assert "_stamp_rank" in cell, "load cell lost the _stamp_rank recency key (#78)"
-    assert "_stamp_rank(stamp) > _stamp_rank(latest_stamp[name])" in cell, (
-        "load cell no longer compares via _stamp_rank — a bare lexicographic "
-        "`stamp > latest_stamp[name]` would reintroduce the canonical-shadows-"
+    # The compare goes through `_recency`, which falls back to `_stamp_rank`
+    # for files without a recorded `run_at` (#303).
+    assert 'return (0, "", _stamp_rank(stamp))' in cell, (
+        "load cell's `_recency` no longer falls back to _stamp_rank — a bare "
+        "lexicographic stamp compare would reintroduce the canonical-shadows-"
         "fresh-run bug (#78)"
+    )
+    assert "key = _recency(payload, stamp)" in cell, (
+        "load cell no longer orders by `_recency`; a filename-only order lets an "
+        "old scratch run shadow a newer `--canonical-out` refresh (#303)"
     )
 
 

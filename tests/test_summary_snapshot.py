@@ -82,9 +82,12 @@ _CANONICAL_GLOB = "canonical__*.json"
 #: is a wall-clock measurement of the machine that ran it. Every other field is
 #: bit-for-bit deterministic -- `HashEmbedder` is deterministic and two fresh
 #: runs plus the committed fixtures agree exactly (measured, #190). Named as a
-#: set and pinned by `test_only_wall_clock_is_excluded_from_the_pipeline_lock`,
+#: set and pinned by `test_only_host_dependent_fields_are_excluded_from_the_pipeline_lock`,
 #: so adding a second exclusion is a deliberate act rather than a quiet widening.
-_HOST_DEPENDENT_FIELDS = frozenset({"wall_clock_ms"})
+#: `run_at` is that second one (#303): the run's UTC start time, which
+#: `run_matrix.py` writes so the notebook can tell which run is newest. It is
+#: provenance, not a result, and it differs on every run by construction.
+_HOST_DEPENDENT_FIELDS = frozenset({"wall_clock_ms", "run_at"})
 
 
 def _load_run_from_json(path: Path) -> RetrievalRun:
@@ -450,18 +453,18 @@ def test_committed_json_matches_a_fresh_pipeline_run(strategy: str, tmp_path: Pa
     )
 
 
-def test_only_wall_clock_is_excluded_from_the_pipeline_lock(tmp_path: Path) -> None:
-    """The exclusion must stay exactly one field, discovered from the data.
+def test_only_host_dependent_fields_are_excluded_from_the_pipeline_lock(tmp_path: Path) -> None:
+    """The exclusion must stay exactly these fields, discovered from the data.
 
     A lock whose exclusion list can grow quietly stops being a lock. This
     discovers the JSON's own key set and asserts the excluded part of it is
-    precisely `wall_clock_ms`, so a second host-dependent field has to be added
-    here on purpose -- and asserts the *included* part is non-trivial, so the
-    comparison above cannot be narrowed to nothing.
+    precisely `wall_clock_ms` and `run_at` (#303), so a third host-dependent
+    field has to be added here on purpose -- and asserts the *included* part is
+    non-trivial, so the comparison above cannot be narrowed to nothing.
     """
     produced = _run_matrix_into(tmp_path)
     keys = set(produced[STRATEGY_ORDER[0]])
-    assert {"wall_clock_ms"} == _HOST_DEPENDENT_FIELDS, _HOST_DEPENDENT_FIELDS
+    assert {"wall_clock_ms", "run_at"} == _HOST_DEPENDENT_FIELDS, _HOST_DEPENDENT_FIELDS
     assert keys >= _HOST_DEPENDENT_FIELDS, (
         f"the excluded field is not in the JSON at all; exclusion is dead: "
         f"{_HOST_DEPENDENT_FIELDS - keys}"

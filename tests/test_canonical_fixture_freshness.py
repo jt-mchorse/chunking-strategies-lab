@@ -47,8 +47,10 @@ RESULTS_DIR = _REPO_ROOT / "results"
 
 # Timing is the one field that legitimately changes every run; everything
 # else `RetrievalRun.to_json()` emits is a deterministic function of the
-# corpus, queries, and strategy code.
-_NON_DETERMINISTIC_KEYS = ("wall_clock_ms",)
+# corpus, queries, and strategy code. `run_at` is not in `to_json()` at all:
+# `run_matrix.py` adds the run's start time to each file it writes (#303), so
+# a regenerated fixture carries it and the fresh payload never does.
+_NON_DETERMINISTIC_KEYS = ("wall_clock_ms", "run_at")
 
 REGEN_HINT = (
     "The committed canonical fixture has drifted from the current chunker.\n"
