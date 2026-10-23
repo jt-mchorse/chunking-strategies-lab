@@ -3293,3 +3293,23 @@ context_for_next_session:
   - "A_FULL_SUITE_RUN_AFTER_RUN_MATRIX_CANONICAL_OUT_GOES_4_RED_ON_THE_DIRTY_FIXTURES_restore_results_before_the_gate"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:27Z
+issue: 305
+branch: session/2026-10-23-0735-issue-305
+focus: FENCE_RE_MISSED_AN_OPENER_ON_A_LIST_MARKER_LINE_SO_THE_ITEMS_INDENTED_CLOSER_OPENED_A_PHANTOM_FENCE_THAT_ERASED_LATER_HEADINGS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 20
+  suite: "2169 passed, 10 skipped (fresh py3.11 .[dev] venv, --cov; same on py3.12.12); ruff, format, mypy clean"
+decisions_made: []
+measured: "main 7fc1ad9: the issue's README titles ['Install', 'comment B', 'FAQ']. After: ['Install', 'Usage', 'Configure', 'FAQ'], same as markdown-it-py commonmark; all 20 new expectations checked against markdown-it-py in a side venv. run_matrix --canonical-out: only run_at and wall_clock_ms moved, regen discarded. Revert: 11 of 20 red (repro + 10 shallow-marker arms). 9 green controls: 4 deep-closer arms (10. and -<4sp>, closer at 4/5) red on the closer-limit-3 neighbour; 5 list controls, 1 red on the marker-line-may-close neighbour."
+context_for_next_session:
+  - "FENCE_RE_INDENT_IS_NOW_CAPTURED_UNBOUNDED_AND_THE_0_3_RULE_IS_ENFORCED_IN_FENCED_SPANS_a_list_fence_closer_gets_content_indent_plus_3"
+  - "A_DEEP_LIST_FENCE_10_DOT_WAS_RIGHT_ON_MAIN_BY_ACCIDENT_neither_opener_nor_4sp_closer_matched_so_those_arms_are_controls_for_the_closer_half_not_repros"
+  - "NOT_MODELLED_fences_in_list_items_nested_4plus_deep_and_list_item_termination_before_the_fence_closes_both_need_a_block_parser_D_002"
+  - "HTML_COMMENT_SIBLING_FILED_AS_308_repro_checked_against_markdown_it_py"
+followups: [308]
+---

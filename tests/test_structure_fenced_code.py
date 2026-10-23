@@ -319,3 +319,125 @@ def test_a_backtick_in_a_backtick_info_string_is_not_a_fence(
     lines: list[str], titles: list[str]
 ) -> None:
     assert _titles(StructureAwareStrategy().chunk(_doc(*lines))) == titles
+
+
+# --- #305: a fence opened on a list item's marker line ----------------------
+#
+# `- ```bash` is ordinary CommonMark: the fence is the item's first block, and
+# its closer sits at the item's content indent. Pre-fix the marker hid the
+# opener, the indented closer was read as an OPENER, and the phantom span ran
+# to the next bare fence or to end-of-text. Expected titles are CommonMark's
+# (markdown-it-py, commonmark preset), checked when this table was written.
+
+
+def test_the_issue_305_readme_keeps_its_four_headings() -> None:
+    text = (
+        "# Install\n\n1. Fetch the deps:\n   ```bash\n   # comment A\n   ```\n\n"
+        "- ```bash\n  # comment B\n  make\n  ```\n\n## Usage\n\nRun it.\n\n"
+        "## Configure\n\n```toml\n# comment C\nkey = 1\n```\n\n## FAQ\n\nNone yet.\n"
+    )
+
+    titles = _titles(StructureAwareStrategy().chunk(text, source_doc_id="r.md"))
+
+    assert titles == ["Install", "Usage", "Configure", "FAQ"], titles
+    assert not any("comment" in t for t in titles), f"a code comment became a title: {titles}"
+
+
+# (marker, the content indent its closer sits at).
+_LIST_MARKERS = [
+    ("- ", 2),
+    ("* ", 2),
+    ("+ ", 2),
+    ("1. ", 3),
+    ("1) ", 3),
+]
+# Markers whose closer sits past column 3. The unfixed code got these right by
+# accident -- it matched neither the opener nor the 4+-space closer -- so they
+# are not repros. They pin the closer half of the fix: recognise the marker
+# but keep a 0-3 closer allowance, and the fence never closes and runs to
+# end-of-text, erasing `# B` and `# C`.
+_DEEP_LIST_MARKERS = [("10. ", 4), ("-    ", 5)]
+
+
+def _list_fence_doc(marker: str, indent: int, fence: str) -> str:
+    pad = " " * indent
+    return _doc(
+        "# A",
+        "",
+        f"{marker}{fence}bash",
+        f"{pad}# comment in the list's code block",
+        f"{pad}{fence}",
+        "",
+        "# B",
+        "beta",
+        "",
+        "# C",
+        "gamma",
+    )
+
+
+@pytest.mark.parametrize("fence", [BACKTICK, TILDE], ids=["backtick", "tilde"])
+@pytest.mark.parametrize(
+    ("marker", "indent"), _LIST_MARKERS, ids=[m.strip() + f"-{i}" for m, i in _LIST_MARKERS]
+)
+def test_a_fence_on_a_list_marker_line_is_a_fence(marker: str, indent: int, fence: str) -> None:
+    text = _list_fence_doc(marker, indent, fence)
+    assert _titles(StructureAwareStrategy().chunk(text)) == ["A", "B", "C"]
+
+
+@pytest.mark.parametrize("fence", [BACKTICK, TILDE], ids=["backtick", "tilde"])
+@pytest.mark.parametrize(
+    ("marker", "indent"),
+    _DEEP_LIST_MARKERS,
+    ids=[m.strip() + f"-{i}" for m, i in _DEEP_LIST_MARKERS],
+)
+def test_a_list_fence_closes_at_its_content_indent(marker: str, indent: int, fence: str) -> None:
+    text = _list_fence_doc(marker, indent, fence)
+    assert _titles(StructureAwareStrategy().chunk(text)) == ["A", "B", "C"]
+
+
+# Controls: shapes that were right before #305 and must stay right.
+_LIST_CONTROL_CASES = [
+    (
+        # The issue's own control: the fence on its own line under the item.
+        "fence-on-its-own-line-under-an-item",
+        ["# A", "1. Fetch:", f"   {BACKTICK}bash", "   # comment", f"   {BACKTICK}", "# B", "b"],
+        ["A", "B"],
+    ),
+    (
+        # A list-marker fence line inside an open fence is content: a closer
+        # carries no marker, so the block still ends at the bare closer.
+        "marker-fence-line-inside-an-open-fence-is-content",
+        ["# A", BACKTICK, f"- {BACKTICK}", "# comment", BACKTICK, "# B", "b"],
+        ["A", "B"],
+    ),
+    (
+        # Five spaces after the marker make the item's content an indented
+        # code block, so the backticks are code, not a fence opener.
+        "five-spaces-after-the-marker-is-not-a-fence",
+        ["# A", f"-     {BACKTICK}", "", "# B", "b", "", "# C", "c"],
+        ["A", "B", "C"],
+    ),
+    (
+        # #156's rule still applies before a marker: 4+ spaces is indented code.
+        "marker-indented-four-spaces-is-not-a-fence",
+        ["# A", "", f"    - {BACKTICK}", "", "# B", "b", "", "# C", "c"],
+        ["A", "B", "C"],
+    ),
+    (
+        # A top-level fence keeps the 0-3 closer allowance: a 4-space closer
+        # is content, and the bare closer after it ends the block.
+        "top-level-fence-closer-indented-four-is-content",
+        ["# A", BACKTICK, "# comment", f"    {BACKTICK}", "# also code", BACKTICK, "# B", "b"],
+        ["A", "B"],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("lines", "titles"),
+    [(lines, titles) for _, lines, titles in _LIST_CONTROL_CASES],
+    ids=[case_id for case_id, _, _ in _LIST_CONTROL_CASES],
+)
+def test_list_marker_fence_controls(lines: list[str], titles: list[str]) -> None:
+    assert _titles(StructureAwareStrategy().chunk(_doc(*lines))) == titles

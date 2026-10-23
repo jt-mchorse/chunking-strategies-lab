@@ -111,9 +111,27 @@ def _heading_title(m: re.Match[str]) -> str:
 # Same line ends as `_HEADING_RE` (#297): were the heading scan to see CR-only
 # lines while this one did not, a `# comment` inside a CR-only fence would open
 # a section again, which is #152 through a different line ending.
+# The opener may also sit on a list item's MARKER line (#305): `- ```bash`,
+# `1. ```python`. CommonMark reads the fence as the item's first content block,
+# and its closer sits at the item's content indent (`  ```` under `- `). Pre-fix
+# the marker kept the opener from matching at all, so the indented CLOSER was
+# read as an opener and the phantom span ran to the next bare fence or to
+# end-of-text: every real heading in between vanished and the list block's
+# `# comment` became a chunk title -- #152 and #156 at once. The marker is a
+# bullet `[-*+]` or an ordered `\d{1,9}[.)]` (CommonMark §5.2's digit cap), then
+# 1-4 spaces; five or more would make the content an indented code block, so
+# the fence could not follow.
+#
+# The indent is captured unbounded and checked in `_fenced_spans`, not bounded
+# here: a list fence's closer may legitimately sit past column 3 (`10. ````
+# puts it at 4), while every other opener and closer keeps #156's 0-3 rule.
 _FENCE_RE = re.compile(
-    rf"{_LINE_START} {{0,3}}(?P<fence>`{{3,}}|~{{3,}})[ \t]*(?P<info>[^{_EOL}]*){_LINE_END}"
+    rf"{_LINE_START}(?P<indent> *)(?P<marker>(?:[-*+]|\d{{1,9}}[.)]) {{1,4}})?"
+    rf"(?P<fence>`{{3,}}|~{{3,}})[ \t]*(?P<info>[^{_EOL}]*){_LINE_END}"
 )
+
+# CommonMark's fence indent allowance (#156): up to 3 spaces past the container.
+_MAX_FENCE_INDENT = 3
 
 
 def _fenced_spans(text: str) -> list[tuple[int, int]]:
@@ -135,6 +153,12 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     direction: the strategy under-splits rather than inventing headings out of
     code, which is the failure this fixes.
 
+    A fence opened on a list item's marker line (`- ```bash`) is recognised,
+    and closes at up to 3 spaces past that item's content indent (#305). Only
+    the marker line is read: a fence nested in a list item indented 4+ spaces,
+    and a list item that ends before its fence closes (a column-0 line ending
+    the item), both need the block parser the next paragraph declines.
+
     Indented (four-space) code blocks are deliberately not handled. Telling
     them apart from list continuation needs a real block parser, and this
     package is dep-free by design (D-002) — so that is a much larger change
@@ -144,9 +168,16 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     open_at: int | None = None
     open_char = ""
     open_len = 0
+    close_indent = _MAX_FENCE_INDENT
     for m in _FENCE_RE.finditer(text):
         fence = m.group("fence")
+        indent = len(m.group("indent"))
+        marker = m.group("marker")
         if open_at is None:
+            # #156: 4+ spaces before an opener (or before its list marker) is
+            # an indented code block, not a fence.
+            if indent > _MAX_FENCE_INDENT:
+                continue
             # CommonMark §4.5: a BACKTICK fence's info string may not contain a
             # backtick, so ```` ```x``` is inline ```` is a paragraph that opens
             # with a code span, not a fence (#223). Read as an opener, nothing
@@ -158,10 +189,21 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
             open_at = m.start()
             open_char = fence[0]
             open_len = len(fence)
+            # #305: a fence opened after a list marker closes at the item's
+            # content indent (indent + marker + its spaces), plus the usual 3.
+            close_indent = _MAX_FENCE_INDENT + (indent + len(marker) if marker else 0)
             continue
         # A closing fence must use the same character, be at least as long as
-        # the opener, and carry no info string.
-        if fence[0] == open_char and len(fence) >= open_len and not m.group("info").strip():
+        # the opener, and carry no info string. It also carries no list marker
+        # (`- ```` inside an open fence is content, #305) and sits no deeper
+        # than the indent its opener allows (#156: 4+ past it is content).
+        if (
+            marker is None
+            and indent <= close_indent
+            and fence[0] == open_char
+            and len(fence) >= open_len
+            and not m.group("info").strip()
+        ):
             spans.append((open_at, m.end()))
             open_at = None
     if open_at is not None:
