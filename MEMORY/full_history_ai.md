@@ -3273,3 +3273,23 @@ context_for_next_session:
   - "COMMITTED_CANONICAL_FIXTURES_NOT_REGENERATED_they_carry_no_run_at_and_any_new_run_outranks_them"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:27Z
+issue: 306
+branch: session/2026-10-23-0735-issue-306
+focus: RETRIEVALRUN_CONSTRUCTOR_LET_A_NON_DICT_METRIC_MAP_AND_MIXED_TYPE_KEYS_ESCAPE_AS_RAW_TYPEERROR_ATTRIBUTEERROR_186_CONSTRUCTOR_HALF_MISSED_BOTH_MAPS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 23
+  suite: "2172 passed, 10 skipped (fresh py3.11 .[dev] venv, --cov); ruff, format, mypy clean"
+decisions_made: []
+measured: "main 7fc1ad9: recall_at_k=None -> TypeError not iterable; [] -> AttributeError .items; {1: 0.0, '1': 0.0} -> TypeError '<' str/int; {None: 0.0, 1: 0.0} -> TypeError '<' int/NoneType (not in the issue). After: field-named ValueError for all four, either map. Revert (metrics.py only, pycache cleared): 10 of 23 red (5 inputs x 2 maps); 13 green controls (single str key already ValueError, valid maps round-trip, non-positive key message still sorted [-2, 0], from_json 'must be a JSON object' message x 5 shapes x 2 maps). run_matrix --canonical-out: only wall_clock_ms and run_at moved, not committed. PR #307."
+context_for_next_session:
+  - "FROM_JSON_KEEPS_ITS_OWN_JSON_OBJECT_GUARD_coerce_metric_keys_iterates_items_before_validate_metric_maps_so_the_shared_check_cannot_replace_it_one_rule_two_messages_like_per_query"
+  - "VALIDATE_METRIC_MAP_KEYS_PASSES_list_NOT_sorted_TO_VALIDATE_KS_the_sort_compared_keys_before_the_type_first_rule_and_validate_ks_sorts_its_own_sign_offenders"
+  - "A_SINGLE_BAD_KEY_WAS_ALREADY_A_VALUEERROR_ONLY_TWO_INCOMPARABLE_KEYS_HIT_THE_SORT"
+  - "A_FULL_SUITE_RUN_AFTER_RUN_MATRIX_CANONICAL_OUT_GOES_4_RED_ON_THE_DIRTY_FIXTURES_restore_results_before_the_gate"
+followups: []
+---

@@ -278,8 +278,13 @@ def _validate_metric_map_keys(name: str, mapping: dict[int, float]) -> None:
             "`from_json` cannot read back"
         )
     if mapping:
+        # `list`, not `sorted` (#306). `validate_ks` checks type before sign,
+        # but a `sorted(...)` here ran first and compared the keys themselves,
+        # so `{1: 0.0, "1": 0.0}` died on a raw `TypeError: '<' not supported`
+        # before the type rule that names it could run. Order is irrelevant to
+        # the rule: `validate_ks` sorts its own sign offenders.
         try:
-            validate_ks(sorted(mapping))
+            validate_ks(list(mapping))
         except ValueError as e:
             raise ValueError(f"{name} keys: {e}") from None
 
@@ -428,7 +433,22 @@ def _validate_metric_maps(recall: dict[int, float], snippet: dict[int, float]) -
     Callers pass ``dict[int, float]``. The read path reaches that shape via
     :func:`_coerce_metric_keys` first; that coercion is genuinely read-only
     and stays where it is.
+
+    **The container axis too (#306).** #186 listed four containers
+    ``from_json`` guards -- the top-level payload, both metric maps,
+    ``per_query`` and ``notes`` -- and gave ``__post_init__`` the last two.
+    These two still reached ``.items()`` / ``sorted(...)`` unchecked, so
+    ``recall_at_k=None`` raised a raw ``TypeError`` and ``recall_at_k=[]`` a raw
+    ``AttributeError`` out of the constructor. ``dict`` and not ``Mapping``:
+    the annotation says ``dict``, and ``from_json`` already demands one.
+    ``from_json`` keeps its own ``must be a JSON object`` check and message,
+    because ``_coerce_metric_keys`` iterates the map before this runs.
     """
+    for name, mapping in (("recall_at_k", recall), ("snippet_hit_at_k", snippet)):
+        if not isinstance(mapping, dict):
+            raise ValueError(
+                f"{name} must be a dict of int k to float, got {type(mapping).__name__}"
+            )
     _validate_metric_map_keys("recall_at_k", recall)
     _validate_metric_map_keys("snippet_hit_at_k", snippet)
     _validate_metric_map("recall_at_k", recall)
