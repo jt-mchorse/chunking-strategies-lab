@@ -2889,3 +2889,14 @@ was also local time, so after a DST fall-back the newer run sorted first.
 file and names scratch files in UTC. The notebook orders runs by that recorded
 time. Older files without it keep the previous order. The committed fixtures,
 the notebook's charts and the benchmark numbers do not change.
+
+## 2026-10-23 — Building a run with a broken metric map gives a clear error (#306)
+
+#186 made the `RetrievalRun` constructor reject a bad `per_query` or `notes`
+with a `ValueError` that names the field. It did not cover the two metric maps.
+Passing `recall_at_k=None` or a list therefore crashed with a raw
+`TypeError`/`AttributeError`. A map whose keys mixed types, such as
+`{1: 0.0, "1": 0.0}`, crashed while sorting the keys, before the rule that
+explains the problem could run. Both maps must now be a dict, and bad keys are
+reported by name. Loading a file through `from_json` already refused these and
+gives the same messages as before. The benchmark numbers do not change.
