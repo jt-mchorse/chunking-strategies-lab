@@ -2900,3 +2900,15 @@ Passing `recall_at_k=None` or a list therefore crashed with a raw
 explains the problem could run. Both maps must now be a dict, and bad keys are
 reported by name. Loading a file through `from_json` already refused these and
 gives the same messages as before. The benchmark numbers do not change.
+
+## 2026-10-23 — A code fence opened on a list item's line is a code fence (#305)
+
+A README often writes `- ```bash` with the code block on the list item's own
+line. The structure-aware chunker only looked for a fence at the start of a
+line, so it missed that opener. It then read the item's indented closing fence
+as a new opener, which ran to the next bare fence or to the end of the document.
+Every real heading in between was lost, and the `# comment` in the list's code
+block became a chunk title. A fence can now follow a list marker (`-`, `*`, `+`,
+`1.`, `1)`), and it closes at the item's own indent. Other fences keep the
+existing indent rules. The benchmark numbers do not change. The related case of
+a `#` line inside an HTML comment is #308.
