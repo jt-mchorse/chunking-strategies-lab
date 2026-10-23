@@ -3313,3 +3313,24 @@ context_for_next_session:
   - "HTML_COMMENT_SIBLING_FILED_AS_308_repro_checked_against_markdown_it_py"
 followups: [308]
 ---
+
+---
+session: 2026-10-23T07:47Z
+issue: 308
+branch: session/2026-10-23-0750-issue-308
+focus: STRUCTURE_READ_A_HASH_LINE_INSIDE_AN_HTML_COMMENT_BLOCK_AS_AN_ATX_HEADING_152_HARM_THROUGH_COMMONMARK_HTML_BLOCK_TYPE_2
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 17
+  suite: "2209 passed, 10 skipped (fresh py3.11 .[dev] venv, --cov, re-run after commit); ruff, format, mypy clean; structure.py 100%"
+decisions_made: []
+measured: "main de8f25b: the issue's doc titles ['A', 'draft heading', 'B']; '<!--' / fence line / '-->' / '# B' titles ['A'] (phantom fence, not in the issue). After: ['A', 'B'] for both; all 15 heading expectations match markdown-it-py commonmark. Corpus chunks identical old vs new at every max_heading_level; run_matrix --canonical-out moved only run_at and wall_clock_ms, discarded. Revert (structure.py only, pycache cleared): 10 of 17 red; 7 green = 5 controls + 2 degenerate-opener (<!-->, <!--->) arms that go red on the closer-search-from-m.end() neighbour. Comments-not-hiding-fences neighbour: 2 red; comment-opener-not-skipped-in-a-fence neighbour: 1 red. PR #310."
+context_for_next_session:
+  - "BLOCK_SPANS_WALKS_FENCE_AND_COMMENT_OPENERS_IN_ONE_POSITION_ORDERED_PASS_each_hides_the_others_opener_so_two_independent_passes_get_one_order_wrong"
+  - "FENCED_SPANS_KEPT_ITS_SIGNATURE_and_returns_block_spans_fences_half_chunk_and_fallback_title_skip_fences_plus_comments"
+  - "THE_COMMENT_CLOSER_SEARCH_STARTS_AT_THE_OPENERS_OWN_DOUBLE_DASH_so_<!--> and <!---> close on their own line as CommonMark reads them"
+  - "NOT_MODELLED_html_block_types_1_and_3_to_7_and_comments_opened_on_a_list_marker_or_blockquote_line"
+  - "PYTEST_ADDOPTS_IS_-ra_-q_SO_A_SECOND_-q_HIDES_THE_SUMMARY_LINE_use_-o_addopts=''"
+followups: []
+---

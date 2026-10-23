@@ -2912,3 +2912,16 @@ block became a chunk title. A fence can now follow a list marker (`-`, `*`, `+`,
 `1.`, `1)`), and it closes at the item's own indent. Other fences keep the
 existing indent rules. The benchmark numbers do not change. The related case of
 a `#` line inside an HTML comment is #308.
+
+## 2026-10-23 — A `#` line inside an HTML comment is not a heading (#308)
+
+Markdown files often hide draft text in an HTML comment (`<!--` ... `-->`).
+The structure-aware chunker read a `# line` inside such a comment as a heading,
+so the hidden text became a chunk boundary and a chunk title. The chunker now
+skips HTML comment blocks the same way it already skips code fences. A comment
+starts with `<!--` at the start of a line (up to 3 spaces of indent), ends at
+the first `-->`, or runs to the end of the document if it is never closed.
+Fences and comments are read in one pass because each can hide the other's
+opening line: a `<!--` inside a code fence stays code, and a fence line inside
+a comment no longer starts a code block that would swallow every later heading.
+The benchmark numbers do not change.
