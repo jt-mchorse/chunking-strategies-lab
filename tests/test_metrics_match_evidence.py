@@ -31,6 +31,7 @@ from chunking_lab.embedder import HashEmbedder
 from chunking_lab.metrics import QueryResult, RetrievalRun, evaluate_strategy
 from chunking_lab.queries import Query
 from chunking_lab.strategies import FixedSizeStrategy, RecursiveStrategy
+from tests._canonical_round_trip import assert_round_trips
 from tests._query_rows import evidence, evidence_rows
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -179,9 +180,8 @@ def test_every_committed_canonical_file_satisfies_it_exactly() -> None:
     assert len(files) == 5, files
     for path in files:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        run = RetrievalRun.from_json(payload)
+        run = assert_round_trips(payload, path.name)
         assert run.n_queries > 0, path.name
-        assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(payload, sort_keys=True)
 
 
 # ---------------------------------------------------------------------------

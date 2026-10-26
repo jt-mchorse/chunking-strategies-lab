@@ -3334,3 +3334,23 @@ context_for_next_session:
   - "PYTEST_ADDOPTS_IS_-ra_-q_SO_A_SECOND_-q_HIDES_THE_SUMMARY_LINE_use_-o_addopts=''"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:15Z
+issue: 311
+branch: session/2026-10-26-0715-issue-311
+focus: README_FIXTURE_REFRESH_TURNED_4_ROUND_TRIP_LOCKS_RED_BECAUSE_303_RUN_AT_IS_WRITTEN_BESIDE_TO_JSON_AND_FROM_JSON_IGNORES_IT
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 8
+  suite: "2217 passed, 10 skipped (fresh py3.11 .[dev] venv, --cov, after commit); ruff, format, mypy clean"
+decisions_made: []
+measured: "main 1c8153c: run_matrix --canonical-out into results/ then pytest -> 4 failed, 2205 passed, 10 skipped (the issue's 4). After, same regen: 2217 passed, 10 skipped; results/ restored, not committed. Revert (helper back to whole-payload equality, pycache cleared): 5 of 8 new red (one per regenerated strategy); 3 green controls (dropped keys == writer's extra keys, metric change fails, unknown extra key fails). Neighbours: compare-only-keys-to_json-emits -> 1 red (extra-key control); FILE_PROVENANCE_KEYS widened with wall_clock_ms -> 6 red. PR #312."
+context_for_next_session:
+  - "TESTS_CANONICAL_ROUND_TRIP_ASSERT_ROUND_TRIPS_IS_THE_ONE_EXACT_FROM_JSON_TO_JSON_LOCK_FOR_A_RESULT_FILE_a_new_lock_should_call_it"
+  - "FILE_PROVENANCE_KEYS_IS_RUN_AT_ONLY_a_new_key_run_matrix_writes_turns_test_the_dropped_keys_are_exactly_what_the_writer_adds_red"
+  - "THE_REGRESSION_RUNS_THE_DOCUMENTED_COMMAND_INTO_A_TMP_DIR_because_the_committed_fixtures_still_carry_no_run_at_so_the_four_locks_alone_cannot_see_it"
+  - "FRESHNESS_AND_SNAPSHOT_LOCKS_KEEP_THEIR_OWN_KEY_SETS_they_also_exclude_wall_clock_ms_which_is_a_different_rule"
+followups: []
+---
