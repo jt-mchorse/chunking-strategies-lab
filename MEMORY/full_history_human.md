@@ -2925,3 +2925,17 @@ Fences and comments are read in one pass because each can hide the other's
 opening line: a `<!--` inside a code fence stays code, and a fence line inside
 a comment no longer starts a code block that would swallow every later heading.
 The benchmark numbers do not change.
+
+## 2026-10-26 — Refreshing the canonical fixtures no longer breaks the suite (#311)
+
+Since #303, `run_matrix.py` writes a `run_at` time next to each run's results.
+`RetrievalRun.from_json` ignores it. Four tests checked that loading a committed
+canonical file and writing it back gives the same JSON, and they compared the
+whole file. So the README's own refresh command (`run_matrix.py --canonical-out`)
+turned all four red. They passed only because the committed files had not been
+regenerated since then. All four now use one shared check. It leaves out
+`run_at` by name and compares everything else exactly. A new test runs the
+refresh command into a temp folder and applies the same check to what it
+writes. Two controls confirm that a changed metric or an unexpected extra field
+still fails. The README now mentions `run_at`. The benchmark numbers and the
+committed fixtures do not change.
