@@ -212,7 +212,9 @@ def test_the_committed_summary_regenerates_unchanged_from_the_committed_jsons() 
         )
         for name in order
     ]
-    rendered = run_matrix._render_summary(runs, "HashEmbedder")
+    # The header comes from what the fixtures persisted, as its sibling in
+    # `test_summary_metric_zero_collapse.py` does (#116), not a hard-coded name.
+    rendered = run_matrix._render_summary(runs, runs[0].embedder_model)
     committed = (results / "summary.md").read_text(encoding="utf-8")
     assert rendered == committed, (
         "results/summary.md does not regenerate byte-identically from the "

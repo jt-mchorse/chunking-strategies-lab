@@ -107,5 +107,5 @@ pace
 banner "done · five strategies, one Protocol, one corpus, one summary contract"
 printf 'next stop for real-quality numbers:\n'
 printf "  pip install -e '.[sbert]'\n"
-printf '  python scripts/run_matrix.py --embedder minilm --canonical-out   # refreshes results/\n'
+printf '  python scripts/run_matrix.py --embedder minilm   # timestamped scratch in results/; canonical fixtures stay HashEmbedder\n'
 printf '  jupyter nbconvert --to notebook --inplace --execute notebooks/comparison.ipynb\n'

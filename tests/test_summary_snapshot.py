@@ -357,7 +357,7 @@ def test_run_matrix_summary_header_matches_persisted_embedder_model(tmp_path, mo
 
     Pre-fix the runner rendered the header from `type(embedder).__name__`
     (`_NamedStubEmbedder`) while the JSONs carried `embedder_model` =
-    `stub-embedder/v1`, so an honest `--canonical-out --embedder minilm` refresh
+    `stub-embedder/v1`, so a `--canonical-out --embedder minilm` run
     wrote a `summary.md` that permanently failed
     `test_committed_summary_md_matches_render_from_committed_results`. Drive the
     real `main()` end-to-end (into a tmp results dir, so the committed fixtures
