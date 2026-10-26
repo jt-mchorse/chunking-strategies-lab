@@ -44,12 +44,12 @@ if str(_REPO_ROOT) not in sys.path:
 from chunking_lab.corpus import Document  # noqa: E402
 from chunking_lab.embedder import HashEmbedder  # noqa: E402
 from chunking_lab.metrics import (  # noqa: E402
-    RetrievalRun,
     evaluate_strategy,
     validate_queries,
 )
 from chunking_lab.queries import Query, load_queries  # noqa: E402
 from chunking_lab.strategies import Chunk, FixedSizeStrategy  # noqa: E402
+from tests._canonical_round_trip import assert_round_trips  # noqa: E402
 
 _CORPUS = [
     Document(filename="alpha.md", text="alpha beta gamma delta epsilon " * 40),
@@ -174,6 +174,5 @@ def test_the_committed_canonical_results_still_round_trip() -> None:
     assert canonical, "expected committed canonical__*.json files under results/"
     for path in canonical:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        run = RetrievalRun.from_json(payload)
+        run = assert_round_trips(payload, path.name)
         assert run.n_queries > 0, f"{path.name} has no queries"
-        assert run.to_json() == payload, path.name

@@ -165,7 +165,10 @@ results/
 
 Each JSON file is the `RetrievalRun.to_json()` shape: per-strategy
 metadata, per-query retrieved-doc rankings, per-rank snippet-hit flags,
-and the aggregate recall/snippet-hit at each k. `summary.md` is the
+and the aggregate recall/snippet-hit at each k. On top of that,
+`run_matrix.py` writes one more key, `run_at`: the run's UTC start time,
+which the notebook uses to find the newest run. `RetrievalRun.from_json`
+ignores it. `summary.md` is the
 markdown table consumers paste into a blog post or PR description.
 
 **Honest disclosure.** The dep-free `HashEmbedder` produces vectors

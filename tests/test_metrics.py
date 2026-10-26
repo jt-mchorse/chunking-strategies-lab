@@ -608,6 +608,7 @@ def test_late_chunking_mismatch_error_names_d011() -> None:
 # ----------------------------------------------------------------------
 
 from chunking_lab.metrics import QueryResult  # noqa: E402
+from tests._canonical_round_trip import assert_round_trips  # noqa: E402
 from tests._query_rows import evidence_rows  # noqa: E402
 
 
@@ -797,11 +798,9 @@ def test_retrieval_run_from_json_loads_committed_canonical_jsons() -> None:
     canonical = sorted(results_dir.glob("canonical__*.json"))
     assert canonical, "expected committed canonical__*.json files under results/"
     for path in canonical:
-        run = RetrievalRun.from_json(json.loads(path.read_text(encoding="utf-8")))
-        # Round-trip identity at the JSON level (key order + value shape).
-        assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(
-            json.loads(path.read_text(encoding="utf-8")), sort_keys=True
-        )
+        # Round-trip identity at the JSON level (key order + value shape), less
+        # the provenance keys `run_matrix.py` writes beside `to_json()` (#311).
+        assert_round_trips(json.loads(path.read_text(encoding="utf-8")), path.name)
 
 
 # --- #68: tied-score ranking determinism ------------------------------------

@@ -48,6 +48,7 @@ from typing import Any  # noqa: E402
 
 from chunking_lab.metrics import RetrievalRun  # noqa: E402
 from scripts.run_matrix import _render_summary  # noqa: E402
+from tests._canonical_round_trip import assert_round_trips  # noqa: E402
 from tests._query_rows import evidence  # noqa: E402
 
 
@@ -230,8 +231,7 @@ def test_committed_canonical_fixtures_still_round_trip() -> None:
     assert canonical, "expected committed canonical__*.json files under results/"
     for path in canonical:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        run = RetrievalRun.from_json(raw)
-        assert json.dumps(run.to_json(), sort_keys=True) == json.dumps(raw, sort_keys=True)
+        run = assert_round_trips(raw, path.name)
         assert run.wall_clock_ms >= 0.0
         assert isinstance(run.n_chunks_total, int)
 
