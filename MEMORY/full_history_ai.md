@@ -3354,3 +3354,22 @@ context_for_next_session:
   - "FRESHNESS_AND_SNAPSHOT_LOCKS_KEEP_THEIR_OWN_KEY_SETS_they_also_exclude_wall_clock_ms_which_is_a_different_rule"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:32Z
+issue: 313
+branch: session/2026-10-26-0728-issue-313
+focus: CAPTURE_DEMO_SUGGESTED_A_MINILM_CANONICAL_REFRESH_THAT_TURNS_THE_HASHEMBEDDER_FRESHNESS_AND_PIPELINE_LOCKS_RED_BY_CONSTRUCTION
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "2221 passed, 10 skipped (fresh py3.11 .[dev] venv); ruff, format, mypy clean"
+decisions_made: []
+measured: "hunt agent on main c435a17, a model_name-bearing HashEmbedder subclass patched over _build_embedder, main(['--embedder','minilm','--canonical-out']) then pytest -> 11 failed, 2205 passed (5 freshness + 5 pipeline + the wall-clock summary lock). Revert (capture_demo.sh at origin/main): 1 of 4 new red; 3 green = README arm + 2 controls. Line-215 change is test-only (header from runs[0].embedder_model, as its #116 sibling); not probeable against source. PR #314."
+context_for_next_session:
+  - "COMMITTED_CANONICAL_FIXTURES_ARE_HASHEMBEDDER_BY_CONSTRUCTION_freshness_and_pipeline_locks_rerun_that_path_so_a_minilm_run_belongs_in_scratch"
+  - "TEST_CAPTURE_DEMO_MINILM_IS_SCRATCH_SCANS_EVERY_SUGGESTED_RUN_MATRIX_COMMAND_IN_CAPTURE_DEMO_AND_README"
+  - "NOT_DONE_minilm_canonical_fixtures_would_need_the_freshness_and_pipeline_locks_to_skip_on_a_non_hash_embedder_model_a_design_call"
+followups: []
+---

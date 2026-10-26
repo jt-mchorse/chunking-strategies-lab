@@ -2939,3 +2939,14 @@ refresh command into a temp folder and applies the same check to what it
 writes. Two controls confirm that a changed metric or an unexpected extra field
 still fails. The README now mentions `run_at`. The benchmark numbers and the
 committed fixtures do not change.
+
+## 2026-10-26 — The demo no longer suggests a MiniLM refresh of the committed fixtures (#313)
+
+The demo script ended by suggesting `run_matrix.py --embedder minilm --canonical-out`
+to "refresh results/". The committed canonical fixtures are the HashEmbedder runs
+that the freshness and pipeline tests re-create, so that refresh turns 11 tests
+red by construction. The README had already switched to the scratch command; the
+demo script now matches it, and a new test checks that no suggested command
+pairs MiniLM with `--canonical-out`. One summary test also stopped hard-coding
+the `HashEmbedder` name in the header it re-renders, and reads it from the
+fixtures like its sibling does. No numbers change.

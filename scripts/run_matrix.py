@@ -634,11 +634,13 @@ def main(argv: list[str] | None = None) -> int:
         # so the canonical hash path is byte-identical and the line-89 disclaimer
         # gate still fires. They diverge for any `model_name`-bearing embedder
         # (e.g. `MiniLMEmbedder` → `sentence-transformers/all-MiniLM-L6-v2`): with
-        # the old class-name source, an honest `--canonical-out --embedder minilm`
-        # refresh wrote a `summary.md` whose header disagreed with the committed
-        # JSONs, permanently failing `test_summary_snapshot`'s re-render (which
-        # reads `runs[0].embedder_model`). Using `_embedder_model_name(embedder)`
-        # keeps the summary self-consistent with the fixtures and is empty-runs-safe.
+        # the old class-name source, a `--canonical-out --embedder minilm` run
+        # wrote a `summary.md` whose header disagreed with the JSONs beside it,
+        # which `test_summary_snapshot`'s re-render (reading `runs[0].embedder_model`)
+        # can never accept. Using `_embedder_model_name(embedder)` keeps the summary
+        # self-consistent with the fixtures and is empty-runs-safe. (The COMMITTED
+        # canonical fixtures stay HashEmbedder: `test_canonical_fixture_freshness`
+        # re-runs that path, so a MiniLM run belongs in scratch, #313.)
         try:
             atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
         except OSError as e:
