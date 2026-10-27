@@ -3373,3 +3373,23 @@ context_for_next_session:
   - "NOT_DONE_minilm_canonical_fixtures_would_need_the_freshness_and_pipeline_locks_to_skip_on_a_non_hash_embedder_model_a_design_call"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:17Z
+issue: 315
+branch: session/2026-10-26-0756-issue-315
+focus: UNICODE_WHITESPACE_AFTER_HASH_LOST_THE_HEADING_STAYED_IN_TITLES_AND_CLOSED_FENCES_BECAUSE_BACKSLASH_S_AND_STRIP_WIDEN_COMMONMARKS_SPACE_TAB_RULE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 73
+  suite: "2294 passed, 10 skipped (py3.12 worktree venv --cov, and fresh py3.11 .[dev] venv, after commit); ruff, format, mypy clean"
+decisions_made: []
+measured: "main fabd7b0: '#'+' '+NBSP/U+2003/U+202F/U+3000+'Install' -> ['Intro'] (space alone: ['Intro','Install']); '# Install\\xa0' -> 'Install\\xa0'; closer+NBSP -> ['Intro','not a heading']. Revert (source at origin/main, pycache cleared): 49 of 73 red; 24 green = 6 control rows x 4 codepoints. Per-hunk revert: regex 21 red, display trim 33 red, fence strip(' \\t') 17 red. All 64 table expectations match markdown-it-py 4.2.0 commonmark (0 mismatches). run_matrix --canonical-out moved only run_at/wall-clock; discarded. Resumed from 10-26's uncommitted worktree. PR #316."
+context_for_next_session:
+  - "STRUCTURE_PY_WHITESPACE_IS_SPACE_TAB_ONLY_IN_BOUNDARY_DECISIONS_heading_regex_title_first_char_and_fence_closer_info_trim"
+  - "HEADING_TITLE_GETS_ONE_STR_STRIP_FOR_DISPLAY_AFTER_THE_CLOSER_AND_ALL_HASH_CHECKS_same_trim_as_fallback_title"
+  - "REMAINING_STRIP_CALLS_PREAMBLE_BLANK_CHECK_AND_FALLBACK_BLANK_SKIP_ARE_DISPLAY_OR_BLANKNESS_NOT_BOUNDARIES_left_as_is"
+  - "TEST_FILE_USES_ESCAPES_NOT_LITERAL_CODEPOINTS_for_the_unicode_whitespace_table"
+followups: []
+---

@@ -2950,3 +2950,18 @@ demo script now matches it, and a new test checks that no suggested command
 pairs MiniLM with `--canonical-out`. One summary test also stopped hard-coding
 the `HashEmbedder` name in the header it re-renders, and reads it from the
 fixtures like its sibling does. No numbers change.
+
+## 2026-10-27 — Only space and tab count as heading and fence whitespace (#315)
+
+CommonMark allows only a space or a tab after a heading's `#`s and after a
+closing code fence. The structure-aware chunker used Python's `\S` and `strip()`
+in those places, and both also count non-breaking spaces and other Unicode
+spaces. Text pasted from the web, or typed with macOS Option-Space, could
+therefore lose a heading (its section merged into the previous one), keep a
+stray non-breaking space in a chunk title, or end a code block early so a
+`# comment` inside it became a section. The heading pattern and the fence check
+now accept only space and tab. Titles get one ordinary trim for display, the
+same one the fallback title already used. A 73-case table covers four Unicode
+spaces in each position, with every expected answer checked against a
+CommonMark reference parser. The benchmark numbers and committed fixtures do
+not change.
