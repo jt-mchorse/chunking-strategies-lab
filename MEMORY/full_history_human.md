@@ -2965,3 +2965,18 @@ same one the fallback title already used. A 73-case table covers four Unicode
 spaces in each position, with every expected answer checked against a
 CommonMark reference parser. The benchmark numbers and committed fixtures do
 not change.
+
+## 2026-10-27 — A `#` line inside `<pre>`, `<script>`, `<?...?>`, `<!DOCTYPE` or CDATA is no longer a heading (#317)
+
+The fix for #308 taught the structure-aware chunker to skip HTML comments, but
+CommonMark has four more kinds of HTML block that end at a fixed string: the
+`<pre>`/`<script>`/`<style>`/`<textarea>` family, `<?...?>`, `<!DOCTYPE`-style
+declarations, and CDATA sections. A `# install deps` line inside a `<pre>` block
+still became a section and a chunk title. The chunker now reads all five kinds
+from one table of opening and closing strings, in the same pass that finds code
+fences, so neither kind of block can open the other by mistake. 43 new tests
+cover each kind, with expected answers checked against a CommonMark reference
+parser. The one difference is lowercase `<!doctype`: the reference parser still
+uses an older version of the rule, and the chunker follows the current spec. The
+blank-line-terminated kinds (`<div>` and friends) are still not handled. The
+benchmark numbers and committed fixtures do not change.
