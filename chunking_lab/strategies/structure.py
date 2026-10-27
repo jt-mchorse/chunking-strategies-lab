@@ -76,11 +76,19 @@ from . import Chunk, check_chunk_input
 # chunk, titled with the whole text. `_LINE_START`/`_LINE_END` anchor on the
 # same set, and `[^{_EOL}]` replaces `.` in the title. The old `\r?$` tail is
 # subsumed: `\r` is itself a line end.
+#
+# The title's first character is `[^ \t{_EOL}]`, not `\S` (#315). CommonMark
+# allows only space and tab around the hashes, but Python's `\S` also refuses
+# NBSP, U+2003, U+202F, U+3000 and the rest of Unicode's whitespace. So
+# `# \xa0Install` -- an NBSP pasted from the web, or macOS Option-Space -- had
+# no title the group would take, matched no heading at all, and its section
+# merged under the previous title: #156's harm. A Unicode-blank first character
+# is content to CommonMark; `_heading_title` trims it for display.
 _EOL = "\n\r\x0b\x0c\x1c-\x1e\x85\u2028\u2029"
 _LINE_START = rf"(?:^|(?<=[{_EOL}]))"
 _LINE_END = rf"(?=[{_EOL}]|\Z)"
 _HEADING_RE = re.compile(
-    rf"{_LINE_START} {{0,3}}(#{{1,6}})(?:[ \t]+(\S[^{_EOL}]*?))?([ \t]+#+)?[ \t]*{_LINE_END}"
+    rf"{_LINE_START} {{0,3}}(#{{1,6}})(?:[ \t]+([^ \t{_EOL}][^{_EOL}]*?))?([ \t]+#+)?[ \t]*{_LINE_END}"
 )
 
 
@@ -95,7 +103,13 @@ def _heading_title(m: re.Match[str]) -> str:
     title = m.group(2)
     if title is None or (m.group(3) is None and set(title) == {"#"}):
         return EMPTY_HEADING_TITLE
-    return title
+    # One Unicode-whitespace trim for display (#315), the same `str.strip()`
+    # `_fallback_title` gives a plain line, so a heading titles alike on either
+    # path. The regex only spends space/tab, so a trailing NBSP stayed in the
+    # title (`Install\xa0`). It runs after the closer and all-`#` checks, which
+    # follow CommonMark's space/tab rule: `# \xa0#` has no closer and titles `#`.
+    # A title that was only Unicode whitespace (`# \xa0`) is an empty heading.
+    return title.strip() or EMPTY_HEADING_TITLE
 
 
 # A fenced code block opener: an optional indent, then a run of 3+ backticks or
@@ -209,12 +223,16 @@ def _block_spans(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]
         # the opener, and carry no info string. It also carries no list marker
         # (`- ```` inside an open fence is content, #305) and sits no deeper
         # than the indent its opener allows (#156: 4+ past it is content).
+        # "No info string" means only spaces or tabs may follow (§4.5), so the
+        # trim is `strip(" \t")`: a bare `.strip()` also ate NBSP and U+3000,
+        # and a ```` ```\xa0 ```` line closed the fence early, letting a `# line`
+        # still inside it open a section (#315, #152's harm).
         if (
             marker is None
             and indent <= close_indent
             and fence[0] == open_char
             and len(fence) >= open_len
-            and not m.group("info").strip()
+            and not m.group("info").strip(" \t")
         ):
             fences.append((open_at, m.end()))
             open_at = None
