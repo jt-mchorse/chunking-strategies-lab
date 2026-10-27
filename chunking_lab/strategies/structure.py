@@ -6,8 +6,8 @@ heading-bounded section as one chunk. The heading text itself is included
 in the chunk's metadata so retrieval can use it as a title field.
 
 If no heading survives filtering, falls back to one chunk per document with
-the document's first non-empty line outside a code fence (or an HTML comment,
-#308) as the title, de-marked if it is a heading `max_heading_level` filtered
+the document's first non-empty line outside a code fence (or an HTML block,
+#308, #317) as the title, de-marked if it is a heading `max_heading_level` filtered
 out (#288).
 """
 
@@ -148,53 +148,82 @@ _FENCE_RE = re.compile(
 # CommonMark's fence indent allowance (#156): up to 3 spaces past the container.
 _MAX_FENCE_INDENT = 3
 
-# An HTML comment block opener (#308): `<!--` at the start of a line, after
-# #156's 0-3 space indent. CommonMark §4.6 type 2 -- the block runs to the
-# first line containing `-->` (which may be the opener's own line), or to
+# An HTML block opener (#308, #317): CommonMark §4.6 types 1-5 at the start of a
+# line, after #156's 0-3 space indent. Each block runs to the first line
+# containing its end string (which may be the opener's own line), or to
 # end-of-text, and a `# line` inside it is raw HTML, not a heading. Pre-fix
 # `<!--\n# draft heading\n-->` opened a section titled `draft heading`: text
 # that is not a heading became a chunk boundary and a `title`, #152's harm.
+# #308 skipped only type 2 (`<!--`), so `<pre>\n# install deps\n</pre>` still
+# titled a chunk `install deps` (#317). The five types:
+#   1  `<pre`, `<script`, `<style` or `<textarea` (any case), then a space, a
+#      tab, `>` or end of line; ended by any of the four closing tags (any case)
+#   2  `<!--`, ended by `-->`
+#   3  `<?`, ended by `?>`
+#   4  `<!` and an ASCII letter (`<!DOCTYPE`), ended by `>`
+#   5  `<![CDATA[`, ended by `]]>`
+# The openers are disjoint, so at most one group matches a line. Types 6 and 7
+# (`<div>`, any lone tag) are not here: they end at a blank line and type 7
+# cannot interrupt a paragraph, which needs the paragraph context this
+# line-based pass does not have.
 # Same line ends as `_HEADING_RE` (#297), for the reason `_FENCE_RE` gives.
-_HTML_COMMENT_RE = re.compile(rf"{_LINE_START} {{0,3}}<!--")
-_HTML_COMMENT_CLOSE = "-->"
+_HTML_BLOCK_RE = re.compile(
+    rf"{_LINE_START} {{0,3}}(?P<open>"
+    rf"(?P<t1><(?i:pre|script|style|textarea)(?=[ \t>]|{_LINE_END}))"
+    r"|(?P<t2><!--)"
+    r"|(?P<t3><\?)"
+    r"|(?P<t4><![A-Za-z])"
+    r"|(?P<t5><!\[CDATA\[)"
+    r")"
+)
+_HTML_BLOCK_CLOSE = {
+    "t1": re.compile(r"</(?i:pre|script|style|textarea)>"),
+    "t2": re.compile("-->"),
+    "t3": re.compile(r"\?>"),
+    "t4": re.compile(">"),
+    "t5": re.compile(r"\]\]>"),
+}
 
 
 def _block_spans(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """Return the `[start, end)` spans of fenced code blocks and of HTML
-    comment blocks, as `(fences, comments)`.
+    blocks (types 1-5, see `_HTML_BLOCK_RE`), as `(fences, html)`.
 
-    One position-ordered pass over both openers, because each block hides the
-    other's opener (#308): a `<!--` line inside an open fence is code, and a
-    ```` ``` ```` line inside an open comment is HTML. Two independent passes
-    would get one of those wrong -- a fence line inside a comment, read as an
-    opener, has no closer and swallows every later heading (#156's harm).
+    One position-ordered pass over both kinds of opener, because each block
+    hides the other's opener (#308): a `<!--` or `<pre>` line inside an open
+    fence is code, and a ```` ``` ```` line inside an open HTML block is HTML.
+    Two independent passes would get one of those wrong -- a fence line inside
+    an HTML block, read as an opener, has no closer and swallows every later
+    heading (#156's harm). An HTML opener inside an open HTML block is content
+    too: only the open block's own end string closes it.
     """
     fences: list[tuple[int, int]] = []
-    comments: list[tuple[int, int]] = []
+    html: list[tuple[int, int]] = []
     events = sorted(
         [(m.start(), True, m) for m in _FENCE_RE.finditer(text)]
-        + [(m.start(), False, m) for m in _HTML_COMMENT_RE.finditer(text)],
+        + [(m.start(), False, m) for m in _HTML_BLOCK_RE.finditer(text)],
         key=lambda e: e[0],
     )
     open_at: int | None = None
     open_char = ""
     open_len = 0
     close_indent = _MAX_FENCE_INDENT
-    comment_end = 0
+    html_end = 0
     for start, is_fence, m in events:
-        # Inside an HTML comment, fence and comment openers alike are content.
-        if start < comment_end:
+        # Inside an HTML block, fence and HTML openers alike are content.
+        if start < html_end:
             continue
         if not is_fence:
-            # Inside an open fence a `<!--` line is code (#152's rule).
+            # Inside an open fence an HTML opener line is code (#152's rule).
             if open_at is not None:
                 continue
-            # Search from the opener's own `--`: `<!-->` and `<!--->` contain
-            # `-->` and close on the opener's line, as CommonMark's "line
-            # contains `-->`" end condition reads them.
-            close = text.find(_HTML_COMMENT_CLOSE, m.end() - 2)
-            comment_end = len(text) if close == -1 else close + len(_HTML_COMMENT_CLOSE)
-            comments.append((start, comment_end))
+            # Search from the opener's own `<`: CommonMark's end condition is
+            # "the line contains the end string", so `<!-->`, `<!--->`, `<?>`
+            # and `<pre>x</pre>` all close on the opener's line.
+            kind = next(k for k in _HTML_BLOCK_CLOSE if m.group(k) is not None)
+            close = _HTML_BLOCK_CLOSE[kind].search(text, m.start("open"))
+            html_end = len(text) if close is None else close.end()
+            html.append((start, html_end))
             continue
         fence = m.group("fence")
         indent = len(m.group("indent"))
@@ -238,7 +267,7 @@ def _block_spans(text: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]
             open_at = None
     if open_at is not None:
         fences.append((open_at, len(text)))
-    return fences, comments
+    return fences, html
 
 
 def _fenced_spans(text: str) -> list[tuple[int, int]]:
@@ -271,7 +300,7 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     package is dep-free by design (D-002) — so that is a much larger change
     than this bug justifies, not an oversight.
 
-    A fence line inside an HTML comment is not an opener (#308); see
+    A fence line inside an HTML block is not an opener (#308, #317); see
     `_block_spans`, which this reads.
     """
     return _block_spans(text)[0]
@@ -317,9 +346,9 @@ class StructureAwareStrategy:
             return []
         # Drop matches inside fenced code blocks: a `# comment` line in a
         # ```python block is not a heading (#152). Nor is a `# line` inside an
-        # HTML comment block (#308).
-        fences, comments = _block_spans(text)
-        skipped = fences + comments
+        # HTML block: a comment (#308), `<pre>`, `<?`, `<!X` or CDATA (#317).
+        fences, html = _block_spans(text)
+        skipped = fences + html
         # `_heading_title`: the content group is optional (#154), so an empty
         # ATX heading yields None, and a lone closing run (`# #`) is captured as
         # the title unless it is recognised as the closer it is (#242).
@@ -330,7 +359,7 @@ class StructureAwareStrategy:
         ]
         if not headings:
             # No surviving heading — fallback: title = first non-empty line
-            # outside a fence or HTML comment (`_fallback_title`, #288, #308). Still honor
+            # outside a fence or HTML block (`_fallback_title`, #288, #308, #317). Still honor
             # max_chunk_chars: a long unheaded document (plain text, Setext
             # `===`/`---` headings or RST that the ATX-only _HEADING_RE doesn't
             # match) must not bypass the ceiling and emit one monster chunk.
@@ -424,7 +453,7 @@ class StructureAwareStrategy:
         heading path. So skip fenced lines (#152's rule), and run a heading
         that was filtered only by level through ``_heading_title`` so it
         titles exactly as it would had it survived. ``fences`` also carries
-        the HTML comment blocks (#308), whose lines are no title either. Plain text, Setext and RST
+        the HTML blocks (#308, #317), whose lines are no title either. Plain text, Setext and RST
         first lines match neither and keep the raw stripped line, as before.
         """
         offset = 0
