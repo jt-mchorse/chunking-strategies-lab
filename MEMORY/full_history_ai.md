@@ -3393,3 +3393,24 @@ context_for_next_session:
   - "TEST_FILE_USES_ESCAPES_NOT_LITERAL_CODEPOINTS_for_the_unicode_whitespace_table"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:45Z
+issue: 317
+branch: session/2026-10-27-0737-issue-317
+focus: HASH_LINE_INSIDE_HTML_BLOCK_TYPES_1_3_4_5_BECAME_A_HEADING_BECAUSE_308_SKIPPED_ONLY_TYPE_2
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 43
+  suite: "2337 passed, 10 skipped (py3.12 worktree venv --cov, after commit); ruff, format, mypy clean"
+decisions_made: []
+measured: "main d28cf71: '# Setup\\n\\n<pre>\\n# install deps\\n...</pre>\\n\\n# Usage' -> ['Setup','install deps','Usage']; script/style/textarea/<?php/<!DOCTYPE/<![CDATA[ each ['A','x','B']; '<pre>' + fence line -> ['A'] (phantom fence). After: ['Setup','Usage'] / ['A','B']. Revert (structure.py at origin/main, pycache cleared): 31 of 43 red; 12 green = control table. Wrong fixes: closer search after opener 3 red, case-sensitive type-1 closer 2 red, type-1 only before '>' 3 red. markdown-it-py 4.2.0 commonmark (side venv) matches 36 of 37 docs; the miss is lowercase '<!doctype' (markdown-it-py keeps the 0.30 uppercase type-4 rule, 0.31.2 allows any ASCII letter; module follows 0.31.2). run_matrix --canonical-out moved only run_at/wall-clock; discarded. PR #318."
+context_for_next_session:
+  - "HTML_BLOCK_RE_IS_ONE_ALTERNATION_OF_TYPES_1_TO_5_WITH_NAMED_GROUPS_t1_t5_AND_HTML_BLOCK_CLOSE_MAPS_EACH_TO_ITS_END_STRING_REGEX"
+  - "END_STRING_SEARCH_STARTS_AT_THE_OPENERS_OWN_LT_so_<!-->_<?>_and_<pre>x</pre>_close_on_their_own_line"
+  - "MARKDOWN_IT_PY_4_2_0_IS_ON_THE_0_30_TYPE_4_RULE_lowercase_<!doctype_diverges_by_design"
+  - "TEST_DOCS_MUST_NOT_CONTAIN_THE_STRING_PIP_INSTALL_test_install_hints_scans_every_tracked_file"
+  - "TYPES_6_7_STILL_DEFERRED_they_end_at_a_blank_line_and_type_7_cannot_interrupt_a_paragraph"
+followups: []
+---
