@@ -2980,3 +2980,14 @@ parser. The one difference is lowercase `<!doctype`: the reference parser still
 uses an older version of the rule, and the chunker follows the current spec. The
 blank-line-terminated kinds (`<div>` and friends) are still not handled. The
 benchmark numbers and committed fixtures do not change.
+
+## 2026-10-28 — HTML comments inside list items no longer create fake sections (#319)
+
+The structure-aware chunker learned last week that a code fence can start
+on a list item's line (`- ```bash`). HTML blocks such as `- <!--` did not
+get the same treatment. A `# line` inside such a comment therefore became a
+section title. A code-fence line inside one opened a fence that never
+closed, and every heading after it disappeared. Both openers now share one
+list-marker rule, and the results match a reference CommonMark parser on
+every test document. The pinned corpus has no such block, so no published
+number changes. PR #320.

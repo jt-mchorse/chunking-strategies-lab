@@ -140,8 +140,9 @@ def _heading_title(m: re.Match[str]) -> str:
 # The indent is captured unbounded and checked in `_fenced_spans`, not bounded
 # here: a list fence's closer may legitimately sit past column 3 (`10. ````
 # puts it at 4), while every other opener and closer keeps #156's 0-3 rule.
+_LIST_MARKER = r"(?:[-*+]|\d{1,9}[.)]) {1,4}"
 _FENCE_RE = re.compile(
-    rf"{_LINE_START}(?P<indent> *)(?P<marker>(?:[-*+]|\d{{1,9}}[.)]) {{1,4}})?"
+    rf"{_LINE_START}(?P<indent> *)(?P<marker>{_LIST_MARKER})?"
     rf"(?P<fence>`{{3,}}|~{{3,}})[ \t]*(?P<info>[^{_EOL}]*){_LINE_END}"
 )
 
@@ -167,8 +168,13 @@ _MAX_FENCE_INDENT = 3
 # cannot interrupt a paragraph, which needs the paragraph context this
 # line-based pass does not have.
 # Same line ends as `_HEADING_RE` (#297), for the reason `_FENCE_RE` gives.
+# The opener may sit on a list item's marker line (#319), as a fence may (#305),
+# through the same `_LIST_MARKER`: `- <!--` and `* <pre>` open a block whose
+# end string is found by search, so no indent rule follows from the marker.
+# Pre-fix only the fence learned the marker, so a `# line` inside `- <!--`
+# titled a chunk, and a fence line inside it swallowed every later heading.
 _HTML_BLOCK_RE = re.compile(
-    rf"{_LINE_START} {{0,3}}(?P<open>"
+    rf"{_LINE_START} {{0,3}}(?:{_LIST_MARKER})?(?P<open>"
     rf"(?P<t1><(?i:pre|script|style|textarea)(?=[ \t>]|{_LINE_END}))"
     r"|(?P<t2><!--)"
     r"|(?P<t3><\?)"

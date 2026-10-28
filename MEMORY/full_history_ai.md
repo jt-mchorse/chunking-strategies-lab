@@ -3414,3 +3414,22 @@ context_for_next_session:
   - "TYPES_6_7_STILL_DEFERRED_they_end_at_a_blank_line_and_type_7_cannot_interrupt_a_paragraph"
 followups: []
 ---
+
+---
+session: 2026-10-28T07:40Z
+issue: 319
+branch: session/2026-10-28-0740-issue-319
+focus: HTML_BLOCK_OPENER_ON_A_LIST_MARKER_LINE_WAS_NOT_RECOGNISED_SO_A_HASH_LINE_INSIDE_TITLED_A_CHUNK_OR_A_FENCE_INSIDE_SWALLOWED_LATER_HEADINGS
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 61
+  suite: "2473 passed; ruff check + format clean"
+decisions_made: []
+measured: "origin/main 9ff8d13: '- <!--' with '# Uninstall...' inside -> titles [Install, Uninstall steps go here, Usage]; with a fence line inside -> [Install] (Usage, FAQ swallowed). After: [Install, Usage] and [Install, Usage, FAQ], = markdown-it-py commonmark. All 57 parametrised docs cross-checked in a side venv: 0 mismatches. Revert 38 red / 23 green (5 controls + 18 arms whose content indent is already 4+, where main reads the # line as indented code). run_matrix --canonical-out: only run_at/wall_clock moved (latent), artifacts restored not committed. Found by a hunt agent's 20k-doc fuzz vs markdown-it-py. PR #320."
+context_for_next_session:
+  - "_LIST_MARKER_IS_NOW_SHARED_BY_FENCE_AND_HTML_OPENERS_a_third_block_opener_should_use_it_too"
+  - "FUZZ_AGAINST_MARKDOWN_IT_PY_IS_THE_PRODUCTIVE_LENS_HERE_remaining_diffs_are_types_6_7_and_headings_inside_list_items_both_scoped_out"
+  - "THE_CLONES_VENV_IS_AN_EDITABLE_INSTALL_OF_THE_CLONE_run_worktree_code_with_PYTHONPATH_or_it_tests_the_stale_checkout"
+followups: []
+---
