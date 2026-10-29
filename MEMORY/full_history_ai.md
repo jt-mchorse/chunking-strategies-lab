@@ -3454,3 +3454,23 @@ context_for_next_session:
   - "PYTHON_UNICODEDATA_HAS_NO_Sentence_Terminal_fetch_PropList_txt_for_that_enumeration"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:35Z
+issue: 322
+branch: session/2026-10-29-0729-issue-322
+focus: OPERATOR_PATH_WITH_A_NON_UTF8_BYTE_CRASHED_STRICT_STDOUT_AND_THE_OUT_REPORT_SO_A_CLEAN_RUN_EXITED_1
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 14
+  suite: "2409 passed, 13 skipped (py3.12 worktree venv --cov and fresh py3.11 .[dev] venv, after commit); ruff, format, mypy clean"
+decisions_made: []
+measured: "main 40ff507, child PYTHONIOENCODING=utf-8:strict PYTHONUTF8=0, argv 'q\\udcff.jsonl' read redirected to data/queries.jsonl: validate -> UnicodeEncodeError at sys.stdout.write exit 1; --out -> same from atomic_write_text exit 1; --json exit 0. After: 'ok: q\\udcff.jsonl rows=12 valid=12 findings=0' exit 0, report bytes the same. Revert (validate.py + run_matrix.py at main, display_path kept, pycache cleared): 3 failed / 8 passed / 3 skipped on APFS; summary-line-only revert also red. 3 skips are real-surrogate-name arms that run only on ext4 (CI). PR #325."
+context_for_next_session:
+  - "IO_UTILS_DISPLAY_PATH_IS_THE_ONE_RENDERER_FOR_ECHOED_OPERATOR_PATHS_backslashreplace_matches_stderr"
+  - "STDOUT_ECHO_SITES_ARE_validate_summary_AND_run_matrix_strategy_line_AND_summary_wrote_line_a_new_print_of_a_path_must_use_display_path"
+  - "STDERR_IS_BACKSLASHREPLACE_EVEN_UNDER_PYTHONIOENCODING_STRICT_so_stderr_path_lines_need_nothing"
+  - "APFS_REFUSES_SURROGATE_NAMES_real_file_arms_skip_locally_and_a_driver_or_in_process_strict_TextIOWrapper_arm_covers_the_same_line"
+followups: []
+---
