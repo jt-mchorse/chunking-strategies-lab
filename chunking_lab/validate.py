@@ -81,7 +81,7 @@ from typing import Any
 
 from chunking_lab._fields import require_non_negative_int
 from chunking_lab.corpus import read_corpus_text
-from chunking_lab.io_utils import atomic_write_text, read_utf8_text
+from chunking_lab.io_utils import atomic_write_text, display_path, read_utf8_text
 from chunking_lab.queries import (
     JSON_ROW_ERRORS,
     MATCHED_FIELDS,
@@ -512,8 +512,11 @@ def main(argv: list[str] | None = None) -> int:
             line_label = f"line {finding.line_no}" if finding.line_no else "file"
             sys.stderr.write(f"{line_label} [{finding.code}]: {finding.reason}\n")
         status = "ok" if report.ok else "fail"
+        # `display_path`, not the raw argv string: this line goes to stdout or
+        # into the `--out` report, and both encode strictly, so a non-UTF-8 byte
+        # in the path made a clean file exit 1 with a traceback (#322).
         rendered = (
-            f"{status}: {args.queries} rows={report.n_rows} valid={report.n_valid} "
+            f"{status}: {display_path(args.queries)} rows={report.n_rows} valid={report.n_valid} "
             f"findings={len(report.findings)}\n"
         )
     if args.out:

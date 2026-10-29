@@ -3006,3 +3006,16 @@ form" variants were left out on purpose: they exist for legacy encodings and
 vertical layout, not for running text. A new test checks every closing mark
 in the main CJK punctuation blocks against the list. No benchmark corpus
 contains these characters, so no published number changes. PR #324.
+
+## 2026-10-29 — A path with a non-UTF-8 byte no longer crashes a clean run (#322)
+
+If a queries file's name contains a byte that is not valid UTF-8, Python
+sees that byte as a special placeholder character. On a typical developer
+machine (a UTF-8 locale without Python's UTF-8 mode), `validate` crashed
+while printing its summary line, or while writing the same line to `--out`.
+It then exited 1, the code that means "your dataset has findings", even
+though the file was clean. `run_matrix` had the same problem with a
+`--results-dir` of that kind. Every printed path now goes through one helper
+that writes the byte as a visible escape (`\udcff`), the same way Python
+already prints it on stderr. 14 new tests run the CLIs under a strict
+encoding and capture the raw output bytes. PR #325.
