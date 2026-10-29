@@ -3433,3 +3433,24 @@ context_for_next_session:
   - "THE_CLONES_VENV_IS_AN_EDITABLE_INSTALL_OF_THE_CLONE_run_worktree_code_with_PYTHONPATH_or_it_tests_the_stale_checkout"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:33Z
+issue: 321
+branch: session/2026-10-29-0729-issue-321
+focus: SEMANTIC_CJK_TERMINATOR_ROW_MISSED_FULLWIDTH_STOP_FF0E_AND_CLOSERS_MISSED_301E_301F_FF60_SO_JAPANESE_TEXT_WAS_ONE_SENTENCE_THEN_SIZE_CAPPED_MID_WORD
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 18
+  suite: "2417 passed, 10 skipped (py3.12 worktree venv, after commit); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "origin/main 40ff507: '会議は月曜日に開かれた．売上は大幅に伸びた．新製品は好評だった．' -> 1 sentence, max_chunk_chars=20 -> 2 size_capped chunks cut mid-word; '彼は〝はい。〟と言った。...' -> orphaned '〟'. After: 3 sentences, none size_capped; closer stays. Candidates enumerated from UCD 15.1 PropList Sentence_Terminal + unicodedata Pe/Pf over U+3000-303F, FE10-FE6F, FF00-FFEF: STerm adds only FF0E plus small forms FE52 FE56 FE57; Pe/Pf 16 in main blocks (13 listed, 3 added), 13 vertical/small left out. Revert 15 of 18 red; 3 green = decimal controls; unguarded neighbour (FF0E in _FULLWIDTH_TERMINATORS, no (?!\\d)) 4 red. No data/ or results/ file contains any candidate (grep), nothing regenerated. PR #324."
+context_for_next_session:
+  - "FF0E_IS_IN_TERMINATORS_AND_IS_A_BRANCH_B_RUN_START_ONLY_BEFORE_A_NON_DIGIT_via__FULLWIDTH_STOP_it_is_also_a_fullwidth_decimal_point"
+  - "SMALL_FORMS_AND_VERTICAL_PRESENTATION_FORMS_LEFT_OUT_OF_BOTH_LISTS_AS_COMPATIBILITY_CHARACTERS_vertical_FE12_is_not_even_STerm_in_UCD_15_1"
+  - "A_CATALOG_LOCK_NOW_REQUIRES_EVERY_Pe_Pf_IN_3000_303F_AND_FF00_FFEF_TO_BE_IN__CLOSERS"
+  - "KNOWN_LIMIT_UNSPACED_LIST_MARKER_1．はじめに_SPLITS_AFTER_1．_same_as_ascii_spaced_branch_a_not_after_digit_guard_would_lose_3．次に"
+  - "PYTHON_UNICODEDATA_HAS_NO_Sentence_Terminal_fetch_PropList_txt_for_that_enumeration"
+followups: []
+---

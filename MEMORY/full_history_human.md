@@ -2991,3 +2991,18 @@ closed, and every heading after it disappeared. Both openers now share one
 list-marker rule, and the results match a reference CommonMark parser on
 every test document. The pinned corpus has no such block, so no published
 number changes. PR #320.
+
+## 2026-10-29 — Japanese text using `．` as its period now splits into sentences (#321)
+
+Japanese technical writing often ends sentences with the fullwidth full stop
+`．` instead of `。`. The semantic chunker did not count it as a sentence end.
+A whole document read as one sentence, and the size cap then cut it in the
+middle of a word. `．` now ends a sentence, except when a digit follows it,
+so `１．５` stays one number. The Japanese double prime quotes `〝…〟` and the
+white parenthesis `｠` now stay attached to the sentence they close, instead
+of starting the next one. The candidates were taken from the Unicode
+character database, not from memory. The small and vertical "presentation
+form" variants were left out on purpose: they exist for legacy encodings and
+vertical layout, not for running text. A new test checks every closing mark
+in the main CJK punctuation blocks against the list. No benchmark corpus
+contains these characters, so no published number changes. PR #324.
