@@ -56,17 +56,26 @@ from . import Chunk, check_chunk_input
 #   CJK  。！？ ｡ (halfwidth)                    general  … ‼ ⁇ ⁈ ⁉
 # The Greek question mark (U+037E) is left out on purpose: NFC turns it into
 # `;`, which is not a sentence end anywhere else.
-_TERMINATORS = ".!?…。！？｡؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
+# The CJK row missed `．` (U+FF0E), the period of Japanese technical writing, so
+# `売上は伸びた．新製品は好評だった．` was one sentence and then cut mid-word
+# (#321). Unspaced it is a boundary only when no digit follows: unlike `。` it
+# is also a fullwidth decimal point (`１．５`), see `_FULLWIDTH_STOP`. The rest
+# of Sentence_Terminal in the CJK blocks is the small forms `﹒﹖﹗`, left out
+# with the small and vertical closers: they are CNS 11643 / vertical-layout
+# compatibility forms, which running text spells with the base characters.
+_TERMINATORS = ".!?…。！？｡．؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
 _FULLWIDTH_TERMINATORS = r"。！？｡"
+_FULLWIDTH_STOP = "．"
 # The closer list had the same blind spot as the terminator list (#285): it
 # knew 8 marks, so a German `„Ja.“ Dann`, a French/Swiss `«Ja.» Dann` or a
 # `‹Ja.› Dann` stayed one sentence (harm 2 above), and after an unspaced `。`
 # the bare-terminator alternative of branch (b) fired before a `）` `】` `》`
 # `〉`, starting the next sentence with the orphaned bracket. Curated per
 # script, the way #240 extended `_TERMINATORS`:
-#   CJK brackets  ） 】 》 〉 〕 〗 〙 〛 ］ ｝ ｣ (halfwidth)
+#   CJK brackets  ） 】 》 〉 〕 〗 〙 〛 ］ ｝ ｣ (halfwidth) ｠
+#   CJK quotes    〞 〟 (double prime, #321)
 # These are closing-only (Unicode Pe/Pf), so both branches may use them.
-_CLOSERS = r"\"”’')\]」』）】》〉〕〗〙〛］｝｣"
+_CLOSERS = r"\"”’')\]」』）】》〉〕〗〙〛］｝｣｠〞〟"
 # Quotes whose direction depends on the locale: `“` `‘` close in German
 # (`„Ja.“`, `‚Ja.‘`) but open in English and Chinese; `»` `›` close in French
 # and Swiss usage but open in German/Danish `»Ja.«`, where `«` `‹` close.
@@ -121,7 +130,8 @@ _SENTENCE_RE = re.compile(
     #     when whitespace follows it (`！？“ 我`, as branch (a) reads it);
     #     unspaced (`！？“你好`) it opens the next one. The optional tail takes
     #     the first reading and falls back to the run alone (#293).
-    f"|[{_FULLWIDTH_TERMINATORS}][{_TERMINATORS}{_CLOSERS}]*+"
+    #     `．` starts a run only when no digit follows it (`１．５`, #321).
+    f"|(?:[{_FULLWIDTH_TERMINATORS}]|{_FULLWIDTH_STOP}(?!\\d))[{_TERMINATORS}{_CLOSERS}]*+"
     f"(?:[{_SPACED_CLOSERS}]*+(?=\\s))?"
     ")(\\s*)"
 )
