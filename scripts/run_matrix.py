@@ -48,7 +48,7 @@ from chunking_lab import corpus as corpus_mod  # noqa: E402
 from chunking_lab import queries as queries_mod  # noqa: E402
 from chunking_lab.corpus import load_corpus  # noqa: E402
 from chunking_lab.embedder import CANONICAL_EMBEDDING_MODEL, Embedder, HashEmbedder  # noqa: E402
-from chunking_lab.io_utils import atomic_write_text  # noqa: E402
+from chunking_lab.io_utils import atomic_write_text, display_path  # noqa: E402
 from chunking_lab.metrics import (  # noqa: E402
     RetrievalRun,
     _embedder_model_name,
@@ -606,7 +606,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"recall@{top_k}={_render_rate(run.recall_at_k[top_k])} "
                 f"snippet-hit@{top_k}="
                 f"{_render_rate(run.snippet_hit_at_k[top_k])} "
-                f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {path}"
+                f"wall_clock={_wall_clock_cell(run.wall_clock_ms)}ms  →  {display_path(path)}"
             )
             runs.append(run)
 
@@ -645,7 +645,9 @@ def main(argv: list[str] | None = None) -> int:
             atomic_write_text(summary_path, _render_summary(runs, _embedder_model_name(embedder)))
         except OSError as e:
             return _fail(f"failed to write {summary_path}: {e}")
-        print(f"\nsummary wrote {summary_path}")
+        # `display_path` here and on the per-strategy line: both echo
+        # `--results-dir` to a stdout that may encode strictly (#322).
+        print(f"\nsummary wrote {display_path(summary_path)}")
         return 0
     finally:
         _release_stamp(results_dir, stamp)

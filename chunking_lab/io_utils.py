@@ -204,6 +204,23 @@ def read_utf8_text(path: Path) -> str:
         ) from e
 
 
+def display_path(path: str | os.PathLike[str]) -> str:
+    """*path* as text that every UTF-8 writer can encode (#322).
+
+    An operator path arrives through `sys.argv`, which decodes with
+    `surrogateescape`: a byte that is not valid UTF-8 becomes a lone surrogate
+    in `U+DC80..U+DCFF` (the #178 mechanism). `sys.stdout` encodes strictly
+    unless the locale is C/POSIX or UTF-8 mode is on, and `atomic_write_text`
+    always does, so echoing such a path raised `UnicodeEncodeError` -- not an
+    `OSError`, so no guard caught it and a clean run exited 1, the "findings"
+    code. `backslashreplace` is the handler `sys.stderr` already uses, so a path
+    reads the same on both channels (`q\\udcff.jsonl`). Any other string is
+    returned unchanged.
+    """
+    text = os.fspath(path)
+    return text.encode("utf-8", "backslashreplace").decode("utf-8")
+
+
 def copy_json_value(value: Any) -> Any:
     """Copy a JSON value deeply over *containers*, leaving everything else alone.
 
