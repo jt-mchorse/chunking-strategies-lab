@@ -3474,3 +3474,22 @@ context_for_next_session:
   - "APFS_REFUSES_SURROGATE_NAMES_real_file_arms_skip_locally_and_a_driver_or_in_process_strict_TextIOWrapper_arm_covers_the_same_line"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:18Z
+issue: 326
+branch: session/2026-10-29-0810-issue-326
+focus: FULLWIDTH_STOP_DIGIT_GUARD_CHECKED_ONLY_THE_NEXT_CHAR_SO_A_SENTENCE_OPENING_WITH_A_NUMBER_MERGED_INTO_THE_PREVIOUS_ONE
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 37
+  suite: "2465 passed, 13 skipped (py3.12 worktree venv, after commit); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "origin/main 357f43a: '会議は終わった．２０２６年に再開する．次に進んだ．' -> 2 sentences, '会議は終わった．5章を読む．' -> 1, '会議は終わった．٢٠٢٦年．' -> 1. After: 3, 2, 2; '値は１．５です．' 1, '版は２．０．１です．' 1, '人数は２．次に進む．' 2 unchanged. Revert 12 red / 25 green (controls: digit-before-only, decimal rows, neighbour chars / : ／ ：, neither, #324 rows). Neighbour with Unicode \\d class: 3 red (other-Nd both-sides rows). Resumed from an interrupted 10-29 agent's uncommitted draft; draft kept after review. PR #327."
+context_for_next_session:
+  - "FF0E_IS_A_DECIMAL_ONLY_WITH__FULLWIDTH_DIGIT_ASCII_OR_FULLWIDTH_ON_BOTH_SIDES_other_Nd_scripts_split"
+  - "UNSPACED_AND_SPACED_FF0E_NOW_AGREE_EVERYWHERE_EXCEPT_DECIMALS_the_table_test_pins_that"
+  - "KNOWN_LIMIT_UNSPACED_LIST_MARKER_1．はじめに_STILL_SPLITS_AFTER_1．_unchanged_from_324"
+followups: []
+---

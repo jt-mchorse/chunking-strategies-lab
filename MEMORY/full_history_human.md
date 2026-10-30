@@ -3019,3 +3019,15 @@ though the file was clean. `run_matrix` had the same problem with a
 that writes the byte as a visible escape (`\udcff`), the same way Python
 already prints it on stderr. 14 new tests run the CLIs under a strict
 encoding and capture the raw output bytes. PR #325.
+
+## 2026-10-30 — A Japanese sentence that starts with a number is its own sentence again (#326)
+
+The fix for #321 made `．` end a sentence unless a digit came right after it,
+so that `１．５` stays one number. But a decimal point has a digit on both
+sides. The check only looked at the digit after, so any sentence that starts
+with a number (`会議は終わった．２０２６年に再開する．`) was glued to the
+sentence before it. With a small chunk size, that glued text was then cut in
+the middle of a word. `．` now counts as a decimal only when there is a digit
+on both sides, and only ASCII or fullwidth digits count, because those are
+the digits CJK text uses. A 37-case table test checks that unspaced and
+spaced text split the same way everywhere except true decimals. PR #327.
