@@ -3031,3 +3031,16 @@ the middle of a word. `．` now counts as a decimal only when there is a digit
 on both sides, and only ASCII or fullwidth digits count, because those are
 the digits CJK text uses. A 37-case table test checks that unspaced and
 spaced text split the same way everywhere except true decimals. PR #327.
+
+## 2026-10-30 — A read-only report or results file is no longer silently overwritten (#328)
+
+Every write goes through a helper that writes a temporary file and renames
+it over the target, so an interrupted write cannot leave a half-written
+file. A rename only needs permission on the directory, though, so a file
+made read-only with `chmod 444` was rewritten anyway. That covered a
+`validate --out` report and a canonical results file from `run_matrix.py`.
+A plain file write refuses in that case, and both tools already treat an
+unwritable output as an I/O error with exit 2. The helper now checks that
+an existing target is writable before it starts. Both cases now exit 2 and
+leave the file as it was. New files and writable files behave as before.
+This ports the prompt-regression-suite#318 fix. PR #329.
