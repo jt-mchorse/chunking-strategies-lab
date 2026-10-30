@@ -3493,3 +3493,22 @@ context_for_next_session:
   - "KNOWN_LIMIT_UNSPACED_LIST_MARKER_1．はじめに_STILL_SPLITS_AFTER_1．_unchanged_from_324"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:35Z
+issue: 328
+branch: session/2026-10-30-0732-issue-328
+focus: ATOMIC_WRITE_TEXT_RENAMED_OVER_A_READ_ONLY_0444_TARGET_VALIDATE_OUT_AND_RUN_MATRIX_SILENTLY_OVERWROTE_A_FROZEN_FILE_NOW_EACCES_LIKE_PATH_WRITE_TEXT
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 9
+  suite: "2474 passed, 13 skipped (fresh py3.11 worktree venv, pip install -e .[dev], after commit); ruff check, ruff format --check, mypy clean"
+decisions_made: []
+measured: "origin/main 2017754 (macOS uid 502): atomic_write_text on a 0444 file -> no error, reads 'new', mode still 0444; Path.write_text -> PermissionError(13). After: both EACCES, file unchanged, no .tmp left; validate --out onto a 0444 file -> 'failed to write' exit 2; run_matrix --canonical-out onto a 0444 canonical__fixed-size.json -> exit 2, file unchanged. Revert probe (io_utils.py at main, pycache cleared): 5 of 9 red; green = 2 write_text parity arms + 2 writable/missing controls. Port of prompt-regression-suite#318. PR #329."
+context_for_next_session:
+  - "_refuse_unwritable_target_RUNS_AFTER_THE_SYMLINK_RESOLVE_BEFORE_THE_TEMP_os_stat_then_os_access_W_OK_root_still_writes"
+  - "ATOMIC_WRITE_TEXT_IS_THE_ONLY_RENAME_BASED_WRITER_HERE_no_bytes_many_or_check_writable_variant"
+  - "READ_ONLY_TESTS_SKIP_AS_ROOT_github_ubuntu_runners_are_non_root_runner_so_CI_runs_them"
+followups: []
+---
