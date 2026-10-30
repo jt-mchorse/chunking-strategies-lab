@@ -58,14 +58,23 @@ from . import Chunk, check_chunk_input
 # `;`, which is not a sentence end anywhere else.
 # The CJK row missed `．` (U+FF0E), the period of Japanese technical writing, so
 # `売上は伸びた．新製品は好評だった．` was one sentence and then cut mid-word
-# (#321). Unspaced it is a boundary only when no digit follows: unlike `。` it
-# is also a fullwidth decimal point (`１．５`), see `_FULLWIDTH_STOP`. The rest
+# (#321). Unlike `。` it is also a fullwidth decimal point (`１．５`), so
+# unspaced it is a boundary unless a digit sits on BOTH sides, see
+# `_FULLWIDTH_STOP`. The rest
 # of Sentence_Terminal in the CJK blocks is the small forms `﹒﹖﹗`, left out
 # with the small and vertical closers: they are CNS 11643 / vertical-layout
 # compatibility forms, which running text spells with the base characters.
 _TERMINATORS = ".!?…。！？｡．؟۔।॥።፧։՜՞။។៕‼⁇⁈⁉"
 _FULLWIDTH_TERMINATORS = r"。！？｡"
 _FULLWIDTH_STOP = "．"
+# The digits a `．` decimal point sits between. #324 guarded only the digit
+# AFTER it, so a sentence that opens with a number (`終わった．２０２６年に`,
+# `終わった．5章`) merged into the one before it while the spaced form split
+# (#326): a decimal needs a digit on both sides. ASCII and fullwidth only, not
+# Unicode `\d` (all 680 Nd codepoints): `．` is a decimal point in CJK text,
+# which writes ASCII or fullwidth digits; Arabic-Indic numbers use `٫` and
+# Devanagari ones `.`, so `٢．٥` is not a decimal anyone writes.
+_FULLWIDTH_DIGIT = "[0-9０-９]"
 # The closer list had the same blind spot as the terminator list (#285): it
 # knew 8 marks, so a German `„Ja.“ Dann`, a French/Swiss `«Ja.» Dann` or a
 # `‹Ja.› Dann` stayed one sentence (harm 2 above), and after an unspaced `。`
@@ -130,8 +139,11 @@ _SENTENCE_RE = re.compile(
     #     when whitespace follows it (`！？“ 我`, as branch (a) reads it);
     #     unspaced (`！？“你好`) it opens the next one. The optional tail takes
     #     the first reading and falls back to the run alone (#293).
-    #     `．` starts a run only when no digit follows it (`１．５`, #321).
-    f"|(?:[{_FULLWIDTH_TERMINATORS}]|{_FULLWIDTH_STOP}(?!\\d))[{_TERMINATORS}{_CLOSERS}]*+"
+    #     `．` starts a run unless it has a digit on both sides (`１．５`,
+    #     #321, #326).
+    f"|(?:[{_FULLWIDTH_TERMINATORS}]"
+    f"|(?<!{_FULLWIDTH_DIGIT}){_FULLWIDTH_STOP}|{_FULLWIDTH_STOP}(?!{_FULLWIDTH_DIGIT}))"
+    f"[{_TERMINATORS}{_CLOSERS}]*+"
     f"(?:[{_SPACED_CLOSERS}]*+(?=\\s))?"
     ")(\\s*)"
 )
