@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import codecs
 import contextlib
+import errno
 import os
 import secrets
 import stat
@@ -136,6 +137,33 @@ def _resolve_symlinked_target(target: Path) -> Path:
     return Path(os.path.realpath(target))
 
 
+def _refuse_unwritable_target(target: Path) -> None:
+    """Raise `PermissionError` if *target* exists and cannot be written (#328).
+
+    `os.replace` swaps the directory ENTRY, so only the directory's write bit
+    is checked and the target's own is never consulted: a `chmod 444` `--out`
+    report or results file was silently rewritten. `Path.write_text`, the call
+    this helper replaced, opens the file for writing and fails with `EACCES`.
+    Raising the same error here, before the temp file exists, keeps that
+    contract and leaves nothing behind; the `except OSError` write seams in
+    `validate` and `scripts/run_matrix.py` turn it into exit 2, the documented
+    I/O-error code. Port of prompt-regression-suite#318.
+
+    `os.access` asks the kernel the same question the open would, so root
+    (which `Path.write_text` lets through) still writes. The `os.stat` first
+    keeps a missing target -- the create case -- out of the check, and lets a
+    link loop raise its own `ELOOP` rather than a misleading `EACCES`. Like
+    `Path.write_text`, this is a check at open time, not a lock: a `chmod`
+    racing the write is not covered.
+    """
+    try:
+        os.stat(target)
+    except FileNotFoundError:
+        return
+    if not os.access(target, os.W_OK):
+        raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(target))
+
+
 def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> None:
     """Write *text* to *path* atomically.
 
@@ -144,9 +172,13 @@ def atomic_write_text(path: str | Path, text: str, encoding: str = "utf-8") -> N
     either unchanged (overwrite case) or absent (new-file case) —
     never partial. Parent directories are created with `mkdir(parents=True,
     exist_ok=True)`. A symlinked destination is written THROUGH, as
-    `Path.write_text` does (#248): see `_resolve_symlinked_target`.
+    `Path.write_text` does (#248): see `_resolve_symlinked_target`. A
+    read-only existing destination is refused with `PermissionError`, as
+    `Path.write_text` refuses it, instead of being renamed over (#328): see
+    `_refuse_unwritable_target`.
     """
     target = _resolve_symlinked_target(Path(path))
+    _refuse_unwritable_target(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: Path | None = None
     try:
